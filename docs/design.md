@@ -586,21 +586,26 @@ On-demand billing, partition key `PK` (S), sort key `SK` (S), TTL attribute `ttl
 | PK | SK | Content |
 | --- | --- | --- |
 | `HH#<hid>` | `PROFILE` | name, `timezone` (IANA, e.g. `Asia/Kolkata`), `checkin_time` `HH:MM`, elder person ID, `admin_person_id` (the family member who set up the household, Rohan in the demo), escalation order (person IDs), `share_transcripts` |
-| `HH#<hid>` | `PERSON#<pid>` | `role` (elder, family, neighbour, doctor, pharmacy), `display_name`, `relation_label` (family and neighbour only: how this person names the elder, e.g. "Mom", "Maa", "Kamala ji"), `country` (ISO 3166-1 alpha-2), `language` (row key in section 9.2), `preferred_channel`, `fallback_channel`, `addresses` {whatsapp, rcs, sms: E.164; email}, `consent` {channel: {status, at, source}}, `wa_last_inbound_at` |
+| `HH#<hid>` | `PERSON#<pid>` | `role` (elder, family, neighbour, doctor, pharmacy), `display_name`, `relation_label` (family and neighbour only: how this person names the elder, e.g. "Mom", "Maa", "Kamala ji"), `country` (ISO 3166-1 alpha-2), `language` (row key in section 9.2), `preferred_channel`, `fallback_channel`, `addresses` {whatsapp, rcs, sms: E.164; email}, `consent` {channel: {status, at, source}}, `wa_last_inbound_at`, `simulated` (true only for the SMS simulator record, section 14) |
 | `HH#<hid>` | `MED#<mid>` | `name` (as on the pack, used only in the pharmacy email), `display_label` (plain name the family uses, e.g. "BP tablets", used in every family and elder message), time of day, `stock` (`ok`, `low`, `out`, `ordered`), pharmacy person ID |
-| `HH#<hid>` | `LOG#<yyyy-mm-dd>#<mid>` | taken, source message ID |
+| `HH#<hid>` | `LOG#<yyyy-mm-dd>#<mid>` | taken, source message ID, `ttl` 90 days |
 | `HH#<hid>` | `MEMORY` | notes list |
 | `HH#<hid>` | `TURN#<pid>#<ts>` | role, text, `ttl` 7 days |
-| `HH#<hid>` | `APPROVAL#<aid>` | kind, medicine, status (`pending`, `approved`, `self`, `declined`, `ordered`, `expired`), asked person, times |
-| `HH#<hid>` | `ESC#<eid>` | reason, quote, status (`open`, `acknowledged`, `unacknowledged`), who acknowledged, `recheck_run` |
-| `HH#<hid>` | `SIGNAL#<yyyy-mm-dd>#<msg>` | features from section 15, `simulated` (true only for a labelled seeded baseline) |
-| `HH#<hid>` | `MSG#<provider_id>` | channel, person, status history, correlation ID, `transcribe_job` (inbound audio only) |
+| `HH#<hid>` | `APPROVAL#<aid>` | kind, medicine, status (`pending`, `approved`, `self`, `declined`, `ordered`, `expired`), asked person, times, `ttl` 90 days |
+| `HH#<hid>` | `ESC#<eid>` | reason (`fall_or_help`, `missed_checkin`), quote, status (`open`, `acknowledged`, `resolved_by_elder`, `unacknowledged`), who acknowledged, `recheck_run`, `ttl` 90 days |
+| `HH#<hid>` | `SIGNAL#<yyyy-mm-dd>#<msg>` | features from section 15, `included` (false for short notes, section 15), `simulated` (true only for a labelled seeded baseline), `ttl` 30 days |
+| `HH#<hid>` | `MSG#<provider_id>` | channel, person, status history, correlation ID, `transcribe_job` (inbound audio only), `ref` `{kind, id}` for template sends with buttons (section 12), `ttl` 30 days |
 | `HH#<hid>` | `SEND#<correlation_id>` | `status` (`sending`, `sent`), provider ID; makes sends inside a retried event idempotent (section 11.1) |
 | `HH#<hid>` | `TRACE#<ts>#<seq>` | step, tool, inputs (phone numbers and emails masked), outcome, channel, `simulated`, `ttl` 30 days |
-| `HH#<hid>` | `USAGE#<yyyy-mm-dd>` | Converse call count, normal outbound count per hour |
+| `HH#<hid>` | `USAGE#<yyyy-mm-dd>` | household-local date (same as the check-in); Converse call count, normal outbound count per local hour, `agent_unavailable_sent` flag (section 8.4), `ttl` 30 days |
 | `ADDR#<channel>#<address>` | `ADDR` | household and person (reverse lookup for inbound) |
 | `TJOB#<job name>` | `TJOB` | household, person, WhatsApp message ID (reverse lookup when the Transcribe event arrives), `ttl` 7 days |
 | `DEDUP#<event id>` | `DEDUP` | `status` (`processing`, `done`), `at`, `ttl` 7 days (section 11.1) |
+
+Retention (minimal data): `MSG#`, `SIGNAL#`, `USAGE#` and `TRACE#` expire after 30 days (the signal baseline needs
+14); `LOG#`, `APPROVAL#` and `ESC#` after 90 days; `TURN#`, `TJOB#` and `DEDUP#` after 7 days. `PROFILE`,
+`PERSON#`, `MED#`, `MEMORY` and `ADDR#` are household configuration and have no TTL. `SEND#` items get `ttl`
+7 days. S3 media expires after 30 days (section 3).
 
 Stock lifecycle: `log_medicine(out_of_stock=true)` sets `out`; `send_pharmacy_order` sets `ordered`; the next
 `log_medicine(taken=true)` for that medicine sets `ok`.
@@ -631,11 +636,35 @@ row in 9.2; a channel is not one of `whatsapp`, `rcs`, `sms`, `email`, `none`; t
 no address; a phone number is not E.164 (`^\+[1-9]\d{6,14}$`); `sms` is set for a non-US number; `timezone` is not
 a valid IANA name; there is not exactly one elder; `admin_person_id` is missing or not a family member;
 `relation_label` is missing for a family member or neighbour (1 to 30 characters); `display_label` is missing for a
-medicine (1 to 40 characters). Consent always starts as `pending`; the seed file cannot set it. Consent changes
+medicine (1 to 40 characters); `household_id` does not match `^[a-z0-9]{1,12}$` (it is part of schedule and
+Transcribe job names, sections 10 and 11.2); a `display_label`, `relation_label` or `display_name` fails the
+wording rule (section 8.3 rule 3) for the language of every person who will see it (a label such as "diabetes
+tablets" would make the guard replace every family message); an address under `addresses.sms` or `addresses.rcs`
+is a simulator destination but the person is not marked `simulated = true`, or the reverse. Consent always starts
+as `pending`; the seed file cannot set it. Consent changes
 come only from the person's own reply (WhatsApp, RCS, SMS) or, for email only, from the admin command in
 section 14.
 
 ## 10. Scheduled check-in
+
+Schedule names. `CreateSchedule` `Name` is at most 64 characters and matches `[0-9a-zA-Z-_.]+` (D8). Every
+schedule is in group `aurasenior` and named from IDs whose format is fixed (`hid` `^[a-z0-9]{1,12}$`, section 9.3;
+`eid` and `aid` 12 hex characters, section 9.1), so names are unique per logical event. That is what makes a
+`CreateSchedule` name conflict safe to treat as "already scheduled" (section 16), and lets `cancel_followup` and
+`ack_escalation` delete by name:
+
+| kind | name | longest length |
+| --- | --- | --- |
+| `checkin` | `aurasenior-checkin-<hid>` | 31 |
+| `weekly_summary` | `aurasenior-weekly-<hid>` | 30 |
+| `followup` | `aurasenior-fu-<hid>-<yyyymmdd>` | 35 |
+| `missed_checkin` | `aurasenior-mc-<hid>-<yyyymmdd>` | 35 |
+| `escalation_recheck` | `aurasenior-er-<eid>-<run>` | 29 |
+| `delivery_check` | `aurasenior-dc-<sha256(correlation_id) hex[:16]>` | 30 |
+| `approval_expiry` | `aurasenior-ax-<aid>` | 26 |
+
+`yyyymmdd` is the household-local date. A unit test builds every name with a 12-character `hid` and run 12 and
+checks the length and pattern.
 
 `seed_household.py` creates, in group `aurasenior`:
 
@@ -681,7 +710,19 @@ on fatal error       -> update status = "done" (no retry), handle per section 16
 ```
 
 The event ID is the WhatsApp message ID, the two-way SMS/RCS `inboundMessageId`, the SES `mail.messageId` plus
-event type, or the EventBridge event `id` for Transcribe.
+event type, or the EventBridge event `id` for Transcribe. For `aurasenior-scheduled`, which is also invoked
+asynchronously and retried, the event ID is built from the payload, never from the invocation:
+
+| kind | event id | where the parts come from |
+| --- | --- | --- |
+| `checkin` | `checkin#<hid>#<household-local date>` | recurring schedule; the date is computed at run time in the household timezone |
+| `weekly_summary` | `weekly#<hid>#<household-local date>` | same |
+| `followup`, `missed_checkin` | `<kind>#<hid>#<household-local date>` | `event_id` field in the payload, set at `CreateSchedule` |
+| `escalation_recheck` | `recheck#<eid>#<run>` | payload |
+| `delivery_check` | `dcheck#<correlation_id of the urgent send>` | payload |
+| `approval_expiry` | `expiry#<aid>` | payload |
+
+The same `DEDUP#` and `SEND#` rules apply to scheduled runs. A retried check-in therefore sends the template once.
 
 Sends inside a retried turn are idempotent. Each send has `correlation_id = <event id>#<step>` where `step` is a
 counter of sends within that event (deterministic because the deterministic paths run first and in order). Before
