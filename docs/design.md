@@ -98,15 +98,16 @@ flowchart LR
 ### 2.1 Compute
 
 Two Lambda functions share one Python package `src/aurasenior/` (runtime `python3.13`, listed as supported until
-2029 on the Lambda runtimes page, D9):
+2029 on the Lambda runtimes page, D9). Architecture `arm64` for both (`Architectures: [arm64]` in the template, D9).
+The package is pure Python plus boto3, so it has no native wheels that would tie it to x86_64:
 
 - `aurasenior-inbound`: subscribed to the three SNS topics and the target of the Transcribe EventBridge rule. It
   parses the event, dedupes it, resolves the sender to a household and person, and runs one agent turn when a person
   said something. Status and delivery events only update DynamoDB and the trace (and trigger fallback, section 7.3).
   Timeout 120 s, memory 512 MB.
 - `aurasenior-scheduled`: target of every schedule. Payload `{"kind", "household_id", ...}` with kind one of
-  `checkin`, `followup`, `missed_checkin`, `escalation_recheck`, `delivery_check`, `weekly_summary`. Timeout 120 s,
-  memory 512 MB.
+  `checkin`, `followup`, `missed_checkin`, `escalation_recheck` (adds `escalation_id`, `run`), `delivery_check`,
+  `approval_expiry` (adds `approval_id`), `weekly_summary`. Timeout 120 s, memory 512 MB.
 
 The agent runs in-process in both functions. One code path, no extra network hop.
 
@@ -123,7 +124,14 @@ through a configuration set SNS destination (D7), Transcribe completion through 
 for approvals uses reply digits instead of a short link, so no web page is needed. The trace view is a local CLI
 (`python -m aurasenior.trace`) that reads DynamoDB with the developer's own credentials. With no public endpoint
 there is nothing to authenticate or rate limit on the internet side; abuse control is the per-household model call
-cap (section 8.4) and the SNS topic policies that only allow the two messaging services to publish (D5, D6).
+cap (section 8.4) and the SNS topic policies. Each topic policy allows only its own publisher to `sns:Publish`, with
+an `aws:SourceAccount` condition set to the stack account:
+
+| Topic | Publisher principal | Doc |
+| --- | --- | --- |
+| `aurasenior-whatsapp-events` | `social-messaging.amazonaws.com` | D5 |
+| `aurasenior-sms-rcs-events` | `sms-voice.amazonaws.com` | D6 |
+| `aurasenior-email-events` | `ses.amazonaws.com` | D7 |
 
 ## 3. AWS services and APIs used
 
@@ -332,11 +340,11 @@ a free-form WhatsApp message outside the window.
 
 | Tool | Input (JSON schema, validated before running) | Effect |
 | --- | --- | --- |
-| `get_household` | none | People (names, roles, languages, channels), medicines, today's log, open approvals |
+| `get_household` | none | People (names, roles, languages, channels, `relation_label`), medicines (`display_label`), today's log, open approvals and escalations |
+| `get_week` | none | `WeekFacts` for the last 7 days as JSON (section 8.6). Used to answer "How was Mom this week?" |
 | `log_medicine` | `medicine_id` (must exist), `taken` bool, `out_of_stock` bool | Writes `LOG#`, updates stock |
 | `message_person` | `person_id` (must be in household), `text` 1 to 600 chars, `as_voice` bool (elder only), `urgency` | Routes per section 7.3; window closed and no template fits returns `blocked_window` to the model |
 | `request_refill_approval` | `medicine_id`, `ask_person_id` (role family) | Creates `APPROVAL#` pending, sends the refill card or template |
-| `send_pharmacy_order` | `approval_id` | Only if the approval is `approved`; conditional update approved to ordered, so it runs once. Sends `aurasenior-refill-order` |
 | `escalate` | `reason` (`fall_or_help` or `missed_checkin`), `quote` up to 200 chars | Creates `ESC#`, alerts family and neighbour, schedules `escalation_recheck` |
 | `ack_escalation` | `escalation_id` | Marks acknowledged, cancels recheck, tells the elder who is coming |
 | `schedule_followup` | `kind` (`followup`, `missed_checkin`), `minutes` 5 to 240 | One-time `at()` schedule, `ActionAfterCompletion` `DELETE` |
@@ -348,6 +356,10 @@ Some steps never depend on the model: fall or help words found in a transcript (
 मदद, and the list in `config/keywords.toml`) call `escalate` directly before the agent turn, so an urgent alert
 is never lost to a model error. STOP keywords are handled before the agent too.
 
+The pharmacy order is also never a model decision. `send_pharmacy_order(approval_id)` is a plain function in
+`src/aurasenior/refill.py`, not a model tool. It is called only by the inbound handler after a person's approval
+(section 12). The model can only ask for approval.
+
 ### 8.3 Outbound guard (single choke point)
 
 Every send goes through `outbound.guard(person, channel, message)`. It owns these invariants because it is the one
@@ -357,25 +369,63 @@ place every path crosses, including deterministic paths that skip the model:
 2. WhatsApp window: free-form only if the window is open (section 6.1); else a template must be named. Otherwise
    `blocked_window`.
 3. Wording: blocks text that contains a disease name, a dose instruction, or the words score, diagnosis,
-   diagnose (lists in `config/wording.toml`, Hindi and English). Blocked text is replaced by a safe fixed sentence
-   ("I have told Rohan. He will call you.") and logged at WARN with the rule hit.
-4. Rate: max 30 outbound messages per household per hour.
+   diagnose (lists in `config/wording.toml`, one list per language row, Hindi in Devanagari and in Latin script,
+   and English). Blocked text is replaced by the fixed phrase `guard_replacement` from `config/phrases.toml` in the
+   recipient's language and logged at WARN with the rule hit. For the elder it is "I have told {family_name}. They
+   will call you." (`{family_name}` is the `display_name` of the first person in the escalation order); for family
+   it is "Please call {elder_name}."
+4. Rate: max 30 outbound messages with `urgency = normal` per household per hour (`USAGE#<date>` counter per hour).
+   Urgent messages are not counted against this cap and are never blocked by it. They still pass rules 1 to 3 and
+   are bounded by the escalation's own limit (12 rechecks, section 13).
+
+Fallback after a block (section 7.3) is bounded: a `blocked_consent` result triggers a fallback send only if the
+person is `opted_in` on the fallback channel, and the fallback send passes this same guard. A `blocked_wording`
+result never triggers a fallback; the replacement phrase is sent instead.
+
+All fixed sentences (STOP confirmation, guard replacement, cost cap note, refill confirmations, help text, opt-in
+reply, "please send a voice note", "I could not hear that") live in `config/phrases.toml`, one table per language
+row, with `{family_name}`, `{elder_name}`, `{relation_label}` and `{display_label}` placeholders. A unit test fails
+if a language row is missing any phrase key, or if any phrase fails the wording rule.
 
 The Bedrock guardrail `aurasenior-safety` adds denied topics for medical diagnosis and medication dose advice on
-model input and output text. Tool call arguments are not evaluated by a guardrail in Converse (D11), which is why the
-guard above also exists.
+model input and output text. It uses the Standard safeguard tier for denied topics, because the Classic tier
+supports only English, French and Spanish for denied topics, while the Standard tier lists Hindi as "Optimized and
+supported" (D11). The Standard tier uses cross-Region inference (D11). Tool call arguments are not evaluated by a
+guardrail in Converse (D11), which is why the guard above is the main wording control. The Hindi and English lists
+in `config/wording.toml` are required and tested whatever the guardrail does.
 
 ### 8.4 Cost cap
 
 Per household per day: max 150 Converse calls (`USAGE#<date>` atomic counter). Beyond that the agent is skipped,
-deterministic paths (STOP, escalation, logging) still run, the elder gets a fixed voice note "I will tell Rohan", and
-an ERROR log is written once per day.
+deterministic paths (STOP, escalation, logging, approval taps, weekly summary) still run, the elder gets the fixed
+phrase `cost_cap` ("I will tell {family_name}.") as a voice note, and an ERROR log is written once per day.
 
 ### 8.5 Memory
 
 Kept in DynamoDB per household: `MEMORY` item with up to 50 short notes (her routine, people she mentions,
-grandchildren's names), the last 10 turns as `TURN#` items with a 7-day TTL, and medicines and log from their own
-items. No full transcripts are shown to family unless the elder's `share_transcripts` flag is true.
+grandchildren's names), turns as `TURN#<person_id>#<ts>` items with a 7-day TTL, and medicines and log from their
+own items. A turn's prompt includes only the last 10 turns of the person who is speaking, so the elder's words never
+reach a family member's prompt. Family see the elder's situation only through `get_household` and `get_week`, which
+never include transcript text unless the elder's `share_transcripts` flag is true.
+
+### 8.6 Weekly facts
+
+`summary.build_week(household_id, end_date, days=7) -> WeekFacts` in `src/aurasenior/summary.py` is deterministic
+(no model call) and unit tested. It reads `LOG#`, `APPROVAL#`, `ESC#`, `SIGNAL#` and `MSG#` items for the 7 days
+ending on `end_date` in the household timezone and returns:
+
+| Field | Content |
+| --- | --- |
+| `days` | 7 |
+| `medicines` | per medicine: `display_label`, days taken, days not taken, days with no answer |
+| `refills` | count requested, count ordered, and per order the time from "ran out" to "ordered" in minutes |
+| `escalations` | per escalation: reason (`fall_or_help`, `missed_checkin`), time to acknowledgement in minutes or `unacknowledged` |
+| `missed_checkins` | count |
+| `mentions` | counts of pain and low-mood mentions (words only, no quotes) |
+| `quotes` | elder transcript lines, only if `share_transcripts` is true, else empty |
+
+The model tool `get_week` returns this as JSON. The weekly SES summary (section 10) is rendered from `WeekFacts`
+straight into the SES template variables, with no model call.
 
 ## 9. Household data model
 
