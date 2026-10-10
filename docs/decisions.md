@@ -123,7 +123,12 @@ Docs:
 - Doc URLs: every URL below returned HTTP 200 on 2026-10-10 (`curl`), and the facts quoted were read from the page
   text. Pages were saved locally while reading and are not committed.
 - SDK model reads (no network): parameter and enum names were read from the botocore 1.43.111 service models in the
-  project venv (`.build/p6_shapes.py`). This confirms names and enums only, not runtime behaviour.
+  project venv. This confirms names and enums only, not runtime behaviour. The output is saved as
+  `docs/evidence/sdk-shapes-2026-10-10.json` (operation, member and enum names, the `TranscriptionJobName`
+  constraint, and the guardrail tier enum).
+- IAM actions: the resource types each action supports were read from the public AWS Service Reference data
+  (`https://servicereference.us-east-1.amazonaws.com/`, the machine-readable form of the Service Authorization
+  Reference). Output: `docs/evidence/service-reference-actions-2026-10-10.txt`.
 - Real read-only calls under the project account: `polly describe-voices` for en-US (D3b) and
   `cloudformation describe-type` for every resource type in the template (D12). Evidence files are named in each
   entry.
@@ -162,6 +167,24 @@ Facts used in the design:
   templateDefinition, id)`.
 - `cloudformation describe-type AWS::SocialMessaging::WhatsAppBusinessAccount`: TypeNotFoundException (evidence
   `cfn-types-2026-10-10.json`). WhatsApp setup is done by the owner in the console plus `scripts/post_deploy.py`.
+- Opt-in (Meta "Get opt-in for WhatsApp", updated Jun 16, 2026, read 2026-10-10): businesses are required to obtain
+  opt-in before messaging people on WhatsApp; they may contact people if the person gave their number and the
+  business received opt-in permission to receive messages from that business; the business must clearly state its
+  name. Decision: opt-in is person-started (the person sends START, AuraSenior replies inside the window it opened
+  and asks for YES). No opt-in template is sent. The `wa.me` prefilled link is a convenience only (A12).
+- Template components (Meta "Components" page): a template has header, body, footer and buttons; only the body is
+  required; variables need sample values at creation; a `QUICK_REPLY` button label is at most 25 characters. The
+  page text read did not list an audio header, so no audio header is used: voice reaches a closed window through a
+  quick-reply "Listen" tap that opens the window (design section 10).
+- Template language codes (Meta "Supported languages"): Hindi `hi`, English (US) `en_US`, English (IND) `en_IN`.
+  AuraSenior uses `hi` and `en_US`.
+- SNS topic policy: the event destination page example allows `social-messaging.amazonaws.com` to `sns:Publish`
+  and recommends `SourceAccount` and `SourceArn` conditions against the confused deputy problem.
+
+Docs added in revision 2:
+- https://developers.facebook.com/docs/whatsapp/overview/getting-opt-in/
+- https://developers.facebook.com/docs/whatsapp/business-management-api/message-templates/components/
+- https://developers.facebook.com/docs/whatsapp/business-management-api/message-templates/supported-languages/
 
 Docs:
 - https://docs.aws.amazon.com/social-messaging/latest/userguide/what-is-service.html
@@ -200,6 +223,10 @@ Facts used in the design:
 - Delivery events: `RCS_DELIVERED` and `RCS_READ` among RCS event types (rcs-events).
 - Opt-out: replies with STOP and the other required keywords add the number to the opt-out list unless self-managed
   opt-outs are on (opt-out-list, keywords-required).
+- SNS topic policy for inbound RCS (rcs-inbound): a statement allowing `sms-voice.amazonaws.com` to `sns:Publish`
+  on the topic ARN; the role-based alternative on the same page uses an `aws:SourceAccount` condition.
+  AuraSenior adds `aws:SourceAccount` (the stack account) to the topic policy statement as well; if the first
+  inbound test shows the condition blocks delivery, the condition is removed and that result is recorded here.
 - Simulator: origination simulator numbers send to destination simulator numbers (test-phone-numbers);
   `AWS::SMSVOICE::PhoneNumber` `NumberType` enum includes `SIMULATOR`; required properties `IsoCountryCode`,
   `NumberCapabilities`, `NumberType`, `MandatoryKeywords` (CloudFormation schema, `cfn-types-2026-10-10.json`).
@@ -214,6 +241,8 @@ Docs:
 - https://docs.aws.amazon.com/sms-voice/latest/userguide/rcs-sms-fallback.html
 - https://docs.aws.amazon.com/sms-voice/latest/userguide/rcs-events.html
 - https://docs.aws.amazon.com/sms-voice/latest/userguide/rcs-inbound.html
+- Service Reference data (IAM actions and resource types for every service the functions call, fetched 2026-10-10):
+  https://servicereference.us-east-1.amazonaws.com/
 - https://docs.aws.amazon.com/sms-voice/latest/userguide/two-way-sms.html
 - https://docs.aws.amazon.com/sms-voice/latest/userguide/two-way-sms-payload.html
 - https://docs.aws.amazon.com/sms-voice/latest/userguide/opt-out-list.html
@@ -242,6 +271,17 @@ Facts used in the design:
   event-publishing-add-event-destination-sns).
 - Resource types `AWS::SES::Template`, `AWS::SES::ConfigurationSet`, `AWS::SES::ConfigurationSetEventDestination`,
   `AWS::SES::ContactList` exist (`cfn-types-2026-10-10.json`).
+- Sender identity: `GetEmailIdentity` returns `VerifiedForSendingStatus` (boolean, "You can only send email from
+  verified email addresses or domains") and `VerificationStatus` (`PENDING`, `SUCCESS`, `FAILED`,
+  `TEMPORARY_FAILURE`, `NOT_STARTED`) (API_GetEmailIdentity; SDK output members in `sdk-shapes-2026-10-10.json`).
+  `SendEmail` takes `FromEmailAddress`. Decision: stack parameter `SenderEmail`, verified by the owner;
+  `post_deploy.py` reports unverified sender and recipients.
+- SNS destination permission: the SNS event destination page gives a topic policy that allows
+  `ses.amazonaws.com` to `sns:Publish` with `AWS:SourceAccount` and `AWS:SourceArn` (the configuration set ARN)
+  conditions. The `aurasenior-email-events` topic policy uses this.
+
+Docs added in revision 2:
+- https://docs.aws.amazon.com/ses/latest/APIReference-V2/API_GetEmailIdentity.html
 
 Docs:
 - https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html
@@ -266,6 +306,14 @@ schedules, both in any time zone via `ScheduleExpressionTimezone` (schedule-type
 members include `ActionAfterCompletion` (enum `NONE`, `DELETE`), `FlexibleTimeWindow`, `GroupName`, `Target`
 (API_CreateSchedule, managing-schedule-delete). `AWS::Scheduler::Schedule` requires `FlexibleTimeWindow`,
 `ScheduleExpression`, `Target`; `AWS::Scheduler::ScheduleGroup` exists (`cfn-types-2026-10-10.json`).
+Execution role: Scheduler assumes an execution role (trust principal `scheduler.amazonaws.com`) to invoke the
+target, and the docs recommend confused deputy safeguards (setting-up). A principal that creates schedules needs
+`iam:PassRole` on that role with condition `iam:PassedToService = scheduler.amazonaws.com` (identity-based policy
+examples). `scheduler:CreateSchedule` and `DeleteSchedule` support the `schedule` resource type (Service Reference).
+
+Docs added in revision 2:
+- https://docs.aws.amazon.com/scheduler/latest/UserGuide/setting-up.html
+- https://docs.aws.amazon.com/scheduler/latest/UserGuide/security_iam_id-based-policy-examples.html
 
 Docs:
 - https://docs.aws.amazon.com/scheduler/latest/UserGuide/schedule-types.html
@@ -285,6 +333,14 @@ expired items (TTL guide). All resource types confirmed with `describe-type`: `A
 `AWS::CloudWatch::Alarm`, `AWS::Budgets::Budget`. The registry reports `NON_PROVISIONABLE` for
 `AWS::Budgets::Budget`; that marks a legacy (non-registry) resource provider, not a type that cannot be used in a
 template, so the budget `aurasenior-monthly` is in the SAM template (A9).
+
+Lambda architecture (decided 2026-10-10): `arm64`. Lambda offers `arm64` (AWS Graviton2) and `x86_64`; the page
+says arm64 can give better price and performance and that the package must be compatible (foundation-arch). The
+package is pure Python plus boto3, so there are no native wheels to rebuild. `sam build` without a container is
+enough for pure Python code.
+
+Docs added in revision 2:
+- https://docs.aws.amazon.com/lambda/latest/dg/foundation-arch.html
 
 Docs:
 - https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html
@@ -308,6 +364,22 @@ enum includes `ogg` (how-input). `StartTranscriptionJob` takes `Media.MediaFileU
 `Transcribe Job State Change`, `TranscriptionJobStatus` `COMPLETED` or `FAILED` (monitoring-events).
 `AWS::Events::Rule` exists (`cfn-types-2026-10-10.json`). Word timings for Hindi Ogg are A4.
 
+Revision 2 facts:
+- `TranscriptionJobName`: case sensitive, no spaces, unique in the account, length 1 to 200, pattern
+  `^[0-9a-zA-Z._-]+` (API_StartTranscriptionJob; same min, max and pattern in the SDK model,
+  `sdk-shapes-2026-10-10.json`). A WhatsApp message ID can contain `=` and is not used raw: the job name is
+  `aurasenior-<hid>-<sha256(message ID) hex[:32]>`.
+- The completion event carries `detail.TranscriptionJobName` and `detail.TranscriptionJobStatus` `COMPLETED` or
+  `FAILED` (monitoring-events). EventBridge patterns support prefix matching on string values
+  (eb-create-pattern-operators), so the rule matches `{"prefix": "aurasenior-"}` on the job name.
+- IAM: the Transcribe identity-based policy examples give input bucket `s3:GetObject` (and `s3:ListBucket`) and
+  output bucket `s3:PutObject`. `transcribe:StartTranscriptionJob` supports no resource type (Service Reference),
+  so its resource is `*`.
+
+Docs added in revision 2:
+- https://docs.aws.amazon.com/transcribe/latest/dg/security_iam_id-based-policy-examples.html
+- https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-pattern-operators.html
+
 Docs:
 - https://docs.aws.amazon.com/transcribe/latest/dg/supported-languages.html
 - https://docs.aws.amazon.com/transcribe/latest/dg/how-input.html
@@ -329,8 +401,34 @@ changing tools or adapters (roadmap, only after all must-haves are verified by 2
 
 Guardrail: `AWS::Bedrock::Guardrail` `aurasenior-safety` (required `Name`, `BlockedInputMessaging`,
 `BlockedOutputsMessaging`) with denied topics for diagnosis and dose advice. With tools, a guardrail in
-`guardrailConfig` does not evaluate tool call arguments (guardrails-use-converse-api), so the outbound guard in code
-is the main wording control. SDK model: `Converse` input includes `toolConfig` and `guardrailConfig`.
+`guardrailConfig` does not evaluate tool results, tool definitions or tool call arguments; it evaluates input
+prompts, system prompts and model response text (table on guardrails-use-converse-api). So the outbound guard in
+code is the main wording control. SDK model: `Converse` input includes `toolConfig` and `guardrailConfig`.
+
+Guardrail tier and Hindi (read 2026-10-10):
+- Denied topics support safeguard tiers. Classic tier supports English, French and Spanish for denied topics.
+  Standard tier lists Hindi as "Optimized and supported" and Hindi (Latin script) as "Supported" for denied topics
+  (guardrails-supported-languages, guardrails-tiers).
+- Standard tier requires the guardrail to use cross-Region inference, handled through a system-defined guardrail
+  profile set on create or update (guardrails-tiers, guardrails-cross-region, CloudFormation
+  `TopicsTierConfig.TierName` `CLASSIC` or `STANDARD`; `AWS::Bedrock::Guardrail` has `CrossRegionConfig`). SDK enum
+  `GuardrailTopicsTierName` = `CLASSIC`, `STANDARD` (`sdk-shapes-2026-10-10.json`).
+- Decision: `TopicPolicyConfig.TopicsTierConfig.TierName: STANDARD` and `CrossRegionConfig` with stack parameter
+  `GuardrailProfileArn`. The exact guardrail profile ID for us-east-1 is not yet read (A14). Until A14 is checked the
+  Hindi wording control is the outbound guard and `config/wording.toml` (required, tested), whatever the guardrail
+  does.
+- `bedrock:ApplyGuardrail` supports resource types `guardrail` and `guardrail-profile` (Service Reference,
+  `service-reference-actions-2026-10-10.txt`); both are granted to the function roles.
+
+Owner confirmation of this runtime decision: pending. VISION.md names AgentCore; this entry parks it in the
+roadmap. The orchestrator asks the owner at the next check-in and records "Owner confirmed: yes/no, date" here.
+
+Docs added in revision 2:
+- https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-supported-languages.html
+- https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-tiers.html
+- https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-bedrock-guardrail-topicpolicyconfig.html
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-bedrock-guardrail-topicstierconfig.html
 
 Docs:
 - https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html
@@ -350,7 +448,9 @@ Docs:
 ## D12. IaC: AWS SAM (decided 2026-10-10)
 
 Decision: one SAM template, deployed with `sam build` and `sam deploy --stack-name aurasenior --region us-east-1
---tags project=aurasenior --resolve-s3 --capabilities CAPABILITY_IAM`. Reasons in design section 5: Python only,
+--tags project=aurasenior --resolve-s3 --capabilities CAPABILITY_NAMED_IAM`. The roles have explicit `aurasenior-`
+names, and "If you have IAM resources with custom names, you must specify CAPABILITY_NAMED_IAM" (API_CreateStack,
+read 2026-10-10). Reasons for SAM in design section 5: Python only,
 SAM CLI 1.165.0 installed, no CDK toolchain installed, every resource type confirmed by a real
 `cloudformation describe-type` call under the project account (evidence `cfn-types-2026-10-10.json`: all found
 except `AWS::SocialMessaging::WhatsAppBusinessAccount`). WhatsApp linking (no resource type), RCS testing agent
@@ -364,6 +464,7 @@ Docs:
 - https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html
 - https://docs.aws.amazon.com/cdk/v2/guide/home.html
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_DescribeType.html
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_CreateStack.html
 
 ## D13. Open assumptions (checked during the build, result recorded here)
 
@@ -379,6 +480,10 @@ Docs:
 | A8 | SES unsubscribe link via `ListManagementOptions` works in the sandbox | Send to a verified address |
 | A9 | CloudFormation creates `AWS::Budgets::Budget` `aurasenior-monthly` with `budgets:ModifyBudget` on `aurasenior-*` | First `sam deploy` |
 | A10 | Deploy user can create EventBridge rules | Simulate or deploy; see D14 |
+| A11 | `hi-IN` single-language jobs are accurate enough on Kamala's mixed Hindi and English | First real transcription |
+| A12 | `https://wa.me/<number>?text=START` prefills START on the elder's phone (no doc read yet; the design does not depend on it) | Owner tries it once on the demo phone |
+| A13 | Template quick-reply payload field in the inbound SNS event; Meta accepts the 6.3 bodies as UTILITY | First real tap; template status after review |
+| A14 | Guardrail profile ID for us-east-1 (Standard tier needs cross-Region inference) and that the guardrail works with the Nova 2 Lite profile in Converse | Read in the Bedrock console guardrail profile list or docs before deploy; first guarded call |
 
 ## D14. Permissions needed beyond the `aurasenior-dev` policy
 
@@ -391,7 +496,20 @@ call:
    Needed for the Transcribe completion rule. Not in `aurasenior-dev`, and "EventBridge Scheduler full access" does
    not name `events:*`. Not yet verified whether another attached policy grants it; check before the first deploy
    with `iam simulate-principal-policy` (read-only). If missing, the owner approves this one statement.
-2. Nothing else is expected: SNS, Logs, Alarms, Budgets are scoped to `aurasenior` names in `aurasenior-dev`;
-   Transcribe, Polly, social-messaging and sms-voice are allowed there; IAM full access covers the function roles
-   and `iam:PassRole` for the scheduler role.
-3. Optional, owner only: Anthropic model use case form, if Claude models are wanted later (D2).
+2. Nothing else is expected for the deploy user: SNS, Logs, Alarms, Budgets are scoped to `aurasenior` names in
+   `aurasenior-dev`; Transcribe, Polly, social-messaging and sms-voice are allowed there; IAM full access covers
+   creating the named function roles (`CAPABILITY_NAMED_IAM`) and `iam:PassRole` for them. Bedrock full access
+   covers creating the guardrail with `CrossRegionConfig`; whether it also covers using a guardrail profile is part
+   of A14.
+3. For the post-deploy check: `ses:GetEmailIdentity` (SES full access covers it).
+4. Function roles are created by the stack and are not permissions for the deploy user. Their exact actions and
+   resources are in design section 5.1, checked against the Service Reference data
+   (`service-reference-actions-2026-10-10.txt`): DynamoDB item actions on the table; S3 object get and put on the
+   media bucket; `transcribe:StartTranscriptionJob` on `*` (no resource type) and `GetTranscriptionJob`;
+   `bedrock:InvokeModel` on the profile and its model ARNs; `bedrock:ApplyGuardrail` on the guardrail and guardrail
+   profile; `polly:SynthesizeSpeech` on `*` (only a lexicon resource type exists); `social-messaging` send and media
+   actions on the phone number ID; `sms-voice:SendRcsMessage` and `SendTextMessage` on the RCS agent, phone number
+   and configuration set; `ses:SendEmail` on identity, configuration set and templates; `scheduler:CreateSchedule`
+   and `DeleteSchedule` on `schedule/aurasenior/*`; `iam:PassRole` on `aurasenior-scheduler` only; the scheduler
+   role gets `lambda:InvokeFunction` on `aurasenior-scheduled` only.
+5. Optional, owner only: Anthropic model use case form, if Claude models are wanted later (D2).
