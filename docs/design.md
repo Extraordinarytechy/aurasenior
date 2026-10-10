@@ -195,13 +195,18 @@ What is not in the template, and why:
   WhatsApp Business Account in the console; `scripts/post_deploy.py` then calls
   `PutWhatsAppBusinessAccountEventDestinations` to point it at `aurasenior-whatsapp-events`, and
   `CreateWhatsAppMessageTemplate` to submit the templates in section 6.2.
-- RCS agent: created and registered for testing in the console by the owner, because adding a test device needs a
-  verification code on the phone (D6). The RCS agent ID is a stack parameter; `post_deploy.py` calls `UpdateRcsAgent`
-  to set the two-way SNS topic and the opt-out list.
-- Budget: `AWS::Budgets::Budget` reports provisioning type `NON_PROVISIONABLE` in the registry (D9), so
-  `scripts/post_deploy.py` creates budget `aurasenior-monthly` with the Budgets API instead (open assumption A9).
+- RCS agent: `AWS::SMSVOICE::RcsAgent` exists as a resource type (D6), but the testing registration and the test
+  device are done by the owner in the console, because adding a test device sends a verification code to the phone
+  that a person must enter (D6). Keeping the agent out of the stack also means a stack update can never replace it
+  and drop the registered test device. The RCS agent ID is a stack parameter; `post_deploy.py` calls
+  `UpdateRcsAgent` to set the two-way SNS topic and the opt-out list.
 - Per-household schedules: households are data, so `scripts/seed_household.py` creates their schedules. The stack
   only creates the schedule group `aurasenior` and the scheduler execution role.
+
+In the template, beyond the functions, table, bucket, topics, rule and SES and SMS resources: budget
+`aurasenior-monthly` as `AWS::Budgets::Budget` (monthly cost budget, email alert at 80 percent to the owner address
+given as a stack parameter). The `aurasenior-dev` policy allows `budgets:ModifyBudget` and `budgets:ViewBudget` on
+`aurasenior-*` (D9).
 
 `post_deploy.py` is idempotent: it reads before it writes and only touches resources whose name starts with
 `aurasenior`.
@@ -563,5 +568,6 @@ Each also appears in `docs/decisions.md` D13 with how it will be checked.
 - A7. SMS and RCS monthly spend limits are 1 USD each in this account (read in an earlier probe that ran under the
   wrong account, so re-read here); whether simulator messages count against them.
 - A8. SES `ListManagementOptions` adds an unsubscribe link in the sandbox.
-- A9. Budget creation through the Budgets API is allowed by the `aurasenior-dev` policy.
+- A9. CloudFormation can create `AWS::Budgets::Budget` `aurasenior-monthly` with the deploy user's permissions
+  (`budgets:ModifyBudget` on `aurasenior-*`).
 - A10. EventBridge rule permissions (`events:PutRule` and related) are available to the deploy user (D14).
