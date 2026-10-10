@@ -1127,7 +1127,7 @@ Each also appears in `docs/decisions.md` D13 with how it will be checked.
 - A8. SES `ListManagementOptions` adds an unsubscribe link in the sandbox.
 - A9. CloudFormation can create `AWS::Budgets::Budget` `aurasenior-monthly` with the deploy user's permissions
   (`budgets:ModifyBudget` on `aurasenior-*`).
-- A10. EventBridge rule permissions (`events:PutRule` and related) are available to the deploy user (D14).
+- A10. Resolved 2026-10-11: EventBridge rule permissions for `aurasenior-*` rules are in `aurasenior-dev` v2 (D14).
 - A11. Kamala mixes Hindi and some English. Jobs use one language (`hi-IN`); accuracy on mixed speech is checked on
   the first real transcription. No language identification feature is added.
 - A12. The `wa.me` link with `?text=START` prefills the message on the elder's phone. If it does not, the admin types

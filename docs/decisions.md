@@ -181,6 +181,24 @@ Facts used in the design:
 - SNS topic policy: the event destination page example allows `social-messaging.amazonaws.com` to `sns:Publish`
   and recommends `SourceAccount` and `SourceArn` conditions against the confused deputy problem.
 
+Revision 3 facts (read 2026-10-11):
+- Meta Graph API versions page: v20.0 released May 21, 2024, expiration September 24, 2026 (already expired);
+  v25.0 released February 18, 2026, expiration July 29, 2028; v26.0 released July 29, 2026, expiration TBD (the
+  newest). The botocore model types `SendWhatsAppMessage.metaApiVersion` as a plain string with no enum or pattern
+  (`sdk-shapes-2026-10-11.json`). Decision: `[whatsapp] meta_api_version` in `config/app.toml`, default `v25.0`,
+  because it has a published end date after the project timeline; `v26.0` can be set by config. Confirmed on the
+  first live send (A16).
+- Meta webhook reference for quick-reply button messages: the inbound object carries `button.payload` (shown as
+  `<BUTTON_LABEL_TEXT>`, "Quick-reply button label text") and `context.id` ("WhatsApp message ID of the message
+  containing the button the WhatsApp user tapped"). The old template-send guide URL now says "This page has
+  moved"; a send-time per-button payload was not confirmed. Decision: static button labels, resolved through our
+  own `MSG#<context.id>.ref`, falling back to the SMS digit rule (design section 12). How AWS wraps this webhook
+  body in the SNS message is still A2 and A13.
+
+Docs added in revision 3:
+- https://developers.facebook.com/docs/graph-api/changelog/versions/
+- https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/reference/messages/button/
+
 Docs added in revision 2:
 - https://developers.facebook.com/docs/whatsapp/overview/getting-opt-in/
 - https://developers.facebook.com/docs/whatsapp/business-management-api/message-templates/components/
@@ -227,6 +245,19 @@ Facts used in the design:
   on the topic ARN; the role-based alternative on the same page uses an `aws:SourceAccount` condition.
   AuraSenior adds `aws:SourceAccount` (the stack account) to the topic policy statement as well; if the first
   inbound test shows the condition blocks delivery, the condition is removed and that result is recorded here.
+- Revision 3, rcs-testing (read 2026-10-11): a testing agent sends only to registered test devices; a device is
+  added with `create-verified-destination-number --rcs-agent-id`, then gets a tester invitation from "RBM Tester
+  Management" that must be accepted (up to 20 minutes to arrive; on iOS it may land in Unknown Senders); test
+  devices are listed with `describe-verified-destination-numbers --filters Name=rcs-agent-id,...`; the testing agent
+  supports two-way messaging "by sending messages with auto-response keywords"; testing messages are charged at
+  standard RCS rates. The page does not say a test device can start a conversation before the agent sends.
+  Decision: RCS opt-in is one business-started `optin_ask` after the device is verified, YES opts in (design
+  section 14).
+- Revision 3, test-phone-numbers (read 2026-10-11): simulator numbers stay inside AWS End User Messaging SMS and
+  are not sent over the carrier network; a US origination simulator number can only send to destination simulator
+  numbers of the same country; US success destination `+14254147755`, failure `+14254147167`. The page documents
+  success and failure events for destinations, not inbound messages from them. Decision: inbound for the simulator
+  record is injected with `python -m aurasenior.demo sim-inbound` and labelled simulated.
 - Simulator: origination simulator numbers send to destination simulator numbers (test-phone-numbers);
   `AWS::SMSVOICE::PhoneNumber` `NumberType` enum includes `SIMULATOR`; required properties `IsoCountryCode`,
   `NumberCapabilities`, `NumberType`, `MandatoryKeywords` (CloudFormation schema, `cfn-types-2026-10-10.json`).
@@ -311,6 +342,10 @@ target, and the docs recommend confused deputy safeguards (setting-up). A princi
 `iam:PassRole` on that role with condition `iam:PassedToService = scheduler.amazonaws.com` (identity-based policy
 examples). `scheduler:CreateSchedule` and `DeleteSchedule` support the `schedule` resource type (Service Reference).
 
+Revision 3 (read 2026-10-11): `CreateSchedule` `Name` has maximum length 64 and pattern `[0-9a-zA-Z-_.]+`
+(API_CreateSchedule page; botocore model min 1, max 64, `^[0-9a-zA-Z-_.]+$`, `sdk-shapes-2026-10-11.json`).
+Design section 10 fixes every schedule name and its longest length (35).
+
 Docs added in revision 2:
 - https://docs.aws.amazon.com/scheduler/latest/UserGuide/setting-up.html
 - https://docs.aws.amazon.com/scheduler/latest/UserGuide/security_iam_id-based-policy-examples.html
@@ -338,6 +373,19 @@ Lambda architecture (decided 2026-10-10): `arm64`. Lambda offers `arm64` (AWS Gr
 says arm64 can give better price and performance and that the package must be compatible (foundation-arch). The
 package is pure Python plus boto3, so there are no native wheels to rebuild. `sam build` without a container is
 enough for pure Python code.
+
+Failed async events (revision 3, read 2026-10-11): `AWS::Lambda::EventInvokeConfig` has `DestinationConfig`,
+`FunctionName`, `MaximumEventAgeInSeconds`, `MaximumRetryAttempts` and a required `Qualifier`, where `$LATEST`
+names the unpublished version. Lambda can send records of asynchronous invocations to a standard SNS topic; the
+function needs `sns:Publish`, and Lambda passes the invocation record as the message. The SAM
+`EventInvokeConfig` property is described as "configuration options for asynchronous Lambda Alias or Version
+invocations", so the plain CloudFormation resource with `Qualifier: $LATEST` is used. Topic
+`aurasenior-failed-events`, owner email subscribed.
+
+Docs added in revision 3:
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-eventinvokeconfig.html
+- https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html
+- https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-function-eventinvokeconfiguration.html
 
 Docs added in revision 2:
 - https://docs.aws.amazon.com/lambda/latest/dg/foundation-arch.html
@@ -414,14 +462,25 @@ Guardrail tier and Hindi (read 2026-10-10):
   `TopicsTierConfig.TierName` `CLASSIC` or `STANDARD`; `AWS::Bedrock::Guardrail` has `CrossRegionConfig`). SDK enum
   `GuardrailTopicsTierName` = `CLASSIC`, `STANDARD` (`sdk-shapes-2026-10-10.json`).
 - Decision: `TopicPolicyConfig.TopicsTierConfig.TierName: STANDARD` and `CrossRegionConfig` with stack parameter
-  `GuardrailProfileArn`. The exact guardrail profile ID for us-east-1 is not yet read (A14). Until A14 is checked the
-  Hindi wording control is the outbound guard and `config/wording.toml` (required, tested), whatever the guardrail
-  does.
+  `GuardrailProfileId`. The Hindi wording control is the outbound guard and `config/wording.toml` (required,
+  tested), whatever the guardrail does.
+- Revision 3 (read 2026-10-11, guardrails-cross-region-support): the US guardrail profile ID is `us.guardrail.v1:0`,
+  ARN `arn:aws:bedrock:<source-region>:<account-id>:guardrail-profile/us.guardrail.v1:0`; from source us-east-1 it
+  routes to us-east-1, us-east-2 and us-west-2. The guardrails-cross-region page says there is no extra cost, data
+  stays in the US geography, and "You need specific permissions to use cross-Region guardrail inference" (that
+  permissions page was not read yet, A14). The botocore model accepts either the ID or the ARN in
+  `guardrailProfileIdentifier` (`sdk-shapes-2026-10-11.json`). `AWS::Bedrock::Guardrail` has a `CrossRegionConfig`
+  property of type `GuardrailCrossRegionConfig`. Decision: parameter default `us.guardrail.v1:0`; condition
+  `HasGuardrailProfile` (design section 5). With the parameter empty the guardrail uses `CLASSIC`, no
+  `CrossRegionConfig`, and covers English only; the trace records `guardrail_mode`.
 - `bedrock:ApplyGuardrail` supports resource types `guardrail` and `guardrail-profile` (Service Reference,
   `service-reference-actions-2026-10-10.txt`); both are granted to the function roles.
 
 Owner confirmation of this runtime decision: pending. VISION.md names AgentCore; this entry parks it in the
 roadmap. The orchestrator asks the owner at the next check-in and records "Owner confirmed: yes/no, date" here.
+
+Docs added in revision 3:
+- https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region-support.html
 
 Docs added in revision 2:
 - https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-supported-languages.html
@@ -458,6 +517,11 @@ registration and test device (resource type `AWS::SMSVOICE::RcsAgent` exists, bu
 verification code entered by a person), template submission and per-household schedules are done by the owner or
 by idempotent scripts. The budget is in the template.
 
+Revision 3: optional resources and IAM statements use CloudFormation conditions (`HasWhatsApp`, `HasRcsAgent`,
+`HasGuardrailProfile`) with `Fn::If` and `AWS::NoValue`, which the conditions page documents for removing a
+property when a condition is false (conditions-section-structure, read 2026-10-11).
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/conditions-section-structure.html
+
 Docs:
 - https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html
 - https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
@@ -479,11 +543,13 @@ Docs:
 | A7 | SMS and RCS monthly spend limits in the project account, and whether simulator messages count | `DescribeSpendLimits` read under the project account |
 | A8 | SES unsubscribe link via `ListManagementOptions` works in the sandbox | Send to a verified address |
 | A9 | CloudFormation creates `AWS::Budgets::Budget` `aurasenior-monthly` with `budgets:ModifyBudget` on `aurasenior-*` | First `sam deploy` |
-| A10 | Deploy user can create EventBridge rules | Simulate or deploy; see D14 |
+| A10 | Resolved 2026-10-11: deploy user can create EventBridge rules named `aurasenior-*` (`aurasenior-dev` v2, D14 item 1) | Confirmed again by the first `sam deploy` |
 | A11 | `hi-IN` single-language jobs are accurate enough on Kamala's mixed Hindi and English | First real transcription |
 | A12 | `https://wa.me/<number>?text=START` prefills START on the elder's phone (no doc read yet; the design does not depend on it) | Owner tries it once on the demo phone |
 | A13 | Template quick-reply payload field in the inbound SNS event; Meta accepts the 6.3 bodies as UTILITY | First real tap; template status after review |
-| A14 | Guardrail profile ID for us-east-1 (Standard tier needs cross-Region inference) and that the guardrail works with the Nova 2 Lite profile in Converse | Read in the Bedrock console guardrail profile list or docs before deploy; first guarded call |
+| A14 | Narrowed 2026-10-11: profile ID `us.guardrail.v1:0` is recorded (D11). Open: the IAM resources the cross-Region guardrail permissions page asks for, and that the guardrail works with the Nova 2 Lite profile in Converse | Read the permissions page before deploy; first deploy and first guarded call; on failure redeploy with `GuardrailProfileId` empty (Classic) and record it |
+| A15 | `SendRcsMessage` with `FallbackConfiguration` to a number that is not a verified test device (the simulator record) is delivered as SMS from the fallback origination identity | First live RCS to SMS test, delivery events saved under `docs/evidence/`; if rejected, the simulator record uses `preferred_channel = sms` |
+| A16 | `metaApiVersion` `v25.0` is accepted by `SendWhatsAppMessage` | First live send, response saved under `docs/evidence/` |
 
 ## D14. Permissions needed beyond the `aurasenior-dev` policy
 
@@ -493,9 +559,11 @@ call:
 
 1. EventBridge rules (not Scheduler): `events:PutRule`, `events:PutTargets`, `events:DescribeRule`,
    `events:DeleteRule`, `events:RemoveTargets`, `events:TagResource` on `arn:aws:events:us-east-1:<account>:rule/aurasenior-*`.
-   Needed for the Transcribe completion rule. Not in `aurasenior-dev`, and "EventBridge Scheduler full access" does
-   not name `events:*`. Not yet verified whether another attached policy grants it; check before the first deploy
-   with `iam simulate-principal-policy` (read-only). If missing, the owner approves this one statement.
+   Needed for the Transcribe completion rule. Granted 2026-10-11 (owner approved): `aurasenior-dev` v2 is the
+   default version and has statement `EventBridgeRulesForAuraSenior` with `events:PutRule`, `PutTargets`,
+   `DescribeRule`, `DeleteRule`, `RemoveTargets`, `TagResource`, `UntagResource`, `ListTargetsByRule` on
+   `arn:aws:events:us-east-1:<account>:rule/aurasenior-*` (checked by the orchestrator with `iam get-policy-version`).
+   The rule name `aurasenior-transcribe-done` is inside that resource pattern.
 2. Nothing else is expected for the deploy user: SNS, Logs, Alarms, Budgets are scoped to `aurasenior` names in
    `aurasenior-dev`; Transcribe, Polly, social-messaging and sms-voice are allowed there; IAM full access covers
    creating the named function roles (`CAPABILITY_NAMED_IAM`) and `iam:PassRole` for them. Bedrock full access
@@ -513,3 +581,11 @@ call:
    and `DeleteSchedule` on `schedule/aurasenior/*`; `iam:PassRole` on `aurasenior-scheduler` only; the scheduler
    role gets `lambda:InvokeFunction` on `aurasenior-scheduled` only.
 5. Optional, owner only: Anthropic model use case form, if Claude models are wanted later (D2).
+6. Revision 3 additions, none expected to need a new grant: `lambda:PutFunctionEventInvokeConfig` (CloudFormation
+   creating `AWS::Lambda::EventInvokeConfig`, covered by Lambda full access); topic `aurasenior-failed-events` and
+   its email subscription (SNS scoped to `aurasenior` names in `aurasenior-dev`); the admin CLI's
+   `sms-voice:DescribeVerifiedDestinationNumbers` and `SendTextMessage`/`SendRcsMessage` for `rcs-ask` (sms-voice
+   allowed in `aurasenior-dev`); `sns:Publish` to `aurasenior-sms-rcs-events` for `sim-inbound` (SNS scoped to
+   `aurasenior`). Function roles additionally get `sns:Publish` on `aurasenior-failed-events` only. Any permission
+   the cross-Region guardrail permissions page lists (A14) is checked with `iam simulate-principal-policy` before
+   the first deploy; if missing, the owner approves it.

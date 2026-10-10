@@ -1,0 +1,16 @@
+{
+  "source": "botocore 1.43.111 service models in the project venv, read offline on 2026-10-11 (no AWS call)",
+  "socialmessaging.SendWhatsAppMessage.metaApiVersion": {"type": "string", "constraints": {}},
+  "bedrock.GuardrailCrossRegionConfig.members": ["guardrailProfileIdentifier"],
+  "bedrock.GuardrailCrossRegionConfig.guardrailProfileIdentifier": {
+    "min": 15,
+    "max": 2048,
+    "pattern": "[a-z0-9-]+[.]{1}guardrail[.]{1}v[0-9:]+|arn:aws(-[^:]+)?:bedrock:[a-z0-9-]{1,20}:[0-9]{12}:guardrail-profile/[a-z0-9-]+[.]{1}guardrail[.]{1}v[0-9:]+"
+  },
+  "scheduler.CreateSchedule.Name": {
+    "min": 1,
+    "max": 64,
+    "pattern": "^[0-9a-zA-Z-_.]+$",
+    "note": "same limit and pattern on the API_CreateSchedule page, read 2026-10-11"
+  }
+}
