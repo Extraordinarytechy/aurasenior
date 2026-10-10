@@ -288,20 +288,21 @@ in two languages each (`_hi`, `_en`); the language comes from the person's `lang
 
 | Event | Kamala (elder, WhatsApp) | Rohan (family US, RCS then SMS) | Family outside US / neighbour (WhatsApp then email) | Doctor / pharmacy (email) |
 | --- | --- | --- | --- | --- |
-| Opt-in | She sends START first (wa.me link or typed, section 14). Reply free-form inside the window it opened: `optin_ask` voice note and text. YES sets `opted_in`. No template is ever sent before that | He sends START to the RCS agent; RCS text `optin_ask`; YES sets `opted_in` (section 14) | Same as Kamala, on WhatsApp. Email consent via the admin command (section 14) | Email consent via the admin command only (section 14); no opt-in email is sent |
+| Opt-in | She sends START first (wa.me link or typed, section 14). Reply free-form inside the window it opened: `optin_ask` voice note and text. YES sets `opted_in`. No template is ever sent before that | After his phone is a verified test device, one business-started RCS text `optin_ask_admin` (or `optin_ask` if he is not the admin); YES sets `opted_in` (section 14). Simulator record: simulated inbound only (section 14) | Same as Kamala, on WhatsApp. Email consent via the admin command (section 14) | Email consent via the admin command only (section 14); no opt-in email is sent |
 | Daily check-in (9:00 her time) | Window closed (usual): WA template `aurasenior_checkin_<lang>` with quick reply "सुनें" / "Listen". Her tap opens the window and the `checkin_voice` Polly voice note is sent at once (section 10). Window open: Polly voice note directly | none | none | none |
 | Voice reply understood | Voice note reply within the open window (she just wrote, so it is open) | none unless an action follows | none | none |
 | Follow-up (no reply 90 min after check-in) | Window closed: WA template `aurasenior_followup_<lang>` with the same "सुनें" / "Listen" button. Window open: `followup_voice` voice note | none | none | none |
 | Missed check-in (no reply 60 min after follow-up) | none | RCS text `missed_checkin`; SMS fallback `missed_checkin_sms` | WA template `aurasenior_family_missed_<lang>`; email fallback SES `aurasenior-missed-checkin` | none |
-| Refill approval | none | RCS rich card `refill_approval` with Reply suggestions Order refill (`refill:approve:<id>`), I'll handle it (`refill:self:<id>`), Call {relation_label} (`refill:call:<id>`); SMS fallback `refill_sms` (digits 1, 2, 3, section 12) | WA template `aurasenior_family_refill_<lang>` with three quick-reply buttons (same payloads); email fallback SES `aurasenior-refill-request` that says to reply on WhatsApp or call her (no approve by email) | none |
+| Refill approval | none | RCS rich card `refill_approval` with Reply suggestions Order refill (`refill:approve:<id>`), I'll handle it (`refill:self:<id>`), Call {relation_label} (`refill:call:<id>`); SMS fallback `refill_sms` (digits 1, 2, 3, section 12) | WA template `aurasenior_family_refill_<lang>` with three static quick-reply buttons, resolved through `context.id` (section 12 step 2); email fallback SES `aurasenior-refill-request` that says to reply on WhatsApp or call (no approve by email) | none |
 | Pharmacy order (only after Order refill) | none | none | none | SES `aurasenior-refill-order` to the pharmacy, sent by code, not by the model (section 12) |
 | Refill confirmation | Window open: `refill_ordered_elder` voice note. Window closed: WA template `aurasenior_refill_update_<lang>` | RCS text `refill_ordered_family` | WA free-form `refill_ordered_family` if their window is open, else WA template `aurasenior_family_update_<lang>`; email fallback SES `aurasenior-update` | none |
-| Fall or help words | `esc_told_elder` voice note at once, then `esc_reassure_elder` on every 5 min recheck while her window is open (she just spoke, so it is open for 24 h), until someone acknowledges | RCS text `urgent_alert` with Reply suggestion I'm on it (`esc:ack:<id>`); SMS fallback `urgent_sms` (digit 4) | WA template `aurasenior_urgent_alert_<lang>` with quick reply I'm on it (`esc:ack:<id>`); email fallback SES `aurasenior-urgent` | none |
-| Escalation recheck (every 5 min, max 12) | `esc_reassure_elder` on every run | resend RCS `urgent_alert` on even runs | resend template on even runs; send email fallback on even runs even if WhatsApp was delivered | none |
-| Acknowledged | `esc_ack_elder` voice note | RCS text `esc_ack_family` to the others | WA free-form or template `aurasenior_family_update_<lang>` to the others | none |
+| Fall or help words | `esc_told_elder` voice note at once, then `esc_reassure_elder` on every 5 min recheck while her window is open (she just spoke, so it is open for 24 h), until someone acknowledges | RCS text `urgent_alert` with Reply suggestion I'm on it (`esc:ack:<id>`); SMS fallback `urgent_sms` (digit 4) | WA template `aurasenior_urgent_alert_<lang>` with static quick reply I'm on it (`esc:ack`, resolved through `context.id`); email fallback SES `aurasenior-urgent` | none |
+| Escalation recheck (every 5 min, max 12) | `fall_or_help`: `esc_reassure_elder` on every run if her window is open. `missed_checkin`: nothing | resend on even runs: `urgent_alert` for `fall_or_help`, `missed_checkin` for `missed_checkin` (section 13 table) | resend on even runs: `aurasenior_urgent_alert_<lang>` or `aurasenior_family_missed_<lang>`; email fallback on even runs even if WhatsApp was delivered | none |
+| Acknowledged | `fall_or_help`: `esc_ack_elder` voice note. `missed_checkin`: nothing | RCS text `esc_ack_family` to the others | WA free-form or template `aurasenior_family_update_<lang>` to the others | none |
+| Missed check-in closed by the elder (she replies late) | normal agent turn on her message | RCS text `checkin_late_family` | WA free-form `checkin_late_family` if their window is open, else `aurasenior_family_update_<lang>` with that phrase | none |
 | "How was Mom this week?" | none | RCS text reply from `get_week` (an inbound RCS or SMS text starts it) | WA free-form reply (their message opened the window) | none |
 | Worth a call suggestion | none | RCS text `worth_a_call` (section 15) | WA template `aurasenior_family_update_<lang>`, or free-form if the window is open | none |
-| Weekly summary (Sunday 18:00 her time) | none | SES `aurasenior-weekly-summary` if Rohan has an email address with email consent | SES `aurasenior-weekly-summary` | SES `aurasenior-weekly-summary` to the doctor |
+| Weekly summary (Sunday 18:00 household time) | none | SES `aurasenior-weekly-summary` if Rohan has `addresses.email` and `consent.email = opted_in` | SES `aurasenior-weekly-summary`, same rule | SES `aurasenior-weekly-summary`, same rule (one rule for everyone, section 10) |
 | STOP | Text STOP, बंद, band, or a voice note whose whole transcript is one of those words: WhatsApp consent set to opted_out at once, one WA free-form `stop_confirm` | STOP on RCS or SMS: consent opted_out; the SMS opt-out list also records it (D6) | Same as Kamala for WhatsApp; email via SES unsubscribe (section 14) | SES unsubscribe link (section 14) |
 
 Template category for all WhatsApp templates: UTILITY, because they are updates tied to the person's own service
@@ -323,46 +324,70 @@ reviewed by a Hindi speaker under A6, and is stored next to the English one):
 
 | Name | Body | Variables | Buttons (quick reply, payload) |
 | --- | --- | --- | --- |
-| `aurasenior_checkin_<lang>` | "Good morning {{1}}. AuraSenior here with your morning check-in. Tap Listen to hear it." | `{{1}}` elder `display_name` | "Listen" / "सुनें" (`listen:checkin`) |
-| `aurasenior_followup_<lang>` | "{{1}}, AuraSenior again. Just checking you are okay this morning. Tap Listen." | `{{1}}` elder `display_name` | "Listen" / "सुनें" (`listen:followup`) |
+| `aurasenior_checkin_<lang>` | "Good morning {{1}}. {brand} here with your morning check-in. Tap Listen to hear it." | `{{1}}` elder `display_name` | "Listen" / "सुनें" (action `listen:checkin`) |
+| `aurasenior_followup_<lang>` | "{{1}}, {brand} again. Just checking you are okay this morning. Tap Listen." | `{{1}}` elder `display_name` | "Listen" / "सुनें" (action `listen:followup`) |
 | `aurasenior_refill_update_<lang>` | "{{1}}, your {{2}} have been ordered by {{3}}." | elder name, `display_label`, approver `display_name` | none |
-| `aurasenior_family_missed_<lang>` | "AuraSenior: no reply from {{1}} to this morning's check-in." | `relation_label` | "Send her number" (`info:number`) |
-| `aurasenior_family_refill_<lang>` | "AuraSenior: {{1}} said her {{2}} have run out. Order a refill from her usual pharmacy?" | `relation_label`, `display_label` | "Order refill" (`refill:approve:<id>`), "I'll handle it" (`refill:self:<id>`), "Call her" (`refill:call:<id>`) |
-| `aurasenior_family_update_<lang>` | "AuraSenior update about {{1}}: {{2}}" | `relation_label`, one fixed phrase from `config/phrases.toml` (max 300 characters, passes the guard) | none |
-| `aurasenior_urgent_alert_<lang>` | "URGENT from AuraSenior: {{1}} said \"{{2}}\" and may need help. Please check on her now." | `relation_label`, quote up to 100 characters | "I'm on it" (`esc:ack:<id>`) |
+| `aurasenior_family_missed_<lang>` | "{brand}: no reply from {{1}} to this morning's check-in." | `relation_label` | "Send number" (action `info:number`) |
+| `aurasenior_family_refill_<lang>` | "{brand}: {{1}} said the {{2}} have run out. Order a refill from the usual pharmacy?" | `relation_label`, `display_label` | "Order refill" (`refill:approve`), "I'll handle it" (`refill:self`), "Call" (`refill:call`); labels are static, no variables |
+| `aurasenior_family_update_<lang>` | "{brand} update about {{1}}: {{2}}" | `relation_label`, one fixed phrase from `config/phrases.toml` (max 300 characters, passes the guard) | none |
+| `aurasenior_urgent_alert_<lang>` | "URGENT from {brand}: {{1}} said \"{{2}}\" and may need help. Please check on {{1}} now." | `relation_label`, quote up to 100 characters (or `quote_withheld`, section 8.3) | "I'm on it" (action `esc:ack`) |
 
-The `<id>` part of a button payload is set per send in the template message's button component parameters. The
-exact payload field in the inbound event is A2 and A13; the parser is built from the first real event.
+Button labels are static text in the approved template (at most 25 characters, D5). Meta's button webhook gives
+the tapped label as `button.payload` and the template message ID as `context.id` (D5), so the per-send ID comes
+from our own `MSG#` item, not from the button (section 12 step 2). The label to action table lives next to the
+templates in `config/whatsapp_templates.toml`. The exact SNS envelope around the Meta webhook body is A2 and A13;
+the parser is built from the first real event.
+
+Brand: the product name is one config value, `[brand] name = "AuraSenior"` in `config/app.toml`. Every phrase,
+RCS text, SMS body and SES template uses `{brand}` (SES: `{{brand}}`, filled in `TemplateData`). WhatsApp template
+bodies are fixed once Meta approves them, so `post_deploy.py` replaces `{brand}` with the config value when it
+submits them; `{brand}` is not a Meta variable. A rename means deleting and re-submitting the WhatsApp templates
+(Meta review again, up to 24 hours, D5). Resource names and template names (`aurasenior-*`, `aurasenior_*`) stay
+as they are. A unit test fails if any file under `config/` other than the `[brand]` entry, or the SAM template's
+SES template text, contains the literal brand string.
+
+Neutral wording: fixed text never uses "her" or "him" for the elder. It uses `{relation_label}` (`{{1}}` in
+templates) or neutral words, so a household with a male elder needs no new templates.
 
 RCS texts and card, and their SMS fallbacks (`config/phrases.toml`, English for Rohan):
 
 | Key | RCS content | SMS fallback body |
 | --- | --- | --- |
-| `optin_ask` | "This is AuraSenior. {admin_name} set this up so you get updates about {relation_label}. Reply YES to start, or STOP to stop." | same text |
-| `missed_checkin` | text "No reply from {relation_label} to this morning's check-in." with suggestion "Send her number" (`info:number`) | `missed_checkin_sms`: "AuraSenior: no reply from {relation_label} this morning. Reply 3 to get her number." |
-| `refill_approval` | rich card, `CardOrientation` VERTICAL, title "{relation_label}'s {display_label} ran out", description "Order a refill from her usual pharmacy?", 3 Reply suggestions as in 6.2 | `refill_sms`: "AuraSenior: {relation_label}'s {display_label} ran out. Reply 1 to order a refill, 2 if you will handle it, 3 for her number." |
+| `optin_ask` | "This is {brand}. {admin_name} set this up so you get updates about {relation_label}. Reply YES to start, or STOP to stop." | same text |
+| `optin_ask_admin` | "This is {brand}. Reply YES to get updates about {relation_label}, or STOP to stop." (sent when the recipient is the admin) | same text |
+| `missed_checkin` | text "No reply from {relation_label} to this morning's check-in." with suggestion "Send number" (`info:number`) | `missed_checkin_sms`: "{brand}: no reply from {relation_label} this morning. Reply 3 to get {relation_label}'s number." |
+| `checkin_late_family` | "{relation_label} has replied now." | same text |
+| `refill_approval` | rich card, `CardOrientation` VERTICAL, title "{relation_label}'s {display_label} ran out", description "Order a refill from the usual pharmacy?", 3 Reply suggestions as in 6.2 | `refill_sms`: "{brand}: {relation_label}'s {display_label} ran out. Reply 1 to order a refill, 2 if you will handle it, 3 for {relation_label}'s number." |
 | `refill_ordered_family` | "Order sent to {pharmacy_name} for {relation_label}'s {display_label}." | same text |
-| `urgent_alert` | text "URGENT: {relation_label} said \"{quote}\" and may need help." with suggestion "I'm on it" (`esc:ack:<id>`) | `urgent_sms`: "URGENT AuraSenior: {relation_label} said \"{quote}\". Reply 4 if you are on it." |
+| `refill_order_failed` | "The order email could not be sent. Please call the pharmacy." | same text |
+| `refill_expired` | "The refill request for {relation_label}'s {display_label} has closed. Tell {brand} if you still want it ordered." | same text |
+| `urgent_alert` | text "URGENT: {relation_label} said \"{quote}\" and may need help." with suggestion "I'm on it" (`esc:ack:<id>`) | `urgent_sms`: "URGENT {brand}: {relation_label} said \"{quote}\". Reply 4 if you are on it." |
 | `esc_ack_family` | "{ack_name} is on it." | same text |
+| `agent_unavailable_family` | "{brand} could not answer {relation_label}'s message just now. Please call {relation_label}." | same text |
 | `worth_a_call` | from `config/signals.toml` (section 15) | same text |
-| `sms_help` | "AuraSenior: reply 1 to order, 2 if you will handle it, 3 for her number, 4 if you are on it. STOP to stop." | same text |
+| `sms_help` | "{brand}: reply 1 to order, 2 if you will handle it, 3 for the number, 4 if you are on it. STOP to stop." | same text |
+| `quote_withheld` | "help words" (used only inside urgent alerts, section 8.3) | same text |
 
 Elder voice phrases (`config/phrases.toml`, Hindi and English rows; spoken with Polly and also sent as short text):
 `optin_ask`, `checkin_voice` ("Good morning. Did you sleep well? Have you taken your {display_label} with your
 chai?"), `followup_voice`, `refill_ordered_elder` ("{family_name} has ordered your {display_label}."),
 `refill_self_elder`, `esc_told_elder`, `esc_reassure_elder` ("{family_name} knows. Help is coming. I am here with
-you."), `esc_ack_elder`, `stop_confirm`, `cost_cap`, `send_voice_note`, `not_heard`.
+you."), `esc_ack_elder`, `stop_confirm`, `cost_cap`, `send_voice_note`, `not_heard`. The elder `optin_ask` says
+"This is {brand}. {family_name} set this up for you." There is no `optin_ask_admin` for the elder, because the
+elder is never the admin (section 9.3).
 
 SES templates (`AWS::SES::Template`, subject and text part; HTML part is the same text in simple paragraphs):
 
 | Name | Subject | Text part (handlebars variables) | To |
 | --- | --- | --- | --- |
 | `aurasenior-refill-order` | "Refill request for {{elder_name}}" | "Hello {{pharmacy_name}}. Please prepare a refill of {{medicine_name}} for {{elder_name}}, approved by {{approver_name}} at {{approved_at}}." No phone number or other personal data beyond names is included | pharmacy |
-| `aurasenior-weekly-summary` | "{{elder_name}}: week of {{week_start}}" | Medicines taken per day per medicine, refills, missed check-ins, escalations with time to acknowledgement, pain and low-mood mention counts, all from `WeekFacts` (section 8.6). Closes with "This is a summary of what {{elder_name}} told AuraSenior. It is not medical advice." | doctor, family with email consent |
+| `aurasenior-weekly-summary` | "{{elder_name}}: week of {{week_start}}" | Medicines taken per day per medicine, refills, missed check-ins, escalations with time to acknowledgement, pain and low-mood mention counts, all from `WeekFacts` (section 8.6). Closes with "This is a summary of what {{elder_name}} told {{brand}}. It is not medical advice." | every person with `addresses.email` and `consent.email = opted_in` (section 10) |
 | `aurasenior-missed-checkin` | "No reply from {{relation_label}} this morning" | same wording as `missed_checkin` | family email fallback |
-| `aurasenior-refill-request` | "{{relation_label}}'s {{display_label}} ran out" | "Reply on WhatsApp to order a refill, or call her." | family email fallback |
+| `aurasenior-refill-request` | "{{relation_label}}'s {{display_label}} ran out" | "Reply on WhatsApp to order a refill, or call {{relation_label}}." | family email fallback |
 | `aurasenior-update` | "Update about {{relation_label}}" | "{{update_text}}" (a fixed phrase) | family email fallback |
-| `aurasenior-urgent` | "URGENT: {{relation_label}} may need help" | "{{relation_label}} said \"{{quote}}\". Please check on her now. Reply on WhatsApp or RCS with I'm on it." | family email fallback |
+| `aurasenior-urgent` | "URGENT: {{relation_label}} may need help" | "{{relation_label}} said \"{{quote}}\". Please check on {{relation_label}} now. Reply on WhatsApp or RCS with I'm on it." | family email fallback |
+
+Every SES template also receives `{{brand}}` in `TemplateData`, and its subject starts with "{{brand}}: ".
 
 `medicine_name` (the pack name) appears only in the pharmacy email, because the pharmacy needs it; every other
 message uses `display_label`.
@@ -476,6 +501,17 @@ Every send goes through `outbound.guard(person, channel, message)`. It owns thes
 place every path crosses, including deterministic paths that skip the model:
 
 1. Consent: the person is `opted_in` on that channel. Otherwise `blocked_consent`.
+
+   1a. Consent exemptions. Only these phrases, and only as a direct reply to the inbound message being handled
+   (or, for RCS, the one business-started ask in section 14):
+   - `optin_ask` or `optin_ask_admin`: allowed when consent on that channel is `pending` or `opted_out` and the
+     inbound text is START (or, for a known person, any message), at most once per person per channel per
+     household-local day (section 14). For RCS it is also allowed once after the test device is verified
+     (section 14, `source = rcs_verified_device`).
+   - `stop_confirm`: allowed once, in reply to the STOP message that set `opted_out`.
+
+   Both still pass rule 2 (window) and rule 3 (wording). No other kind or phrase is exempt. The exemption is
+   decided inside the guard from the phrase key, never from a flag the caller passes.
 2. WhatsApp window: free-form only if the window is open (section 6.1); else a template must be named. Otherwise
    `blocked_window`.
 3. Wording: blocks text that contains a disease name, a dose instruction, or the words score, diagnosis,
@@ -484,9 +520,13 @@ place every path crosses, including deterministic paths that skip the model:
    recipient's language and logged at WARN with the rule hit. For the elder it is "I have told {family_name}. They
    will call you." (`{family_name}` is the `display_name` of the first person in the escalation order); for family
    it is "Please call {elder_name}."
-4. Rate: max 30 outbound messages with `urgency = normal` per household per hour (`USAGE#<date>` counter per hour).
-   Urgent messages are not counted against this cap and are never blocked by it. They still pass rules 1 to 3 and
-   are bounded by the escalation's own limit (12 rechecks, section 13).
+   Exception for urgent alerts (`urgent_alert`, `urgent_sms`, `aurasenior_urgent_alert_<lang>`,
+   `aurasenior-urgent`): only the quote variable is checked, and if it fails it is replaced by the fixed phrase
+   `quote_withheld` ("help words" / "मदद के शब्द"). The template, card and button stay, so the alert still goes out
+   as a template outside the WhatsApp window.
+4. Rate: max 30 outbound messages with `urgency = normal` per household per hour (`USAGE#<local date>` counter per
+   hour, household-local date and hour). Urgent messages are not counted against this cap and are never blocked by
+   it. They still pass rules 1 to 3 and are bounded by the escalation's own limit (12 rechecks, section 13).
 
 Fallback after a block (section 7.3) is bounded: a `blocked_consent` result triggers a fallback send only if the
 person is `opted_in` on the fallback channel, and the fallback send passes this same guard. A `blocked_wording`
@@ -618,10 +658,11 @@ design. When she replies by voice or taps the button, the inbound path cancels t
 schedules.
 
 Weekly summary run (`{"kind":"weekly_summary"}`): `summary.build_week(household_id, today)` (section 8.6), then
-one SES `SendEmail` per recipient with an email address and `consent.email = opted_in` (doctor, and family whose
-`preferred_channel` or `fallback_channel` is email), template `aurasenior-weekly-summary`, `TemplateData` filled
-from `WeekFacts` (section 6.3). No model call. A recipient without email consent is skipped and traced
-`blocked_consent`.
+one SES `SendEmail` per recipient. Recipient rule (the same in 6.2 and 6.3): every person in the household,
+except the elder and the pharmacy, who has an `addresses.email` and `consent.email = opted_in`. This includes the
+doctor and any family member with an email address, whatever their preferred channel. Template
+`aurasenior-weekly-summary`, `TemplateData` filled from `WeekFacts` (section 6.3). No model call. A person with an
+email address but without email consent is skipped and traced `blocked_consent`.
 
 ## 11. Voice note in, voice note out
 
@@ -681,11 +722,21 @@ Agent turns are not replayed token for token, so on a retry the model may word a
 
 1. Agent hears "BP tablets are finished": `log_medicine(out_of_stock=true)`, then `request_refill_approval` for the
    first family member in the escalation order.
-2. Rohan taps a suggestion (RCS) or a quick-reply button (WhatsApp). The postback data (D6) or button payload (A2)
-   is validated with `^(refill:(approve|self|call)|esc:ack):[a-z0-9]{12}$`. For `refill:*` the handler checks the
-   approval exists in the sender's household and the sender is its asked person; for `esc:ack` it checks the
-   escalation exists in the sender's household and the sender is family or neighbour. The one payload without an ID
-   is the exact string `info:number` (same meaning as SMS `3`). Anything else is ignored and logged at INFO.
+2. Rohan taps a suggestion (RCS) or a quick-reply button (WhatsApp).
+   - RCS: the postback data (D6) is validated with `^(refill:(approve|self|call)|esc:ack):[a-z0-9]{12}$`. The one
+     payload without an ID is the exact string `info:number` (same meaning as SMS `3`).
+   - WhatsApp: Meta's button webhook reference (D5) gives `button.payload` as the quick-reply button label text and
+     `context.id` as the WhatsApp message ID of the message that held the button. So WhatsApp buttons carry no
+     per-send ID. Every template send stores on its `MSG#<provider_id>` item a `ref` (`{kind, id}`: approval,
+     escalation, listen or info). On a tap the handler reads `MSG#<context.id>` in the sender's household and maps
+     the label through the label table in `config/whatsapp_templates.toml` (each label, per language, maps to one
+     action: `refill:approve`, `refill:self`, `refill:call`, `esc:ack`, `listen:checkin`, `listen:followup`,
+     `info:number`). The action plus `ref.id` gives the same `<action>:<id>` string as RCS, which then passes the same
+     regex. If `context.id` is missing or has no `MSG#` item, the SMS digit rule in step 4 resolves the target
+     (newest `pending` approval asked of the sender, or newest `open` escalation in the household).
+   For `refill:*` the handler checks the approval exists in the sender's household and the sender is its asked
+   person; for `esc:ack` it checks the escalation exists in the sender's household and the sender is family or
+   neighbour. Anything else is ignored and logged at INFO.
 3. `approve`: conditional update `pending` to `approved` (condition fails: already handled, reply with the help
    text). Then the inbound handler calls `send_pharmacy_order(approval_id)` directly in code: conditional update
    `approved` to `ordered`, SES `aurasenior-refill-order` to the pharmacy (requires the pharmacy's
@@ -766,10 +817,32 @@ Agent turns are not replayed token for token, so on a retry the model may word a
   way. Only the `email` channel can be set like this; the command exits 1 for any other channel, because WhatsApp,
   RCS and SMS consent come only from the person's own reply. `--source` is required, 1 to 200 characters. The
   pharmacy order requires `consent.email = opted_in` on the pharmacy person.
-- RCS and SMS opt-in for family: same pattern as WhatsApp. The family member sends START from their own phone to
-  the RCS agent (or, for a simulator record, to the SMS number); AuraSenior replies with `optin_ask` and YES sets
-  `consent.rcs` and `consent.sms` to `opted_in` with `source: "rcs_inbound_yes"` or `"sms_inbound_yes"`. Until YES,
-  nothing else is sent to that person.
+- RCS opt-in for family (real test device). The rcs-testing page (D6) documents that a test device is registered
+  with `CreateVerifiedDestinationNumber --rcs-agent-id`, receives a tester invitation from "RBM Tester Management"
+  and must accept it before it can receive messages. It does not document a test device starting a conversation
+  with the testing agent before the agent has sent anything. So RCS opt-in is:
+  1. The family member adds their own phone as a test device (owner step, the code is entered on their phone) and
+     accepts the tester invitation.
+  2. The admin runs `python -m aurasenior.admin rcs-ask <household_id> <person_id>`. It checks with
+     `DescribeVerifiedDestinationNumbers` (filter `rcs-agent-id`) that the number is verified for the agent, then
+     sends one business-started RCS text `optin_ask` (or `optin_ask_admin` when the person is the admin). This is
+     the rule 1a exemption with `source = rcs_verified_device`; it is sent at most once per person per day.
+  3. Only YES (or START then YES) from that phone sets `consent.rcs = {status: opted_in, at, source:
+     "rcs_inbound_yes"}`. Accepting the tester invitation alone is not consent.
+  If a later read of the rcs-inbound page or a real test shows that a test device can message the agent first,
+  START from the phone is kept as an extra path. The result is recorded in D6.
+- SMS simulator record (second family record used to show the RCS to SMS fallback and the reply digits).
+  `preferred_channel = rcs`, `fallback_channel = none`, `addresses.rcs` and `addresses.sms` = the US success
+  simulator destination number `+14254147755` (test-phone-numbers, D6). Because it is not a verified RCS test
+  device, the RCS send cannot be delivered as RCS, and the `FallbackConfiguration` SMS is what shows the fallback
+  (open assumption A15). The test-phone-numbers page documents success and failure events for simulator
+  destinations, not inbound messages from them. So inbound messages for this record (START, YES, digits 1 to 4)
+  come from `python -m aurasenior.demo sim-inbound <household_id> <person_id> "<text>"`, which publishes a message
+  shaped like the two-way SMS payload (D6) to `aurasenior-sms-rcs-events` with the developer's credentials. Every
+  trace item and consent record it produces has `simulated = true`, consent `source = "sms_sim_inbound_yes"`, and
+  the trace view prints `[SIMULATED]`. The handler accepts `sim-inbound` messages only for persons whose address is
+  a number listed in `[sms] simulator_destinations` in `config/app.toml`, so it cannot set consent for a real
+  phone. The README and the demo say this record is simulated.
 - Consent changes are written to the trace with time and source.
 
 ## 15. Tier 1 voice signals: change from her usual
