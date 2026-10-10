@@ -1,0 +1,443 @@
+{
+ "date": "2026-10-10T23:07:18+0530",
+ "region": "us-east-1",
+ "profile": "the-unsent",
+ "boto3": "1.43.111",
+ "available_services": [
+  "bedrock-agentcore",
+  "bedrock-agentcore-control"
+ ],
+ "operations": {
+  "bedrock-agentcore": [
+   "BatchCreateMemoryRecords",
+   "BatchDeleteMemoryRecords",
+   "BatchUpdateMemoryRecords",
+   "CompleteResourceTokenAuth",
+   "CreateABTest",
+   "CreateEvent",
+   "CreatePaymentInstrument",
+   "CreatePaymentSession",
+   "DeleteABTest",
+   "DeleteBatchEvaluation",
+   "DeleteCapacityProviderSession",
+   "DeleteEvent",
+   "DeleteMemoryRecord",
+   "DeletePaymentInstrument",
+   "DeletePaymentSession",
+   "DeleteRecommendation",
+   "Evaluate",
+   "GetABTest",
+   "GetAgentCard",
+   "GetBatchEvaluation",
+   "GetBrowserSession",
+   "GetCodeInterpreterSession",
+   "GetEvent",
+   "GetMemoryRecord",
+   "GetPaymentInstrument",
+   "GetPaymentInstrumentBalance",
+   "GetPaymentSession",
+   "GetRecommendation",
+   "GetResourceApiKey",
+   "GetResourceOauth2Token",
+   "GetResourcePaymentToken",
+   "GetWorkloadAccessToken",
+   "GetWorkloadAccessTokenForJWT",
+   "GetWorkloadAccessTokenForUserId",
+   "IngestData",
+   "InvokeAgentRuntime",
+   "InvokeAgentRuntimeCommand",
+   "InvokeBrowser",
+   "InvokeCodeInterpreter",
+   "InvokeHarness",
+   "ListABTests",
+   "ListActors",
+   "ListBatchEvaluations",
+   "ListBrowserSessions",
+   "ListCodeInterpreterSessions",
+   "ListEvents",
+   "ListMemoryExtractionJobs",
+   "ListMemoryRecords",
+   "ListPaymentInstruments",
+   "ListPaymentSessions",
+   "ListRecommendations",
+   "ListSessions",
+   "ProcessPayment",
+   "RetrieveMemoryRecords",
+   "SaveBrowserSessionProfile",
+   "SearchRegistryRecords",
+   "StartBatchEvaluation",
+   "StartBrowserSession",
+   "StartCodeInterpreterSession",
+   "StartMemoryExtractionJob",
+   "StartRecommendation",
+   "StopBatchEvaluation",
+   "StopBrowserSession",
+   "StopCodeInterpreterSession",
+   "StopRuntimeSession",
+   "UpdateABTest",
+   "UpdateBrowserStream"
+  ],
+  "bedrock-agentcore-control": [
+   "AddDatasetExamples",
+   "BatchPutGatewayRateLimits",
+   "CreateAgentRuntime",
+   "CreateAgentRuntimeEndpoint",
+   "CreateApiKeyCredentialProvider",
+   "CreateBrowser",
+   "CreateBrowserProfile",
+   "CreateCapacityProvider",
+   "CreateCodeInterpreter",
+   "CreateConfigurationBundle",
+   "CreateConsentPortal",
+   "CreateDataset",
+   "CreateDatasetVersion",
+   "CreateEvaluator",
+   "CreateGateway",
+   "CreateGatewayRateLimit",
+   "CreateGatewayRule",
+   "CreateGatewayTarget",
+   "CreateHarness",
+   "CreateHarnessEndpoint",
+   "CreateMemory",
+   "CreateOauth2CredentialProvider",
+   "CreateOnlineEvaluationConfig",
+   "CreatePaymentConnector",
+   "CreatePaymentCredentialProvider",
+   "CreatePaymentManager",
+   "CreatePolicy",
+   "CreatePolicyEngine",
+   "CreateRegistry",
+   "CreateRegistryRecord",
+   "CreateWorkloadIdentity",
+   "DeleteAgentRuntime",
+   "DeleteAgentRuntimeEndpoint",
+   "DeleteApiKeyCredentialProvider",
+   "DeleteBrowser",
+   "DeleteBrowserProfile",
+   "DeleteCapacityProvider",
+   "DeleteCodeInterpreter",
+   "DeleteConfigurationBundle",
+   "DeleteConsentPortal",
+   "DeleteDataset",
+   "DeleteDatasetExamples",
+   "DeleteEvaluator",
+   "DeleteGateway",
+   "DeleteGatewayRateLimit",
+   "DeleteGatewayRule",
+   "DeleteGatewayTarget",
+   "DeleteHarness",
+   "DeleteHarnessEndpoint",
+   "DeleteMemory",
+   "DeleteOauth2CredentialProvider",
+   "DeleteOnlineEvaluationConfig",
+   "DeletePaymentConnector",
+   "DeletePaymentCredentialProvider",
+   "DeletePaymentManager",
+   "DeletePolicy",
+   "DeletePolicyEngine",
+   "DeleteRegistry",
+   "DeleteRegistryRecord",
+   "DeleteResourcePolicy",
+   "DeleteWorkloadIdentity",
+   "GetAgentRuntime",
+   "GetAgentRuntimeEndpoint",
+   "GetApiKeyCredentialProvider",
+   "GetBrowser",
+   "GetBrowserProfile",
+   "GetCapacityProvider",
+   "GetCodeInterpreter",
+   "GetConfigurationBundle",
+   "GetConfigurationBundleVersion",
+   "GetConsentPortal",
+   "GetDataset",
+   "GetEvaluator",
+   "GetGateway",
+   "GetGatewayRateLimit",
+   "GetGatewayRule",
+   "GetGatewayTarget",
+   "GetHarness",
+   "GetHarnessEndpoint",
+   "GetMemory",
+   "GetOauth2CredentialProvider",
+   "GetOnlineEvaluationConfig",
+   "GetPaymentConnector",
+   "GetPaymentCredentialProvider",
+   "GetPaymentManager",
+   "GetPolicy",
+   "GetPolicyEngine",
+   "GetPolicyEngineSummary",
+   "GetPolicyGeneration",
+   "GetPolicyGenerationSummary",
+   "GetPolicySummary",
+   "GetRegistry",
+   "GetRegistryRecord",
+   "GetResourcePolicy",
+   "GetTokenVault",
+   "GetWorkloadIdentity",
+   "ListAgentRuntimeEndpoints",
+   "ListAgentRuntimeVersions",
+   "ListAgentRuntimeVersionsByCapacityProvider",
+   "ListAgentRuntimes",
+   "ListApiKeyCredentialProviders",
+   "ListBrowserProfiles",
+   "ListBrowsers",
+   "ListCapacityProviders",
+   "ListCodeInterpreters",
+   "ListConfigurationBundleVersions",
+   "ListConfigurationBundles",
+   "ListConsentPortals",
+   "ListDatasetExamples",
+   "ListDatasetVersions",
+   "ListDatasets",
+   "ListEvaluators",
+   "ListGatewayRateLimits",
+   "ListGatewayRules",
+   "ListGatewayTargets",
+   "ListGateways",
+   "ListHarnessEndpoints",
+   "ListHarnessVersions",
+   "ListHarnesses",
+   "ListMemories",
+   "ListOauth2CredentialProviders",
+   "ListOnlineEvaluationConfigs",
+   "ListPaymentConnectors",
+   "ListPaymentCredentialProviders",
+   "ListPaymentManagers",
+   "ListPolicies",
+   "ListPolicyEngineSummaries",
+   "ListPolicyEngines",
+   "ListPolicyGenerationAssets",
+   "ListPolicyGenerationSummaries",
+   "ListPolicyGenerations",
+   "ListPolicySummaries",
+   "ListRegistries",
+   "ListRegistryRecords",
+   "ListTagsForResource",
+   "ListWorkloadIdentities",
+   "PutResourcePolicy",
+   "RotatePaymentConnectorCredentials",
+   "SetTokenVaultCMK",
+   "StartPolicyGeneration",
+   "SubmitRegistryRecordForApproval",
+   "SynchronizeGatewayTargets",
+   "TagResource",
+   "UntagResource",
+   "UpdateAgentRuntime",
+   "UpdateAgentRuntimeEndpoint",
+   "UpdateApiKeyCredentialProvider",
+   "UpdateCapacityProvider",
+   "UpdateConfigurationBundle",
+   "UpdateConsentPortal",
+   "UpdateDataset",
+   "UpdateDatasetExamples",
+   "UpdateEvaluator",
+   "UpdateGateway",
+   "UpdateGatewayRateLimit",
+   "UpdateGatewayRule",
+   "UpdateGatewayTarget",
+   "UpdateHarness",
+   "UpdateHarnessEndpoint",
+   "UpdateMemory",
+   "UpdateOauth2CredentialProvider",
+   "UpdateOnlineEvaluationConfig",
+   "UpdatePaymentConnector",
+   "UpdatePaymentCredentialProvider",
+   "UpdatePaymentManager",
+   "UpdatePolicy",
+   "UpdatePolicyEngine",
+   "UpdateRegistry",
+   "UpdateRegistryRecord",
+   "UpdateRegistryRecordStatus",
+   "UpdateWorkloadIdentity"
+  ]
+ },
+ "calls": {
+  "bedrock-agentcore": {
+   "endpoint": "https://bedrock-agentcore.us-east-1.amazonaws.com"
+  },
+  "bedrock-agentcore-control": {
+   "endpoint": "https://bedrock-agentcore-control.us-east-1.amazonaws.com",
+   "ListAgentRuntimeEndpoints": {
+    "skipped": "needs ['agentRuntimeId']"
+   },
+   "ListAgentRuntimeVersions": {
+    "skipped": "needs ['agentRuntimeId']"
+   },
+   "ListAgentRuntimeVersionsByCapacityProvider": {
+    "skipped": "needs ['capacityProviderId']"
+   },
+   "ListAgentRuntimes": {
+    "ok": true,
+    "counts": {
+     "agentRuntimes": 0
+    }
+   },
+   "ListApiKeyCredentialProviders": {
+    "ok": true,
+    "counts": {
+     "credentialProviders": 0
+    }
+   },
+   "ListBrowserProfiles": {
+    "ok": true,
+    "counts": {
+     "profileSummaries": 0
+    }
+   },
+   "ListBrowsers": {
+    "ok": true,
+    "counts": {
+     "browserSummaries": 0
+    }
+   },
+   "ListCapacityProviders": {
+    "ok": true,
+    "counts": {
+     "capacityProviders": 0
+    }
+   },
+   "ListCodeInterpreters": {
+    "ok": true,
+    "counts": {
+     "codeInterpreterSummaries": 0
+    }
+   },
+   "ListConfigurationBundleVersions": {
+    "skipped": "needs ['bundleId']"
+   },
+   "ListConfigurationBundles": {
+    "ok": true,
+    "counts": {
+     "bundles": 0
+    }
+   },
+   "ListConsentPortals": {
+    "ok": true,
+    "counts": {
+     "consentPortals": 0
+    }
+   },
+   "ListDatasetExamples": {
+    "skipped": "needs ['datasetId']"
+   },
+   "ListDatasetVersions": {
+    "skipped": "needs ['datasetId']"
+   },
+   "ListDatasets": {
+    "ok": true,
+    "counts": {
+     "datasets": 0
+    }
+   },
+   "ListEvaluators": {
+    "ok": true,
+    "counts": {
+     "evaluators": 31
+    }
+   },
+   "ListGatewayRateLimits": {
+    "skipped": "needs ['gatewayIdentifier']"
+   },
+   "ListGatewayRules": {
+    "skipped": "needs ['gatewayIdentifier']"
+   },
+   "ListGatewayTargets": {
+    "skipped": "needs ['gatewayIdentifier']"
+   },
+   "ListGateways": {
+    "ok": true,
+    "counts": {
+     "items": 0
+    }
+   },
+   "ListHarnessEndpoints": {
+    "skipped": "needs ['harnessId']"
+   },
+   "ListHarnessVersions": {
+    "skipped": "needs ['harnessId']"
+   },
+   "ListHarnesses": {
+    "ok": true,
+    "counts": {
+     "harnesses": 0
+    }
+   },
+   "ListMemories": {
+    "ok": true,
+    "counts": {
+     "memories": 0
+    }
+   },
+   "ListOauth2CredentialProviders": {
+    "ok": true,
+    "counts": {
+     "credentialProviders": 0
+    }
+   },
+   "ListOnlineEvaluationConfigs": {
+    "ok": true,
+    "counts": {
+     "onlineEvaluationConfigs": 0
+    }
+   },
+   "ListPaymentConnectors": {
+    "skipped": "needs ['paymentManagerId']"
+   },
+   "ListPaymentCredentialProviders": {
+    "ok": true,
+    "counts": {
+     "credentialProviders": 0
+    }
+   },
+   "ListPaymentManagers": {
+    "ok": true,
+    "counts": {
+     "paymentManagers": 0
+    }
+   },
+   "ListPolicies": {
+    "skipped": "needs ['policyEngineId']"
+   },
+   "ListPolicyEngineSummaries": {
+    "ok": true,
+    "counts": {
+     "policyEngines": 0
+    }
+   },
+   "ListPolicyEngines": {
+    "ok": true,
+    "counts": {
+     "policyEngines": 0
+    }
+   },
+   "ListPolicyGenerationAssets": {
+    "skipped": "needs ['policyGenerationId', 'policyEngineId']"
+   },
+   "ListPolicyGenerationSummaries": {
+    "skipped": "needs ['policyEngineId']"
+   },
+   "ListPolicyGenerations": {
+    "skipped": "needs ['policyEngineId']"
+   },
+   "ListPolicySummaries": {
+    "skipped": "needs ['policyEngineId']"
+   },
+   "ListRegistries": {
+    "ok": false,
+    "error": "AccessDeniedException('An error occurred (AccessDeniedException) when calling the ListRegistries operation: User: arn:aws:iam::REDACTED_ACCOUNT:user/aws-ses-serv is not authorized to perform: bedrock-agentcore:ListRegistries')"
+   },
+   "ListRegistryRecords": {
+    "skipped": "needs ['registryId']"
+   },
+   "ListTagsForResource": {
+    "skipped": "needs ['resourceArn']"
+   },
+   "ListWorkloadIdentities": {
+    "ok": true,
+    "counts": {
+     "workloadIdentities": 0
+    }
+   }
+  }
+ }
+}
