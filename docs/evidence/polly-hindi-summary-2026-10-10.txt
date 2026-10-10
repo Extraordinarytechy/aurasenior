@@ -1,0 +1,9 @@
+hi-IN: Aditi lang=en-IN extra=['hi-IN'] engines=['standard'] gender=Female
+hi-IN: Kajal lang=en-IN extra=['hi-IN'] engines=['generative', 'neural'] gender=Female
+en-IN: Raveena lang=en-IN extra=None engines=['standard'] gender=Female
+en-IN: Aditi lang=en-IN extra=['hi-IN'] engines=['standard'] gender=Female
+en-IN: Kajal lang=en-IN extra=['hi-IN'] engines=['generative', 'neural'] gender=Female
+{"voice": "Kajal", "engine": "neural", "languageCode": "hi-IN", "outputFormat": "ogg_opus", "sampleRate": "48000", "ok": true, "contentType": "audio/ogg; codecs=opus", "requestCharacters": 52, "bytes": 12766, "first4": "OggS", "opusHead": true, "id3OrMpegSync": false}
+{"voice": "Kajal", "engine": "generative", "languageCode": "hi-IN", "outputFormat": "ogg_opus", "sampleRate": "48000", "ok": true, "contentType": "audio/ogg; codecs=opus", "requestCharacters": 52, "bytes": 10586, "first4": "OggS", "opusHead": true, "id3OrMpegSync": false}
+{"voice": "Aditi", "engine": "standard", "languageCode": "hi-IN", "outputFormat": "ogg_opus", "sampleRate": "48000", "ok": true, "contentType": "audio/ogg; codecs=opus", "requestCharacters": 52, "bytes": 13060, "first4": "OggS", "opusHead": true, "id3OrMpegSync": false}
+{"voice": "Raveena", "engine": "standard", "languageCode": "hi-IN", "outputFormat": "ogg_opus", "sampleRate": "48000", "ok": true, "contentType": "audio/ogg; codecs=opus", "requestCharacters": 52, "bytes": 13786, "first4": "OggS", "opusHead": true, "id3OrMpegSync": false}

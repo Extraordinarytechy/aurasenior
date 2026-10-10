@@ -1,0 +1,135 @@
+{
+ "date": "2026-10-10T23:07:13+0530",
+ "region": "us-east-1",
+ "profile": "the-unsent",
+ "boto3": "1.43.111",
+ "text": "सुप्रभात। क्या आपने चाय के साथ अपनी बीपी की गोली ली?",
+ "describeVoices": {
+  "hi-IN": [
+   {
+    "Gender": "Female",
+    "Id": "Aditi",
+    "LanguageCode": "en-IN",
+    "LanguageName": "Indian English",
+    "Name": "Aditi",
+    "AdditionalLanguageCodes": [
+     "hi-IN"
+    ],
+    "SupportedEngines": [
+     "standard"
+    ]
+   },
+   {
+    "Gender": "Female",
+    "Id": "Kajal",
+    "LanguageCode": "en-IN",
+    "LanguageName": "Indian English",
+    "Name": "Kajal",
+    "AdditionalLanguageCodes": [
+     "hi-IN"
+    ],
+    "SupportedEngines": [
+     "generative",
+     "neural"
+    ]
+   }
+  ],
+  "en-IN": [
+   {
+    "Gender": "Female",
+    "Id": "Raveena",
+    "LanguageCode": "en-IN",
+    "LanguageName": "Indian English",
+    "Name": "Raveena",
+    "SupportedEngines": [
+     "standard"
+    ]
+   },
+   {
+    "Gender": "Female",
+    "Id": "Aditi",
+    "LanguageCode": "en-IN",
+    "LanguageName": "Indian English",
+    "Name": "Aditi",
+    "AdditionalLanguageCodes": [
+     "hi-IN"
+    ],
+    "SupportedEngines": [
+     "standard"
+    ]
+   },
+   {
+    "Gender": "Female",
+    "Id": "Kajal",
+    "LanguageCode": "en-IN",
+    "LanguageName": "Indian English",
+    "Name": "Kajal",
+    "AdditionalLanguageCodes": [
+     "hi-IN"
+    ],
+    "SupportedEngines": [
+     "generative",
+     "neural"
+    ]
+   }
+  ]
+ },
+ "synthesize": [
+  {
+   "voice": "Kajal",
+   "engine": "neural",
+   "languageCode": "hi-IN",
+   "outputFormat": "ogg_opus",
+   "sampleRate": "48000",
+   "ok": true,
+   "contentType": "audio/ogg; codecs=opus",
+   "requestCharacters": 52,
+   "bytes": 12766,
+   "first4": "OggS",
+   "opusHead": true,
+   "id3OrMpegSync": false
+  },
+  {
+   "voice": "Kajal",
+   "engine": "generative",
+   "languageCode": "hi-IN",
+   "outputFormat": "ogg_opus",
+   "sampleRate": "48000",
+   "ok": true,
+   "contentType": "audio/ogg; codecs=opus",
+   "requestCharacters": 52,
+   "bytes": 10586,
+   "first4": "OggS",
+   "opusHead": true,
+   "id3OrMpegSync": false
+  },
+  {
+   "voice": "Aditi",
+   "engine": "standard",
+   "languageCode": "hi-IN",
+   "outputFormat": "ogg_opus",
+   "sampleRate": "48000",
+   "ok": true,
+   "contentType": "audio/ogg; codecs=opus",
+   "requestCharacters": 52,
+   "bytes": 13060,
+   "first4": "OggS",
+   "opusHead": true,
+   "id3OrMpegSync": false
+  },
+  {
+   "voice": "Raveena",
+   "engine": "standard",
+   "languageCode": "hi-IN",
+   "outputFormat": "ogg_opus",
+   "sampleRate": "48000",
+   "ok": true,
+   "contentType": "audio/ogg; codecs=opus",
+   "requestCharacters": 52,
+   "bytes": 13786,
+   "first4": "OggS",
+   "opusHead": true,
+   "id3OrMpegSync": false
+  }
+ ]
+}
