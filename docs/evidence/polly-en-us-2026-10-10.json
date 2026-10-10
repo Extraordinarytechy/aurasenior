@@ -1,0 +1,128 @@
+{
+ "date": "2026-10-10",
+ "region": "us-east-1",
+ "call": "polly.describe_voices(LanguageCode='en-US', Engine='neural')",
+ "voices": [
+  {
+   "Id": "Danielle",
+   "Gender": "Female",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "generative",
+    "long-form",
+    "neural"
+   ]
+  },
+  {
+   "Id": "Gregory",
+   "Gender": "Male",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "long-form",
+    "neural"
+   ]
+  },
+  {
+   "Id": "Joanna",
+   "Gender": "Female",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "generative",
+    "neural",
+    "standard"
+   ]
+  },
+  {
+   "Id": "Ruth",
+   "Gender": "Female",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "generative",
+    "long-form",
+    "neural"
+   ]
+  },
+  {
+   "Id": "Kevin",
+   "Gender": "Male",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "neural"
+   ]
+  },
+  {
+   "Id": "Salli",
+   "Gender": "Female",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "generative",
+    "neural",
+    "standard"
+   ]
+  },
+  {
+   "Id": "Matthew",
+   "Gender": "Male",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "generative",
+    "neural",
+    "standard"
+   ]
+  },
+  {
+   "Id": "Kimberly",
+   "Gender": "Female",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "neural",
+    "standard"
+   ]
+  },
+  {
+   "Id": "Kendra",
+   "Gender": "Female",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "neural",
+    "standard"
+   ]
+  },
+  {
+   "Id": "Justin",
+   "Gender": "Male",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "neural",
+    "standard"
+   ]
+  },
+  {
+   "Id": "Joey",
+   "Gender": "Male",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "neural",
+    "standard"
+   ]
+  },
+  {
+   "Id": "Ivy",
+   "Gender": "Female",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "neural",
+    "standard"
+   ]
+  },
+  {
+   "Id": "Stephen",
+   "Gender": "Male",
+   "LanguageCode": "en-US",
+   "SupportedEngines": [
+    "generative",
+    "neural"
+   ]
+  }
+ ]
+}

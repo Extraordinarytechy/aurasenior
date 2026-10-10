@@ -1,0 +1,165 @@
+{
+ "date": "2026-10-10",
+ "region": "us-east-1",
+ "call": "cloudformation.describe_type(Type='RESOURCE')",
+ "types": {
+  "AWS::Lambda::Function": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "Code",
+    "Role"
+   ]
+  },
+  "AWS::DynamoDB::Table": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "KeySchema"
+   ]
+  },
+  "AWS::S3::Bucket": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::SNS::Topic": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::SNS::TopicPolicy": {
+   "found": true,
+   "provisioningType": "NON_PROVISIONABLE",
+   "required": [
+    "PolicyDocument",
+    "Topics"
+   ]
+  },
+  "AWS::SNS::Subscription": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "TopicArn",
+    "Protocol"
+   ]
+  },
+  "AWS::Scheduler::Schedule": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "FlexibleTimeWindow",
+    "ScheduleExpression",
+    "Target"
+   ]
+  },
+  "AWS::Scheduler::ScheduleGroup": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::Events::Rule": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::SES::ConfigurationSet": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::SES::ConfigurationSetEventDestination": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "ConfigurationSetName",
+    "EventDestination"
+   ]
+  },
+  "AWS::SES::Template": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::SES::ContactList": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::SMSVOICE::PhoneNumber": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "IsoCountryCode",
+    "NumberCapabilities",
+    "NumberType",
+    "MandatoryKeywords"
+   ]
+  },
+  "AWS::SMSVOICE::ConfigurationSet": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::SMSVOICE::OptOutList": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::SMSVOICE::RcsAgent": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::SMSVOICE::Pool": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "OriginationIdentities",
+    "MandatoryKeywords"
+   ]
+  },
+  "AWS::Bedrock::Guardrail": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "Name",
+    "BlockedInputMessaging",
+    "BlockedOutputsMessaging"
+   ]
+  },
+  "AWS::Budgets::Budget": {
+   "found": true,
+   "provisioningType": "NON_PROVISIONABLE",
+   "required": [
+    "Budget"
+   ]
+  },
+  "AWS::CloudWatch::Alarm": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": []
+  },
+  "AWS::BedrockAgentCore::Runtime": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "AgentRuntimeName",
+    "AgentRuntimeArtifact",
+    "RoleArn"
+   ]
+  },
+  "AWS::BedrockAgentCore::Memory": {
+   "found": true,
+   "provisioningType": "FULLY_MUTABLE",
+   "required": [
+    "Name",
+    "EventExpiryDuration"
+   ]
+  },
+  "AWS::SocialMessaging::WhatsAppBusinessAccount": {
+   "found": false,
+   "error": "TypeNotFoundException"
+  }
+ }
+}
