@@ -1,7 +1,7 @@
 # Design
 
-Status: Milestone 1 design, revision 2 (2026-10-10), addressing every finding in `docs/design-review.md` (responses
-in section 19). Every AWS API, parameter, resource type, model ID and
+Status: Milestone 1 design, revision 2 (2026-10-10), addressing every finding of the 2026-10-10 design review
+(responses in section 19). Every AWS API, parameter, resource type, model ID and
 limit named here is backed by an entry in `docs/decisions.md` (official doc URL or a real read-only call saved in
 `docs/evidence/`). Anything not yet confirmed is listed as an open assumption in section 18 and in `decisions.md`
 D13, and must be resolved before the code that depends on it is called done.
@@ -421,7 +421,8 @@ Simulated sends are labelled: the adapter sets `simulated=True`, the trace item 
 
 1. Send on `preferred_channel`.
 2. If the send call fails with a non-retryable error, or the consent or window check blocks it and no template can
-   be used, send on `fallback_channel` at once.
+   be used, send on `fallback_channel` at once. A consent block falls back only if the person is `opted_in` on the
+   fallback channel, and the fallback send passes the same guard (section 8.3).
 3. If a status event later reports the message failed, send on `fallback_channel`.
 4. For `urgent` messages only, a one-time `delivery_check` schedule fires 3 minutes later; if no delivered or read
    status was recorded, send on `fallback_channel`.
@@ -900,6 +901,39 @@ Each also appears in `docs/decisions.md` D13 with how it will be checked.
   START; the design does not depend on the link.
 - A13. Exact WhatsApp template button payload in the inbound SNS event (part of A2) and that Meta accepts the
   template bodies in section 6.3 as written.
-- A14. The Bedrock guardrail with the Standard tier is accepted by `AWS::Bedrock::Guardrail` with the property shown
-  in D11, and works with the `us.amazon.nova-2-lite-v1:0` profile in Converse. Checked on first deploy and the first
-  guarded call.
+- A14. The guardrail profile ID for us-east-1 that the Standard tier needs (cross-Region inference), and that the
+  guardrail works with the `us.amazon.nova-2-lite-v1:0` profile in Converse. Checked before and on the first deploy
+  and the first guarded call. Until then the outbound guard is the Hindi wording control.
+
+## 19. Responses to the design review (2026-10-10)
+
+All 25 findings of the design review are addressed in this revision. None are backlogged or ignored. Items that
+still need a real call are tracked as open assumptions (A11 to A14).
+
+| # | Finding | Response | Where |
+| --- | --- | --- | --- |
+| 1 | WhatsApp opt-in template before consent | Addressed. Person-started opt-in (START, then YES inside the window); opt-in templates removed; Meta opt-in page recorded | 6.2, 14, D5 |
+| 2 | Dedupe defeats retries | Addressed. Two-state `DEDUP#` with 5 min stale, delete on recoverable error, `SEND#` idempotent sends, retry test | 9.1, 11.1, 16, 17 |
+| 3 | 9 AM check-in reaches her as text | Addressed. "सुनें" / "Listen" quick reply on check-in and follow-up templates; the tap opens the window and the voice note is sent at once; no audio header used | 6.2, 10, D5 |
+| 4 | Message content undefined | Addressed. Section 6.3 with every template, RCS text, SMS fallback and SES template; `relation_label`, `display_label`; render-and-guard test | 6.3, 9.1, 9.3, 17 |
+| 5 | No weekly data, transcript leak | Addressed. `build_week` and `WeekFacts`, model tool `get_week`, summary rendered without the model, `TURN#<pid>#<ts>` per person | 8.2, 8.5, 8.6, 10 |
+| 6 | Email consent undefined | Addressed. `PROFILE.admin_person_id` and the admin consent command, email channel only | 9.1, 9.3, 14 |
+| 7 | SMS digits ambiguous | Addressed. Digit table 1 to 4, strict regex, `secrets.token_hex(6)` IDs, `info:number` | 9.1, 12 |
+| 8 | Pharmacy order left to the model | Addressed. Inbound handler calls `send_pharmacy_order` in code; removed from model tools | 8.2, 12 |
+| 9 | 5 min reassurance has no schedule | Addressed. `escalation_recheck` every 5 min, max 12 runs, family resend on even runs | 2.1, 6.2, 13 |
+| 10 | Rate cap blocks urgent alerts | Addressed. Cap applies to `urgency = normal` only; unit test | 8.3, 17 |
+| 11 | Transcribe job name from raw wamid | Addressed. sha256 prefix name, `TJOB#` lookup, constraint recorded, unit test | 11.2, 9.1, D10 |
+| 12 | Per-function IAM missing | Addressed. Section 5.1 table, checked against the Service Reference data | 5.1, D14 |
+| 13 | `CAPABILITY_IAM` vs named roles | Addressed. `CAPABILITY_NAMED_IAM` everywhere | 5, D12 |
+| 14 | SES sender identity | Addressed. `SenderEmail` parameter, owner verification step, `GetEmailIdentity` check | 5, D7 |
+| 15 | Demo baseline and MAD of 0 | Addressed. Real daily notes from Oct 12, labelled simulated baseline as backup; floor in the deviation | 15, 9.1 |
+| 16 | Guardrail Hindi coverage | Addressed. Standard tier covers Hindi denied topics, so tier set to `STANDARD`; profile ID open as A14; outbound guard remains the Hindi control | 8.3, D11 |
+| 17 | SES missing from topic policy | Addressed. Per-topic publisher table with `aws:SourceAccount` | 2.3, D6, D7 |
+| 18 | Transcribe rule fires on every job | Addressed. Prefix filter on `TranscriptionJobName` | 11.2, D10 |
+| 19 | Fixed sentences English only, name Rohan | Addressed. `config/phrases.toml` per language with placeholders | 8.3, 8.4, 6.3 |
+| 20 | AgentCore deviation not signed off | Addressed as far as this step can: D11 records "Owner confirmation: pending"; the orchestrator asks the owner | D11 |
+| 21 | Hindi and English mixing | Addressed. A11 | 18, D13 |
+| 22 | SDK shapes not saved | Addressed. `docs/evidence/sdk-shapes-2026-10-10.json` | D intro |
+| 23 | Stock lifecycle after an order | Addressed. `ordered` state and transitions | 9.1, 12 |
+| 24 | Lambda architecture not chosen | Addressed. `arm64` | 2.1, D9 |
+| 25 | Fallback after a consent block | Addressed. Fallback only with consent on the fallback channel, same guard | 7.3, 8.3 |
