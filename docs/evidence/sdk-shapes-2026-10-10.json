@@ -1,0 +1,186 @@
+{
+  "botocore_version": "1.43.111",
+  "read_at_utc": "2026-10-10T19:21:38.727522Z",
+  "note": "Local SDK model read only. Operation and member names, enums and constraints.",
+  "items": {
+    "sesv2.CreateContactList exists": true,
+    "sesv2.ListManagementOptions members": [
+      "ContactListName",
+      "TopicName"
+    ],
+    "sesv2.SendEmail input": [
+      "FromEmailAddress",
+      "FromEmailAddressIdentityArn",
+      "Destination",
+      "ReplyToAddresses",
+      "FeedbackForwardingEmailAddress",
+      "FeedbackForwardingEmailAddressIdentityArn",
+      "Content",
+      "EmailTags",
+      "ConfigurationSetName",
+      "EndpointId",
+      "TenantName",
+      "ListManagementOptions",
+      "ConfigurationOverrides"
+    ],
+    "sesv2.GetEmailIdentity output": [
+      "IdentityType",
+      "FeedbackForwardingStatus",
+      "VerifiedForSendingStatus",
+      "DkimAttributes",
+      "MailFromAttributes",
+      "Policies",
+      "Tags",
+      "ConfigurationSetName",
+      "VerificationStatus",
+      "VerificationInfo"
+    ],
+    "smsv2.SendRcsMessage.FallbackConfiguration members": [
+      "Channel",
+      "MessageBody",
+      "MediaUrls",
+      "OriginationIdentity"
+    ],
+    "smsv2.FallbackConfiguration.Channel enum": [
+      "SMS",
+      "MMS"
+    ],
+    "smsv2.SendRcsMessage input": [
+      "DestinationPhoneNumber",
+      "OriginationIdentity",
+      "RcsMessageContent",
+      "TimeToLive",
+      "MessageTrafficType",
+      "FallbackConfiguration",
+      "ProtectConfigurationId",
+      "ConfigurationSetName",
+      "MaxPrice",
+      "DryRun",
+      "Context",
+      "MessageFeedbackEnabled"
+    ],
+    "smsv2.SendTextMessage input": [
+      "DestinationPhoneNumber",
+      "OriginationIdentity",
+      "MessageBody",
+      "MessageType",
+      "Keyword",
+      "ConfigurationSetName",
+      "MaxPrice",
+      "TimeToLive",
+      "Context",
+      "DestinationCountryParameters",
+      "DryRun",
+      "ProtectConfigurationId",
+      "MessageFeedbackEnabled"
+    ],
+    "socialmessaging.SendWhatsAppMessage input": [
+      "originationPhoneNumberId",
+      "message",
+      "metaApiVersion"
+    ],
+    "socialmessaging.GetWhatsAppMessageMedia input": [
+      "mediaId",
+      "originationPhoneNumberId",
+      "metadataOnly",
+      "destinationS3PresignedUrl",
+      "destinationS3File"
+    ],
+    "socialmessaging.PostWhatsAppMessageMedia input": [
+      "originationPhoneNumberId",
+      "sourceS3PresignedUrl",
+      "sourceS3File"
+    ],
+    "socialmessaging.PutWhatsAppBusinessAccountEventDestinations input": [
+      "id",
+      "eventDestinations"
+    ],
+    "socialmessaging.CreateWhatsAppMessageTemplate input": [
+      "templateDefinition",
+      "id"
+    ],
+    "scheduler.ActionAfterCompletion enum": [
+      "NONE",
+      "DELETE"
+    ],
+    "scheduler.CreateSchedule input": [
+      "ActionAfterCompletion",
+      "ClientToken",
+      "Description",
+      "EndDate",
+      "FlexibleTimeWindow",
+      "GroupName",
+      "KmsKeyArn",
+      "Name",
+      "ScheduleExpression",
+      "ScheduleExpressionTimezone",
+      "StartDate",
+      "State",
+      "Target"
+    ],
+    "transcribe.MediaFormat enum": [
+      "mp3",
+      "mp4",
+      "wav",
+      "flac",
+      "ogg",
+      "amr",
+      "webm",
+      "m4a"
+    ],
+    "transcribe.LanguageCode has hi-IN, en-IN, en-US": [
+      true,
+      true,
+      true
+    ],
+    "transcribe.TranscriptionJobName metadata": {
+      "min": 1,
+      "max": 200,
+      "pattern": "^[0-9a-zA-Z._-]+"
+    },
+    "bedrock-runtime.Converse input": [
+      "modelId",
+      "messages",
+      "system",
+      "inferenceConfig",
+      "toolConfig",
+      "guardrailConfig",
+      "additionalModelRequestFields",
+      "promptVariables",
+      "additionalModelResponseFieldPaths",
+      "requestMetadata",
+      "performanceConfig",
+      "serviceTier",
+      "outputConfig"
+    ],
+    "bedrock.CreateGuardrail exists": true,
+    "bedrock.CreateGuardrail input": [
+      "name",
+      "description",
+      "topicPolicyConfig",
+      "contentPolicyConfig",
+      "wordPolicyConfig",
+      "sensitiveInformationPolicyConfig",
+      "contextualGroundingPolicyConfig",
+      "automatedReasoningPolicyConfig",
+      "crossRegionConfig",
+      "blockedInputMessaging",
+      "blockedOutputsMessaging",
+      "kmsKeyId",
+      "tags",
+      "clientRequestToken"
+    ],
+    "bedrock.GuardrailTopicPolicyConfig members": [
+      "topicsConfig",
+      "tierConfig"
+    ],
+    "bedrock.GuardrailTopicsTierConfig members": [
+      "tierName"
+    ],
+    "bedrock.GuardrailTopicsTierName enum": [
+      "CLASSIC",
+      "STANDARD"
+    ],
+    "bedrock.ListGuardrailProfiles exists": false
+  }
+}

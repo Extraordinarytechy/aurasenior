@@ -1,6 +1,7 @@
 # Design
 
-Status: Milestone 1 design, first full version (2026-10-10). Every AWS API, parameter, resource type, model ID and
+Status: Milestone 1 design, revision 2 (2026-10-10), addressing every finding in `docs/design-review.md` (responses
+in section 19). Every AWS API, parameter, resource type, model ID and
 limit named here is backed by an entry in `docs/decisions.md` (official doc URL or a real read-only call saved in
 `docs/evidence/`). Anything not yet confirmed is listed as an open assumption in section 18 and in `decisions.md`
 D13, and must be resolved before the code that depends on it is called done.
@@ -76,11 +77,15 @@ flowchart LR
 
   subgraph AGENT["Agent, same code package in both functions"]
     AG["Agent loop<br/>Bedrock Converse + tool use"]
-    TOOLS["Tools: get_household, log_medicine,<br/>message_person, request_refill_approval,<br/>send_pharmacy_order, escalate, ack_escalation,<br/>schedule_followup, cancel_followup,<br/>remember, suggest_call"]
-    GUARD["Outbound guard<br/>consent, 24h window, wording"]
+    TOOLS["Model tools: get_household, get_week,<br/>log_medicine, message_person,<br/>request_refill_approval, escalate, ack_escalation,<br/>schedule_followup, cancel_followup,<br/>remember, suggest_call"]
+    DET["Deterministic paths, no model:<br/>dedupe, STOP and opt-in, fall keywords,<br/>approval taps and pharmacy order,<br/>Listen tap voice note, weekly summary"]
+    GUARD["Outbound guard<br/>consent, 24h window, wording, rate"]
     ADP["Channel adapters<br/>real AWS or local simulator"]
   end
 
+  IN --> DET
+  SC --> DET
+  DET --> GUARD
   IN --> AG
   SC --> AG
   AG <--> BR["Amazon Bedrock<br/>us.amazon.nova-2-lite-v1:0<br/>Guardrail aurasenior-safety"]
@@ -141,8 +146,8 @@ All verified, see `docs/decisions.md` (entry in brackets).
 | --- | --- | --- |
 | End User Messaging Social | WhatsApp text, voice notes and templates with elder and neighbour | `SendWhatsAppMessage` (`originationPhoneNumberId`, `message`, `metaApiVersion`), `PostWhatsAppMessageMedia` (`sourceS3File`), `GetWhatsAppMessageMedia` (`destinationS3File`), `CreateWhatsAppMessageTemplate`, `ListWhatsAppMessageTemplates`, `PutWhatsAppBusinessAccountEventDestinations`, `GetLinkedWhatsAppBusinessAccount`. No CloudFormation type exists (D5) |
 | End User Messaging SMS and RCS | RCS rich cards and text to family in the US, SMS fallback, STOP keywords | `SendRcsMessage` (`RcsMessageContent`, `FallbackConfiguration` with `Channel` `SMS`), `SendTextMessage`, `CreateVerifiedDestinationNumber` (test device), `UpdateRcsAgent`, `DescribeOptedOutNumbers`; `AWS::SMSVOICE::PhoneNumber` (type `SIMULATOR`), `AWS::SMSVOICE::OptOutList`, `AWS::SMSVOICE::ConfigurationSet` (D6) |
-| Amazon SES | Pharmacy order, weekly summary, email fallback | SES v2 `SendEmail` with `Content.Template`, `ConfigurationSetName`, `ListManagementOptions`; `AWS::SES::Template`, `AWS::SES::ConfigurationSet`, `AWS::SES::ConfigurationSetEventDestination`, `AWS::SES::ContactList` (D7) |
-| Amazon Bedrock | Agent reasoning and replies | `Converse` with `toolConfig`, `guardrailConfig`; inference profile `us.amazon.nova-2-lite-v1:0`; `AWS::Bedrock::Guardrail` (D1, D2, D11) |
+| Amazon SES | Pharmacy order, weekly summary, email fallback | SES v2 `SendEmail` with `FromEmailAddress` (`SenderEmail`), `Content.Template`, `ConfigurationSetName`, `ListManagementOptions`; `GetEmailIdentity` (post-deploy check only); `AWS::SES::Template`, `AWS::SES::ConfigurationSet`, `AWS::SES::ConfigurationSetEventDestination`, `AWS::SES::ContactList` (D7) |
+| Amazon Bedrock | Agent reasoning and replies | `Converse` with `toolConfig`, `guardrailConfig`; inference profile `us.amazon.nova-2-lite-v1:0`; `AWS::Bedrock::Guardrail` with `TopicPolicyConfig.TopicsTierConfig.TierName` `STANDARD` and `CrossRegionConfig` (D1, D2, D11) |
 | Amazon Transcribe | Voice note to text with word timings | `StartTranscriptionJob` (`MediaFormat` `ogg`, `LanguageCode` `hi-IN`/`en-IN`/`en-US`, `OutputBucketName`), `GetTranscriptionJob`; EventBridge `Transcribe Job State Change` (D10) |
 | Amazon Polly | Text to WhatsApp voice note | `SynthesizeSpeech` (`OutputFormat` `ogg_opus`, `SampleRate` `48000`, `LanguageCode`), voices Kajal and Joanna (D3, D3b) |
 | EventBridge Scheduler | Daily check-in, weekly summary, one-time follow-ups | `CreateSchedule` (`ScheduleExpression` `cron(...)` or `at(...)`, `ScheduleExpressionTimezone`, `FlexibleTimeWindow`, `ActionAfterCompletion` `DELETE`), `DeleteSchedule`; `AWS::Scheduler::ScheduleGroup` (D8) |
@@ -192,7 +197,8 @@ Reasons:
 2. Every resource the stack needs is a plain CloudFormation type that exists in this account and region, confirmed
    with `cloudformation describe-type` (evidence `cfn-types-2026-10-10.json`). No CDK construct is needed to reach
    them.
-3. `sam deploy --stack-name aurasenior --tags project=aurasenior` gives one named stack. `--resolve-s3` uploads
+3. `sam deploy --stack-name aurasenior --tags project=aurasenior --capabilities CAPABILITY_NAMED_IAM` gives one
+   named stack. `--resolve-s3` uploads
    artifacts to the existing shared `aws-sam-cli-managed-default` bucket, which BUILD_BRIEF.md allows to be used but
    not modified. No new shared stack is created.
 4. `sam local invoke` and `sam build` let the README deploy steps be short and reproducible.
@@ -202,7 +208,7 @@ What is not in the template, and why:
 - WhatsApp: `AWS::SocialMessaging::WhatsAppBusinessAccount` does not exist (TypeNotFound, D5). The owner links the
   WhatsApp Business Account in the console; `scripts/post_deploy.py` then calls
   `PutWhatsAppBusinessAccountEventDestinations` to point it at `aurasenior-whatsapp-events`, and
-  `CreateWhatsAppMessageTemplate` to submit the templates in section 6.2.
+  `CreateWhatsAppMessageTemplate` to submit the templates in section 6.3 (there is no opt-in template).
 - RCS agent: `AWS::SMSVOICE::RcsAgent` exists as a resource type (D6), but the testing registration and the test
   device are done by the owner in the console, because adding a test device sends a verification code to the phone
   that a person must enter (D6). Keeping the agent out of the stack also means a stack update can never replace it
@@ -218,6 +224,49 @@ given as a stack parameter). The `aurasenior-dev` policy allows `budgets:ModifyB
 
 `post_deploy.py` is idempotent: it reads before it writes and only touches resources whose name starts with
 `aurasenior`.
+
+Deploy command (D12): `sam deploy --stack-name aurasenior --region us-east-1 --tags project=aurasenior --resolve-s3
+--capabilities CAPABILITY_NAMED_IAM`. The roles have explicit `aurasenior-` names, and CloudFormation requires
+`CAPABILITY_NAMED_IAM` for IAM resources with custom names (D12). The README uses the same command.
+
+Stack parameters: `OwnerEmail` (budget alerts), `SenderEmail` (SES From address), `RcsAgentId`,
+`SmsOriginationNumberArn` (created by the stack, output only), `WhatsAppPhoneNumberId` (empty until the owner links
+WhatsApp; the WhatsApp adapter stays on `sim` while it is empty), `GuardrailProfileArn` (A14).
+
+SES sender identity: `SenderEmail` must be a verified SES identity, and in the sandbox every recipient must be
+verified too (D7). The README has an owner step: "In the SES console, Verified identities, create an email identity
+for `SenderEmail` and for each email recipient in the seed file, then click the link in each verification email."
+`post_deploy.py` calls SES v2 `GetEmailIdentity` for the sender and each email recipient and prints any whose
+`VerifiedForSendingStatus` is false (D7). It does not create identities. Sends to an unverified address fail at
+SES and follow the error table (section 16).
+
+### 5.1 IAM per role (least privilege)
+
+Every action below was checked against the AWS Service Reference data (resource types each action supports,
+evidence `service-reference-actions-2026-10-10.txt`, D14). `*` is used only where the action supports no resource
+type, or only a type AuraSenior does not use.
+
+| Role | Actions | Resources |
+| --- | --- | --- |
+| `aurasenior-inbound-role` and `aurasenior-scheduled-role` (same policy document, two roles so each function has its own) | `dynamodb:GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query` | table `aurasenior-household` |
+| | `s3:GetObject`, `s3:PutObject` | `arn:aws:s3:::aurasenior-media-<account>/*` |
+| | `transcribe:StartTranscriptionJob` | `*` (no resource type for this action) |
+| | `transcribe:GetTranscriptionJob` | `transcriptionjob` resources named `aurasenior-*` (ARN format taken from the Service Reference data when the template is written) |
+| | `bedrock:InvokeModel` | the `us.amazon.nova-2-lite-v1:0` inference profile ARN and the foundation model ARNs it routes to, as listed for that profile in `bedrock-inference-profiles-2026-10-10.json` (D1) |
+| | `bedrock:ApplyGuardrail` | guardrail `aurasenior-safety` ARN and `GuardrailProfileArn` |
+| | `polly:SynthesizeSpeech` | `*` (its only resource type is a lexicon; no lexicons are used) |
+| | `social-messaging:SendWhatsAppMessage`, `PostWhatsAppMessageMedia`, `GetWhatsAppMessageMedia` | the WhatsApp phone number ID ARN from `WhatsAppPhoneNumberId` |
+| | `sms-voice:SendRcsMessage`, `sms-voice:SendTextMessage` | RCS agent `RcsAgentId`, the simulator phone number, configuration set `aurasenior-sms` |
+| | `ses:SendEmail` | identity `SenderEmail`, configuration set `aurasenior-email`, the `aurasenior-*` templates; plus the recipient identities while in the sandbox |
+| | `scheduler:CreateSchedule`, `scheduler:DeleteSchedule` | `arn:aws:scheduler:us-east-1:<account>:schedule/aurasenior/*` |
+| | `iam:PassRole` with condition `iam:PassedToService = scheduler.amazonaws.com` | role `aurasenior-scheduler` only |
+| | `logs:CreateLogStream`, `logs:PutLogEvents` | the function's own log group |
+| `aurasenior-scheduler` (trust `scheduler.amazonaws.com` with `aws:SourceAccount`) | `lambda:InvokeFunction` | function `aurasenior-scheduled` only |
+
+For Transcribe, the role gets `s3:GetObject` on the input audio and `s3:PutObject` on the output prefix, as in the
+Transcribe identity-based policy examples for input and output buckets (D10); this is confirmed on the first real
+job (A4). The admin CLI and `post_deploy.py` run with the developer's
+own credentials and are not part of any function role.
 
 ## 6. Channel matrix
 

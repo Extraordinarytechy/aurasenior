@@ -1,0 +1,41 @@
+index services=456 url=https://servicereference.us-east-1.amazonaws.com/
+=== transcribe https://servicereference.us-east-1.amazonaws.com/v1/transcribe/transcribe.json
+  transcribe:StartTranscriptionJob resources=['*']
+  transcribe:GetTranscriptionJob resources=['transcriptionjob']
+=== polly https://servicereference.us-east-1.amazonaws.com/v1/polly/polly.json
+  polly:SynthesizeSpeech resources=['lexicon']
+=== social-messaging https://servicereference.us-east-1.amazonaws.com/v1/social-messaging/social-messaging.json
+  social-messaging:SendWhatsAppMessage resources=['phone-number-id']
+  social-messaging:PostWhatsAppMessageMedia resources=['phone-number-id']
+  social-messaging:GetWhatsAppMessageMedia resources=['phone-number-id']
+=== sms-voice https://servicereference.us-east-1.amazonaws.com/v1/sms-voice/sms-voice.json
+  sms-voice:SendRcsMessage resources=['ConfigurationSet', 'PhoneNumber', 'Pool', 'ProtectConfiguration', 'RcsAgent', 'SenderId']
+  sms-voice:SendTextMessage resources=['ConfigurationSet', 'PhoneNumber', 'Pool', 'ProtectConfiguration', 'SenderId']
+=== ses https://servicereference.us-east-1.amazonaws.com/v1/ses/ses.json
+  ses:SendEmail resources=['configuration-set', 'identity', 'template']
+  ses:GetEmailIdentity resources=['identity']
+=== bedrock https://servicereference.us-east-1.amazonaws.com/v1/bedrock/bedrock.json
+  bedrock:InvokeModel resources=['application-inference-profile', 'async-invoke', 'bedrock-marketplace-model-endpoint', 'custom-model-deployment', 'default-prompt-router', 'foundation-model', 'imported-model', 'inference-profile', 'project', 'prompt-router', 'provisioned-model', 'system-tool']
+  bedrock:ApplyGuardrail resources=['guardrail', 'guardrail-profile']
+  resource guardrail arn=['arn:${Partition}:bedrock:${Region}:${Account}:guardrail/${GuardrailId}']
+  resource guardrail-profile arn=['arn:${Partition}:bedrock:${Region}:${Account}:guardrail-profile/${ResourceId}']
+=== scheduler https://servicereference.us-east-1.amazonaws.com/v1/scheduler/scheduler.json
+  scheduler:CreateSchedule resources=['schedule']
+  scheduler:DeleteSchedule resources=['schedule']
+=== dynamodb https://servicereference.us-east-1.amazonaws.com/v1/dynamodb/dynamodb.json
+  dynamodb:GetItem resources=['table']
+  dynamodb:PutItem resources=['table']
+  dynamodb:UpdateItem resources=['table']
+  dynamodb:DeleteItem resources=['table']
+  dynamodb:Query resources=['index', 'table']
+=== s3 https://servicereference.us-east-1.amazonaws.com/v1/s3/s3.json
+  s3:GetObject resources=['accesspointobject', 'object']
+  s3:PutObject resources=['accesspointobject', 'object']
+=== lambda https://servicereference.us-east-1.amazonaws.com/v1/lambda/lambda.json
+  lambda:InvokeFunction resources=['function']
+=== iam https://servicereference.us-east-1.amazonaws.com/v1/iam/iam.json
+  iam:PassRole resources=['role']
+=== events https://servicereference.us-east-1.amazonaws.com/v1/events/events.json
+  events:PutRule resources=['rule-on-custom-event-bus', 'rule-on-default-event-bus']
+  events:PutTargets resources=['rule-on-custom-event-bus', 'rule-on-default-event-bus']
+DONE
