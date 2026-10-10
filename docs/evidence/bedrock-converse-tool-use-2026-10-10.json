@@ -1,0 +1,426 @@
+{
+ "date": "2026-10-10T23:04:51+0530",
+ "region": "us-east-1",
+ "profile": "the-unsent",
+ "boto3": "1.43.111",
+ "models": {
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0": {
+   "turn1_request": {
+    "modelId": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "system": [
+     {
+      "text": "You turn an older person's voice-note transcript into facts. Call log_medicine once per medicine mentioned. After the tools return, reply to her in one short, warm Hindi sentence. Never give medical advice."
+     }
+    ],
+    "messages": [
+     {
+      "role": "user",
+      "content": [
+       {
+        "text": "Transcript (Hindi): 'Sugar wali goli le li. BP wali goliyan khatam ho gayi hain. Aaj ghutne mein thoda dard hai.' Her medicines: metformin (sugar), amlodipine (BP)."
+       }
+      ]
+     }
+    ],
+    "toolConfig": {
+     "tools": [
+      {
+       "toolSpec": {
+        "name": "log_medicine",
+        "description": "Record whether a named medicine was taken today, and whether it is out of stock.",
+        "inputSchema": {
+         "json": {
+          "type": "object",
+          "properties": {
+           "medicine": {
+            "type": "string"
+           },
+           "taken": {
+            "type": "boolean"
+           },
+           "out_of_stock": {
+            "type": "boolean"
+           }
+          },
+          "required": [
+           "medicine",
+           "taken",
+           "out_of_stock"
+          ]
+         }
+        }
+       }
+      }
+     ]
+    },
+    "inferenceConfig": {
+     "maxTokens": 400
+    }
+   },
+   "turn1_response": {
+    "output": {
+     "message": {
+      "role": "assistant",
+      "content": [
+       {
+        "toolUse": {
+         "toolUseId": "tooluse_vOZ0VNGHxoKJHKVKIazwZu",
+         "name": "log_medicine",
+         "input": {
+          "medicine": "metformin",
+          "taken": true,
+          "out_of_stock": false
+         },
+         "type": "tool_use"
+        }
+       },
+       {
+        "toolUse": {
+         "toolUseId": "tooluse_KaYhsNyb5TpE9Aoy15EQ8c",
+         "name": "log_medicine",
+         "input": {
+          "medicine": "amlodipine",
+          "taken": false,
+          "out_of_stock": true
+         },
+         "type": "tool_use"
+        }
+       }
+      ]
+     }
+    },
+    "stopReason": "tool_use",
+    "usage": {
+     "inputTokens": 706,
+     "outputTokens": 172,
+     "totalTokens": 878,
+     "cacheReadInputTokens": 0,
+     "cacheWriteInputTokens": 0
+    },
+    "metrics": {
+     "latencyMs": 1086
+    }
+   },
+   "turn1_wallMs": 1985,
+   "turn2_request_tail": [
+    {
+     "role": "assistant",
+     "content": [
+      {
+       "toolUse": {
+        "toolUseId": "tooluse_vOZ0VNGHxoKJHKVKIazwZu",
+        "name": "log_medicine",
+        "input": {
+         "medicine": "metformin",
+         "taken": true,
+         "out_of_stock": false
+        },
+        "type": "tool_use"
+       }
+      },
+      {
+       "toolUse": {
+        "toolUseId": "tooluse_KaYhsNyb5TpE9Aoy15EQ8c",
+        "name": "log_medicine",
+        "input": {
+         "medicine": "amlodipine",
+         "taken": false,
+         "out_of_stock": true
+        },
+        "type": "tool_use"
+       }
+      }
+     ]
+    },
+    {
+     "role": "user",
+     "content": [
+      {
+       "toolResult": {
+        "toolUseId": "tooluse_vOZ0VNGHxoKJHKVKIazwZu",
+        "content": [
+         {
+          "json": {
+           "logged": true
+          }
+         }
+        ],
+        "status": "success"
+       }
+      },
+      {
+       "toolResult": {
+        "toolUseId": "tooluse_KaYhsNyb5TpE9Aoy15EQ8c",
+        "content": [
+         {
+          "json": {
+           "logged": true
+          }
+         }
+        ],
+        "status": "success"
+       }
+      }
+     ]
+    }
+   ],
+   "ok": false,
+   "error": "ResourceNotFoundException('An error occurred (ResourceNotFoundException) when calling the Converse operation: Model use case details have not been submitted for this account. Fill out the Anthropic use case details form before using the model. If you have already filled out the form, try again in 15 minutes.')"
+  },
+  "us.anthropic.claude-sonnet-4-6": {
+   "turn1_response": {
+    "output": {
+     "message": {
+      "role": "assistant",
+      "content": [
+       {
+        "text": "I'll log both medicines simultaneously right away — metformin was taken, and amlodipine is out of stock!"
+       },
+       {
+        "toolUse": {
+         "toolUseId": "tooluse_caE97X9qWOeAqa1NDsFHBp",
+         "name": "log_medicine",
+         "input": {
+          "medicine": "metformin",
+          "taken": true,
+          "out_of_stock": false
+         },
+         "type": "tool_use"
+        }
+       },
+       {
+        "toolUse": {
+         "toolUseId": "tooluse_IbmcggnxujbMa9PumYjJiJ",
+         "name": "log_medicine",
+         "input": {
+          "medicine": "amlodipine",
+          "taken": false,
+          "out_of_stock": true
+         },
+         "type": "tool_use"
+        }
+       }
+      ]
+     }
+    },
+    "stopReason": "tool_use",
+    "usage": {
+     "inputTokens": 707,
+     "outputTokens": 198,
+     "totalTokens": 905,
+     "cacheReadInputTokens": 0,
+     "cacheWriteInputTokens": 0
+    },
+    "metrics": {
+     "latencyMs": 1557
+    }
+   },
+   "turn1_wallMs": 3612,
+   "turn2_request_tail": [
+    {
+     "role": "assistant",
+     "content": [
+      {
+       "text": "I'll log both medicines simultaneously right away — metformin was taken, and amlodipine is out of stock!"
+      },
+      {
+       "toolUse": {
+        "toolUseId": "tooluse_caE97X9qWOeAqa1NDsFHBp",
+        "name": "log_medicine",
+        "input": {
+         "medicine": "metformin",
+         "taken": true,
+         "out_of_stock": false
+        },
+        "type": "tool_use"
+       }
+      },
+      {
+       "toolUse": {
+        "toolUseId": "tooluse_IbmcggnxujbMa9PumYjJiJ",
+        "name": "log_medicine",
+        "input": {
+         "medicine": "amlodipine",
+         "taken": false,
+         "out_of_stock": true
+        },
+        "type": "tool_use"
+       }
+      }
+     ]
+    },
+    {
+     "role": "user",
+     "content": [
+      {
+       "toolResult": {
+        "toolUseId": "tooluse_caE97X9qWOeAqa1NDsFHBp",
+        "content": [
+         {
+          "json": {
+           "logged": true
+          }
+         }
+        ],
+        "status": "success"
+       }
+      },
+      {
+       "toolResult": {
+        "toolUseId": "tooluse_IbmcggnxujbMa9PumYjJiJ",
+        "content": [
+         {
+          "json": {
+           "logged": true
+          }
+         }
+        ],
+        "status": "success"
+       }
+      }
+     ]
+    }
+   ],
+   "ok": false,
+   "error": "ResourceNotFoundException('An error occurred (ResourceNotFoundException) when calling the Converse operation: Model use case details have not been submitted for this account. Fill out the Anthropic use case details form before using the model. If you have already filled out the form, try again in 15 minutes.')"
+  },
+  "us.anthropic.claude-haiku-5-5": {
+   "ok": false,
+   "error": "AccessDeniedException('An error occurred (AccessDeniedException) when calling the Converse operation: anthropic.claude-haiku-5-5 is not available for this account. You can explore other available models on Amazon Bedrock. For additional access options, contact AWS Sales at https://aws.amazon.com/contact-us/sales-support/')"
+  },
+  "us.anthropic.claude-sonnet-5": {
+   "ok": false,
+   "error": "AccessDeniedException('An error occurred (AccessDeniedException) when calling the Converse operation: anthropic.claude-sonnet-5 is not available for this account. You can explore other available models on Amazon Bedrock. For additional access options, contact AWS Sales at https://aws.amazon.com/contact-us/sales-support/')"
+  },
+  "us.anthropic.claude-sonnet-5-5": {
+   "ok": false,
+   "error": "AccessDeniedException('An error occurred (AccessDeniedException) when calling the Converse operation: anthropic.claude-sonnet-5-5 is not available for this account. You can explore other available models on Amazon Bedrock. For additional access options, contact AWS Sales at https://aws.amazon.com/contact-us/sales-support/')"
+  },
+  "us.amazon.nova-2-lite-v1:0": {
+   "turn1_response": {
+    "output": {
+     "message": {
+      "role": "assistant",
+      "content": [
+       {
+        "toolUse": {
+         "toolUseId": "tooluse_FahoarilsTAr6GJGqhlGwt",
+         "name": "log_medicine",
+         "input": {
+          "medicine": "metformin",
+          "taken": true,
+          "out_of_stock": false
+         }
+        }
+       },
+       {
+        "toolUse": {
+         "toolUseId": "tooluse_PZdkjkJ1bQBgC5TbjgDm59",
+         "name": "log_medicine",
+         "input": {
+          "medicine": "amlodipine",
+          "taken": false,
+          "out_of_stock": true
+         }
+        }
+       }
+      ]
+     }
+    },
+    "stopReason": "tool_use",
+    "usage": {
+     "inputTokens": 1041,
+     "outputTokens": 93,
+     "totalTokens": 1134
+    },
+    "metrics": {
+     "latencyMs": 813
+    }
+   },
+   "turn1_wallMs": 1058,
+   "turn2_request_tail": [
+    {
+     "role": "assistant",
+     "content": [
+      {
+       "toolUse": {
+        "toolUseId": "tooluse_FahoarilsTAr6GJGqhlGwt",
+        "name": "log_medicine",
+        "input": {
+         "medicine": "metformin",
+         "taken": true,
+         "out_of_stock": false
+        }
+       }
+      },
+      {
+       "toolUse": {
+        "toolUseId": "tooluse_PZdkjkJ1bQBgC5TbjgDm59",
+        "name": "log_medicine",
+        "input": {
+         "medicine": "amlodipine",
+         "taken": false,
+         "out_of_stock": true
+        }
+       }
+      }
+     ]
+    },
+    {
+     "role": "user",
+     "content": [
+      {
+       "toolResult": {
+        "toolUseId": "tooluse_FahoarilsTAr6GJGqhlGwt",
+        "content": [
+         {
+          "json": {
+           "logged": true
+          }
+         }
+        ],
+        "status": "success"
+       }
+      },
+      {
+       "toolResult": {
+        "toolUseId": "tooluse_PZdkjkJ1bQBgC5TbjgDm59",
+        "content": [
+         {
+          "json": {
+           "logged": true
+          }
+         }
+        ],
+        "status": "success"
+       }
+      }
+     ]
+    }
+   ],
+   "turn2_response": {
+    "output": {
+     "message": {
+      "role": "assistant",
+      "content": [
+       {
+        "text": "आज आप मेटफॉर्मिन ले ली हैं और एमलोडिपीन खत्म हो गई है। घुटनों में दर्द का ख्याल रखें।"
+       }
+      ]
+     }
+    },
+    "stopReason": "end_turn",
+    "usage": {
+     "inputTokens": 1178,
+     "outputTokens": 33,
+     "totalTokens": 1211
+    },
+    "metrics": {
+     "latencyMs": 878
+    }
+   },
+   "turn2_wallMs": 1105,
+   "ok": true
+  }
+ }
+}
