@@ -1,2 +1,14 @@
 # Single source of truth for the product name. Final name pending: AuraSenior or Saanjh.
 brand = "AuraSenior"
+
+[agent]
+# Bedrock inference profile used for the Converse API. Change only this value to switch models.
+# Confirmed working with tool use in us-east-1 on 2026-10-10 (docs/decisions.md D2).
+model_id = "us.amazon.nova-2-lite-v1:0"
+
+[voice]
+# Polly voice for voice notes (docs/decisions.md D3). Output is ogg_opus at 48000 Hz.
+polly_voice_id = "Kajal"
+polly_engine = "neural"
+polly_fallback_voice_id = "Aditi"
+polly_fallback_engine = "standard"

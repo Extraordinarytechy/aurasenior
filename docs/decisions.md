@@ -38,11 +38,13 @@ Evidence: `bedrock-converse-tool-use-2026-10-10.json` (full request and response
 | `us.anthropic.claude-sonnet-4-6` | Same as above |
 | `us.anthropic.claude-haiku-5-5`, `us.anthropic.claude-sonnet-5`, `us.anthropic.claude-sonnet-5-5` | `AccessDeniedException`: model not available for this account |
 
-Decision for now: the agent uses the Converse API with tool use. The model ID is one config value. Default is
-`us.amazon.nova-2-lite-v1:0`, the only current model confirmed working in this account today. Its Hindi reply
-had a small grammar slip, so Hindi output quality must be reviewed before the demo. Claude Haiku 4.5 or Sonnet 4.6
-become usable once the account owner submits the one-time Anthropic use case form (Bedrock console, Model catalog,
-any Anthropic model, or `PutUseCaseForModelAccess`); re-run the probe after that and record the result here.
+Decision (confirmed by the owner, 2026-10-10): the agent uses the Converse API with tool use, and the default
+model is `us.amazon.nova-2-lite-v1:0`, the only current model confirmed working in this account today. The model
+ID is one config value, `[agent] model_id` in `config/app.toml`, so another model can be swapped in without code
+changes. Its Hindi reply had a small grammar slip, so Hindi output quality must be reviewed before the demo.
+Claude Haiku 4.5 or Sonnet 4.6 become usable only if the account owner submits the one-time Anthropic use case
+form (Bedrock console, Model catalog, any Anthropic model, or `PutUseCaseForModelAccess`). This is optional and
+does not block the build. If it is submitted, re-run `.build/p2_converse.py` and add a comparison here.
 
 Docs:
 - https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html
@@ -79,7 +81,8 @@ Notes:
 - The API reference says `LanguageCode` only matters for bilingual voices. Raveena accepted `hi-IN` without error,
   but she is not bilingual, so that request most likely used her en-IN default. Audio was not checked by ear.
 - Decision: Kajal (neural by default, generative as an option) for Hindi, with `LanguageCode=hi-IN`; Kajal with
-  en-IN for English. Aditi is the standard-engine fallback. ogg_opus at 48000 Hz is the output format.
+  en-IN for English. Aditi is the standard-engine fallback. ogg_opus at 48000 Hz is the output format. Voice
+  settings live in `[voice]` in `config/app.toml`.
 - Not yet verified: that WhatsApp accepts and plays this file as a voice note through End User Messaging Social.
 
 Docs:
