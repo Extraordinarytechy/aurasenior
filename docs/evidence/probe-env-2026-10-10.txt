@@ -1,0 +1,8 @@
+date: 2026-10-10T22:55:46+05:30
+aws-cli/2.24.15 Python/3.12.9 Linux/6.6.87.2-microsoft-standard-WSL2 exe/x86_64.ubuntu.22
+venv boto3 1.43.111 botocore 1.43.111
+{
+    "UserId": "REDACTED_USERID",
+    "Account": "REDACTED_ACCOUNT",
+    "Arn": "arn:aws:iam::REDACTED_ACCOUNT:user/aws-ses-serv"
+}
