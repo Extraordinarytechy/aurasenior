@@ -480,16 +480,33 @@ a free-form WhatsApp message outside the window.
 | `log_medicine` | `medicine_id` (must exist), `taken` bool, `out_of_stock` bool | Writes `LOG#`, updates stock |
 | `message_person` | `person_id` (must be in household), `text` 1 to 600 chars, `as_voice` bool (elder only), `urgency` | Routes per section 7.3; window closed and no template fits returns `blocked_window` to the model |
 | `request_refill_approval` | `medicine_id`, `ask_person_id` (role family) | Creates `APPROVAL#` pending, sends the refill card or template |
-| `escalate` | `reason` (`fall_or_help` or `missed_checkin`), `quote` up to 200 chars | Creates `ESC#`, alerts family and neighbour, schedules `escalation_recheck` |
+| `escalate` | `reason` (`fall_or_help` or `missed_checkin`), `quote` up to 200 chars | Idempotent per household and reason (section 13): returns the open `ESC#` if one exists, else creates it, alerts family and neighbour, schedules `escalation_recheck` |
 | `ack_escalation` | `escalation_id` | Marks acknowledged, cancels recheck, tells the elder who is coming |
 | `schedule_followup` | `kind` (`followup`, `missed_checkin`), `minutes` 5 to 240 | One-time `at()` schedule, `ActionAfterCompletion` `DELETE` |
 | `cancel_followup` | `kind` | `DeleteSchedule`; not found is treated as done |
 | `remember` | `note` 1 to 200 chars | Adds to memory notes (max 50, oldest dropped) |
 | `suggest_call` | none (reads computed signals) | Sends the worth a call message from section 15 if one is due; the model cannot write its text |
 
-Some steps never depend on the model: fall or help words found in a transcript (`slipped`, `fell`, `help`, गिर,
-मदद, and the list in `config/keywords.toml`) call `escalate` directly before the agent turn, so an urgent alert
-is never lost to a model error. STOP keywords are handled before the agent too.
+Some steps never depend on the model: fall or help words in a transcript or text call `escalate(fall_or_help)`
+directly before the agent turn, so an urgent alert is never lost to a model error. STOP keywords are handled
+before the agent too. Matching is defined once, in `src/aurasenior/keywords.py`:
+
+```text
+normalise(text): Unicode NFC, lowercase, replace every Unicode punctuation character (category P*) with a space,
+                 collapse whitespace, trim
+tokens(text)   = normalise(text).split(" ")
+
+STOP / START / YES sets: normalise(text) equals one entry of that set for the person's language row
+                         ("Stop." -> "stop" matches; "please stop the tablets" does not)
+fall/help entries in config/keywords.toml: {text, match = "token" | "prefix" | "phrase"}
+   token  : some token equals text                      (help, fell, मदद)
+   prefix : some token starts with text                 (गिर matches गिरी, गिर गई)
+   phrase : normalise(text) appears as a token sequence ("slipped near", "can't get up" -> "can t get up")
+```
+
+`help` is a token match, so "helpful" and "Rohan helps me" do not escalate. A false positive costs one alert that
+the family can acknowledge, which is accepted. The same `normalise` is used for the pain and low-mood mention
+lists (section 15).
 
 The pharmacy order is also never a model decision. `send_pharmacy_order(approval_id)` is a plain function in
 `src/aurasenior/refill.py`, not a model tool. It is called only by the inbound handler after a person's approval
@@ -546,9 +563,17 @@ in `config/wording.toml` are required and tested whatever the guardrail does.
 
 ### 8.4 Cost cap
 
-Per household per day: max 150 Converse calls (`USAGE#<date>` atomic counter). Beyond that the agent is skipped,
-deterministic paths (STOP, escalation, logging, approval taps, weekly summary) still run, the elder gets the fixed
-phrase `cost_cap` ("I will tell {family_name}.") as a voice note, and an ERROR log is written once per day.
+Per household per day: max 150 Converse calls (`USAGE#<household-local date>` atomic counter). Beyond that the
+agent is skipped, deterministic paths (STOP, escalation, logging, approval taps, weekly summary) still run, the
+elder gets the fixed phrase `cost_cap` ("I will tell {family_name}.") as a voice note, and an ERROR log is written
+once per day.
+
+The promise in `cost_cap` is kept: the first family member in the escalation order gets the fixed phrase
+`agent_unavailable_family` ("{brand} could not answer {relation_label}'s message just now. Please call
+{relation_label}."), `urgency = normal`, through the guard. It is sent at most once per household per local day,
+enforced by a conditional set of `USAGE#.agent_unavailable_sent`. The same applies when `Converse` fails fatally
+(section 16). The elder gets `cost_cap` only when the family message is not blocked; if it is blocked
+(no consent), she gets `not_heard` instead, so she is never told something that did not happen.
 
 ### 8.5 Memory
 
@@ -798,8 +823,10 @@ Agent turns are not replayed token for token, so on a retry the model may word a
 
    A digit with no target, or any other text that is not a question, gets the `sms_help` phrase. Free text that is
    not a digit or keyword goes to the agent turn (this is how "How was Mom this week?" arrives on SMS).
-5. Approval not answered in 12 hours: an `approval_expiry` one-time schedule (created with the approval) sets status
-   `expired`, Rohan gets one reminder, nothing is ordered.
+5. Approval not answered in 12 hours: the `approval_expiry` one-time schedule `aurasenior-ax-<aid>` (created with
+   the approval) sets status `expired` with a conditional update from `pending`, sends the asked person the fixed
+   phrase `refill_expired` once, and nothing is ordered. No reminder is sent before expiry. If the approval was
+   already handled, the run does nothing. Any handled tap deletes the expiry schedule (not found is fine).
 
 ## 13. Missed check-in, fall and help
 
@@ -810,13 +837,30 @@ Agent turns are not replayed token for token, so on a retry the model may word a
   {family_name}. Someone will call you soon. Stay where you are, I am here.").
 - Recheck: `escalate` creates a one-time `escalation_recheck` schedule 5 minutes later with `run = 1`; each run
   that finds the escalation still `open` creates the next one 5 minutes later, up to `run = 12` (60 minutes).
-  Each run sends the elder the `esc_reassure_elder` voice note if her window is open. Even-numbered runs (every 10
-  minutes) also resend the family alerts (RCS `urgent_alert` or WhatsApp `aurasenior_urgent_alert`) and the email
-  fallback to family who have email consent. After run 12 the escalation status becomes `unacknowledged`, the trace
+  What each run sends to the elder and, on even-numbered runs (every 10 minutes), to family (alerts plus the email
+  fallback to family who have email consent) depends on the reason, per the table below. After run 12 the escalation status becomes `unacknowledged`, the trace
   records it and an ERROR is logged (which fires the `aurasenior-errors` alarm).
-- Acknowledge: RCS `esc:ack:<id>`, WhatsApp button `esc:ack:<id>`, or SMS `4`. `ack_escalation` sets
-  `acknowledged`, deletes the pending recheck schedule (not found is fine), and the elder hears `esc_ack_elder`
-  ("{name} is on the way to help you." with the acknowledger's `display_name`).
+- Acknowledge: RCS `esc:ack:<id>`, WhatsApp "I'm on it" button (resolved through `context.id`, section 12), or SMS
+  `4`. `ack_escalation` sets `acknowledged`, deletes the pending recheck schedule `aurasenior-er-<eid>-<run>` (not
+  found is fine), sends `esc_ack_family` to the other family members, and for `fall_or_help` the elder hears
+  `esc_ack_elder` ("{name} is on the way to help you." with the acknowledger's `display_name`).
+- One escalation per household and reason. `escalate(reason, quote)` is idempotent. The keyword path (section
+  8.2) runs before the agent turn, so when the model then calls `escalate` for the same note it gets the existing
+  ID back and nothing new is sent. Rules, applied with a conditional write on the `ESC#` item:
+  - an `open` `ESC#` with the same reason exists: return its ID, send nothing;
+  - `fall_or_help` while a `missed_checkin` is `open`: upgrade that item (reason becomes `fall_or_help`, quote
+    set), send the `fall_or_help` alerts and `esc_told_elder` now, and the recheck chain carries on with the
+    `fall_or_help` content from its next run;
+  - otherwise create a new `ESC#` and start the chain at run 1.
+- Content and closing per reason:
+
+  | reason | family alert and even-run resend | elder on each run | elder on ack | closed by |
+  | --- | --- | --- | --- | --- |
+  | `fall_or_help` | RCS `urgent_alert` / SMS `urgent_sms` / WA `aurasenior_urgent_alert_<lang>` / SES `aurasenior-urgent` | `esc_reassure_elder` if her window is open | `esc_ack_elder` | family ack only |
+  | `missed_checkin` | RCS `missed_checkin` / SMS `missed_checkin_sms` / WA `aurasenior_family_missed_<lang>` / SES `aurasenior-missed-checkin` | nothing | nothing | family ack, or any inbound message or button tap from the elder: status `resolved_by_elder`, recheck schedule deleted, family get `checkin_late_family` |
+
+  A message from the elder never closes a `fall_or_help` escalation, because "I am fine" after a fall still needs
+  a person to check.
 - These are all `urgency = urgent`, so the hourly cap does not apply (section 8.3 rule 4). AuraSenior does not call
   emergency services; the family decides.
 
@@ -931,7 +975,7 @@ the plain mentions.
 | Media too large or unsupported type | Over 16 MB or not audio/text | Fatal for that message | Elder gets "Please send a voice note" | INFO |
 | `StartTranscriptionJob` / job `FAILED` | Any | Fatal for that note | Elder gets "I could not hear that, please send it again"; no signal stored | ERROR |
 | `Converse` | Throttling | Recoverable | 3 retries with backoff (SDK standard mode) | WARN |
-| `Converse` | Access denied, validation, model gone | Fatal | Fixed phrase `cost_cap` ("I will tell {family_name}.") as a voice note; deterministic paths still run | ERROR |
+| `Converse` | Access denied, validation, model gone | Fatal | `agent_unavailable_family` to the first family member (once per household per day) and `cost_cap` to the elder, as in section 8.4; deterministic paths still run | ERROR |
 | Tool input invalid | Schema check fails | Recoverable by model | `toolResult` with `status: error` and the reason, model may retry within 6 iterations | INFO |
 | `SendWhatsAppMessage` | Window closed or template not approved | Fatal for that message | Fallback channel per 7.3; template status re-read once per day | WARN |
 | `SendWhatsAppMessage` / `SendRcsMessage` / `SendTextMessage` / SES `SendEmail` | Throttling, 5xx | Recoverable | 2 retries, then fallback channel | WARN |
