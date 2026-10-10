@@ -1,0 +1,12 @@
+.build/
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.env
+.env.*
+*.env
+.aws/
+credentials
+*.pem
+cdk.out/
