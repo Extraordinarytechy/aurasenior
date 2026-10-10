@@ -435,20 +435,28 @@ On-demand billing, partition key `PK` (S), sort key `SK` (S), TTL attribute `ttl
 
 | PK | SK | Content |
 | --- | --- | --- |
-| `HH#<hid>` | `PROFILE` | name, `timezone` (IANA, e.g. `Asia/Kolkata`), `checkin_time` `HH:MM`, elder person ID, escalation order (person IDs), `share_transcripts` |
-| `HH#<hid>` | `PERSON#<pid>` | `role` (elder, family, neighbour, doctor, pharmacy), `display_name`, `country` (ISO 3166-1 alpha-2), `language` (row key in section 9.2), `preferred_channel`, `fallback_channel`, `addresses` {whatsapp, rcs, sms: E.164; email}, `consent` {channel: {status, at, source}}, `wa_last_inbound_at` |
-| `HH#<hid>` | `MED#<mid>` | name, time of day, `stock` (`ok`, `low`, `out`), pharmacy person ID |
+| `HH#<hid>` | `PROFILE` | name, `timezone` (IANA, e.g. `Asia/Kolkata`), `checkin_time` `HH:MM`, elder person ID, `admin_person_id` (the family member who set up the household, Rohan in the demo), escalation order (person IDs), `share_transcripts` |
+| `HH#<hid>` | `PERSON#<pid>` | `role` (elder, family, neighbour, doctor, pharmacy), `display_name`, `relation_label` (family and neighbour only: how this person names the elder, e.g. "Mom", "Maa", "Kamala ji"), `country` (ISO 3166-1 alpha-2), `language` (row key in section 9.2), `preferred_channel`, `fallback_channel`, `addresses` {whatsapp, rcs, sms: E.164; email}, `consent` {channel: {status, at, source}}, `wa_last_inbound_at` |
+| `HH#<hid>` | `MED#<mid>` | `name` (as on the pack, used only in the pharmacy email), `display_label` (plain name the family uses, e.g. "BP tablets", used in every family and elder message), time of day, `stock` (`ok`, `low`, `out`, `ordered`), pharmacy person ID |
 | `HH#<hid>` | `LOG#<yyyy-mm-dd>#<mid>` | taken, source message ID |
 | `HH#<hid>` | `MEMORY` | notes list |
-| `HH#<hid>` | `TURN#<ts>` | role, text, `ttl` 7 days |
+| `HH#<hid>` | `TURN#<pid>#<ts>` | role, text, `ttl` 7 days |
 | `HH#<hid>` | `APPROVAL#<aid>` | kind, medicine, status (`pending`, `approved`, `self`, `declined`, `ordered`, `expired`), asked person, times |
-| `HH#<hid>` | `ESC#<eid>` | reason, quote, status (`open`, `acknowledged`), who acknowledged |
-| `HH#<hid>` | `SIGNAL#<yyyy-mm-dd>#<msg>` | features from section 15 |
-| `HH#<hid>` | `MSG#<provider_id>` | channel, person, status history, correlation ID |
+| `HH#<hid>` | `ESC#<eid>` | reason, quote, status (`open`, `acknowledged`, `unacknowledged`), who acknowledged, `recheck_run` |
+| `HH#<hid>` | `SIGNAL#<yyyy-mm-dd>#<msg>` | features from section 15, `simulated` (true only for a labelled seeded baseline) |
+| `HH#<hid>` | `MSG#<provider_id>` | channel, person, status history, correlation ID, `transcribe_job` (inbound audio only) |
+| `HH#<hid>` | `SEND#<correlation_id>` | `status` (`sending`, `sent`), provider ID; makes sends inside a retried event idempotent (section 11.1) |
 | `HH#<hid>` | `TRACE#<ts>#<seq>` | step, tool, inputs (phone numbers and emails masked), outcome, channel, `simulated`, `ttl` 30 days |
-| `HH#<hid>` | `USAGE#<yyyy-mm-dd>` | Converse call count, outbound count |
+| `HH#<hid>` | `USAGE#<yyyy-mm-dd>` | Converse call count, normal outbound count per hour |
 | `ADDR#<channel>#<address>` | `ADDR` | household and person (reverse lookup for inbound) |
-| `DEDUP#<event id>` | `DEDUP` | `ttl` 7 days |
+| `TJOB#<job name>` | `TJOB` | household, person, WhatsApp message ID (reverse lookup when the Transcribe event arrives), `ttl` 7 days |
+| `DEDUP#<event id>` | `DEDUP` | `status` (`processing`, `done`), `at`, `ttl` 7 days (section 11.1) |
+
+Stock lifecycle: `log_medicine(out_of_stock=true)` sets `out`; `send_pharmacy_order` sets `ordered`; the next
+`log_medicine(taken=true)` for that medicine sets `ok`.
+
+IDs: `APPROVAL#` and `ESC#` IDs are `secrets.token_hex(6)` (12 lowercase hex characters), so they match the
+postback pattern in section 12.
 
 ### 9.2 Language table
 
@@ -471,7 +479,11 @@ for en-US with the neural engine by a real `DescribeVoices` call (D3b). Spanish 
 required field is missing (`role`, `display_name`, `country`, `language`, `preferred_channel`); `language` is not a
 row in 9.2; a channel is not one of `whatsapp`, `rcs`, `sms`, `email`, `none`; the preferred or fallback channel has
 no address; a phone number is not E.164 (`^\+[1-9]\d{6,14}$`); `sms` is set for a non-US number; `timezone` is not
-a valid IANA name; there is not exactly one elder. Consent always starts as `pending`; the seed file cannot set it.
+a valid IANA name; there is not exactly one elder; `admin_person_id` is missing or not a family member;
+`relation_label` is missing for a family member or neighbour (1 to 30 characters); `display_label` is missing for a
+medicine (1 to 40 characters). Consent always starts as `pending`; the seed file cannot set it. Consent changes
+come only from the person's own reply (WhatsApp, RCS, SMS) or, for email only, from the admin command in
+section 14.
 
 ## 10. Scheduled check-in
 
@@ -482,17 +494,75 @@ a valid IANA name; there is not exactly one elder. Consent always starts as `pen
 - `aurasenior-weekly-<hid>`: `cron(0 18 ? * SUN *)` in the household timezone, `{"kind":"weekly_summary"}`.
 
 Check-in run: skip if the elder is not `opted_in` on WhatsApp. If the window is open, the agent composes a voice
-note. If closed, send `aurasenior_checkin_<lang>` with her name as the parameter. Then `schedule_followup(followup,
-90)`. When she replies, the inbound path cancels the follow-up and missed check-in schedules.
+note. If closed (the usual case at 9:00, because her last message was about 24 hours ago), send
+`aurasenior_checkin_<lang>` (section 6.3) with her name as `{{1}}`. That template carries one quick-reply button,
+"सुनें" in Hindi and "Listen" in English. Then `schedule_followup(followup, 90)`.
+
+How the voice note reaches her when the window is closed: a tap on "सुनें" / "Listen" is an inbound WhatsApp
+message, so it opens the 24-hour window (D5). The inbound handler recognises the button payload `listen:checkin`
+(or `listen:followup`) and, with no agent turn, sends at once the Polly voice note for the fixed phrase
+`checkin_voice` from `config/phrases.toml` in her language (for Hindi: "सुप्रभात। आप कैसी हैं? क्या आपने चाय के साथ
+अपनी BP की गोली ले ली?"). Her voice reply then runs the normal agent turn. Header media types on templates: Meta's
+template docs list the allowed header formats (D5); an audio header is not used, so this button rule is the
+design. When she replies by voice or taps the button, the inbound path cancels the follow-up and missed check-in
+schedules.
+
+Weekly summary run (`{"kind":"weekly_summary"}`): `summary.build_week(household_id, today)` (section 8.6), then
+one SES `SendEmail` per recipient with an email address and `consent.email = opted_in` (doctor, and family whose
+`preferred_channel` or `fallback_channel` is email), template `aurasenior-weekly-summary`, `TemplateData` filled
+from `WeekFacts` (section 6.3). No model call. A recipient without email consent is skipped and traced
+`blocked_consent`.
 
 ## 11. Voice note in, voice note out
 
-1. SNS WhatsApp event with an audio message: dedupe on the WhatsApp message ID, set `wa_last_inbound_at`, mark the
-   message read (D5), fetch media to S3.
-2. `StartTranscriptionJob`: job name `aurasenior-<hid>-<msgid>`, `MediaFormat` `ogg`, `LanguageCode` from the
-   person's language row, output to the media bucket under `transcripts/`.
-3. EventBridge rule on `aws.transcribe` `Transcribe Job State Change` with status `COMPLETED` or `FAILED` invokes
-   `aurasenior-inbound` (D10). The handler ignores jobs whose name does not start with `aurasenior-`.
+### 11.1 Dedupe and retries
+
+SNS and EventBridge invoke Lambda asynchronously and Lambda retries a failed invocation (D9). Dedupe must let a
+retry through when the first attempt failed with a recoverable error, and must stop a duplicate delivery:
+
+```text
+put DEDUP#<event id> {status: "processing", at: now, ttl: 7 days}
+    condition: attribute_not_exists(PK) OR (status = "processing" AND at < now - 5 min)
+condition fails      -> skip (duplicate, or another invocation is working on it); DEBUG log
+on success           -> update status = "done"
+on recoverable error -> delete DEDUP#<event id>, then re-raise so Lambda retries
+on fatal error       -> update status = "done" (no retry), handle per section 16
+```
+
+The event ID is the WhatsApp message ID, the two-way SMS/RCS `inboundMessageId`, the SES `mail.messageId` plus
+event type, or the EventBridge event `id` for Transcribe.
+
+Sends inside a retried turn are idempotent. Each send has `correlation_id = <event id>#<step>` where `step` is a
+counter of sends within that event (deterministic because the deterministic paths run first and in order). Before
+sending, put `SEND#<correlation_id>` with `status = sending` (condition: not exists, or `sending` older than
+5 min). If the item exists with `sent`, skip the send. After the provider returns an ID, update to `sent`.
+Agent turns are not replayed token for token, so on a retry the model may word a reply differently; the
+`SEND#` check still stops a second send at the same step.
+
+### 11.2 Steps
+
+1. SNS WhatsApp event with an audio message: dedupe (11.1), set `wa_last_inbound_at`, mark the message read (D5),
+   fetch media to S3 with `GetWhatsAppMessageMedia`.
+2. `StartTranscriptionJob`: job name `aurasenior-<hid>-<first 32 hex characters of sha256(WhatsApp message ID)>`,
+   because the raw message ID is long and can contain characters such as `=` that the job name pattern does not
+   allow (D10). The name is stored on `MSG#` as `transcribe_job` and as a `TJOB#` item for the reverse lookup.
+   `MediaFormat` `ogg`, `LanguageCode` from the person's language row (single language per job, A11), output to the
+   media bucket under `transcripts/`.
+3. EventBridge rule `aurasenior-transcribe-done` invokes `aurasenior-inbound` (D10), pattern:
+
+   ```json
+   {
+     "source": ["aws.transcribe"],
+     "detail-type": ["Transcribe Job State Change"],
+     "detail": {
+       "TranscriptionJobStatus": ["COMPLETED", "FAILED"],
+       "TranscriptionJobName": [{"prefix": "aurasenior-"}]
+     }
+   }
+   ```
+
+   Prefix matching is a documented event pattern operator (D10). The handler also ignores names without a `TJOB#`
+   item, as a second layer.
 4. Read the transcript JSON. STOP and urgent keyword checks run first, then signals (section 15), then the agent
    turn.
 5. Agent replies with `message_person(as_voice=true)`; the adapter synthesises with the person's Polly row.
@@ -501,32 +571,72 @@ note. If closed, send `aurasenior_checkin_<lang>` with her name as the parameter
 
 1. Agent hears "BP tablets are finished": `log_medicine(out_of_stock=true)`, then `request_refill_approval` for the
    first family member in the escalation order.
-2. Rohan taps a suggestion. The two-way SNS payload carries the postback data (D6). The inbound handler validates it
-   with `^(refill|esc):(approve|self|call|ack):[a-z0-9]{12}$` and checks the approval belongs to a household where
-   the sender is that asked person. Anything else is ignored and logged at INFO.
-3. `approve`: conditional update `pending` to `approved`, then the agent runs `send_pharmacy_order` and confirms to
-   Kamala and Rohan. `self`: status `self`, Kamala hears "Rohan will sort out your tablets." `call`: Rohan gets a
-   text with her number.
-4. SMS replies `1`, `2`, `3`, `4` map to the newest pending approval or open escalation for that sender (if none,
-   a short help text).
-5. Approval not answered in 12 hours: status `expired`, Rohan gets one reminder, nothing is ordered.
+2. Rohan taps a suggestion (RCS) or a quick-reply button (WhatsApp). The postback data (D6) or button payload (A2)
+   is validated with `^(refill:(approve|self|call)|esc:ack):[a-z0-9]{12}$`. For `refill:*` the handler checks the
+   approval exists in the sender's household and the sender is its asked person; for `esc:ack` it checks the
+   escalation exists in the sender's household and the sender is family or neighbour. Anything else is ignored and
+   logged at INFO.
+3. `approve`: conditional update `pending` to `approved` (condition fails: already handled, reply with the help
+   text). Then the inbound handler calls `send_pharmacy_order(approval_id)` directly in code: conditional update
+   `approved` to `ordered`, SES `aurasenior-refill-order` to the pharmacy (requires the pharmacy's
+   `consent.email = opted_in`, section 14), `MED#.stock = ordered`, then the fixed confirmations
+   `refill_ordered_elder` to Kamala and `refill_ordered_family` to Rohan (section 6.3). No model call is on this
+   path. If the pharmacy email is blocked or fails, the approval stays `approved`, Rohan gets `refill_order_failed`
+   ("The order email could not be sent. Please call the pharmacy.") and an ERROR is logged.
+   `self`: status `self`, Kamala hears `refill_self_elder` ("{family_name} will sort out your {display_label}.").
+   `call`: Rohan gets a text with her WhatsApp number.
+4. SMS replies are single digits:
+
+   | Reply | Meaning | Target |
+   | --- | --- | --- |
+   | `1` | Order refill | newest `pending` approval whose asked person is the sender |
+   | `2` | I'll handle it | newest `pending` approval whose asked person is the sender |
+   | `3` | Send me her number | none needed; allowed for family and neighbour |
+   | `4` | I'm on it | newest `open` escalation in the sender's household |
+
+   A digit with no target, or any other text that is not a question, gets the `sms_help` phrase. Free text that is
+   not a digit or keyword goes to the agent turn (this is how "How was Mom this week?" arrives on SMS).
+5. Approval not answered in 12 hours: an `approval_expiry` one-time schedule (created with the approval) sets status
+   `expired`, Rohan gets one reminder, nothing is ordered.
 
 ## 13. Missed check-in, fall and help
 
 - Missed check-in: the `followup` schedule sends `aurasenior_followup`; it schedules `missed_checkin` for 60 minutes
   later, which runs `escalate(missed_checkin)` to the escalation order list.
 - Fall or help: keyword match (section 8.2) or the model calling `escalate(fall_or_help)`. Family and neighbour are
-  alerted at once as urgent; `escalation_recheck` runs every 10 minutes until acknowledged, at most 6 times, then the
-  trace records `unacknowledged` and an ERROR is logged. While the escalation is open and her window is open, the
-  elder gets a calm voice note every 5 minutes saying who was told. AuraSenior does not call emergency services; the
-  family decides.
+  alerted at once as urgent, and the elder gets the `esc_told_elder` voice note at once ("I have told
+  {family_name}. Someone will call you soon. Stay where you are, I am here.").
+- Recheck: `escalate` creates a one-time `escalation_recheck` schedule 5 minutes later with `run = 1`; each run
+  that finds the escalation still `open` creates the next one 5 minutes later, up to `run = 12` (60 minutes).
+  Each run sends the elder the `esc_reassure_elder` voice note if her window is open. Even-numbered runs (every 10
+  minutes) also resend the family alerts (RCS `urgent_alert` or WhatsApp `aurasenior_urgent_alert`) and the email
+  fallback to family who have email consent. After run 12 the escalation status becomes `unacknowledged`, the trace
+  records it and an ERROR is logged (which fires the `aurasenior-errors` alarm).
+- Acknowledge: RCS `esc:ack:<id>`, WhatsApp button `esc:ack:<id>`, or SMS `4`. `ack_escalation` sets
+  `acknowledged`, deletes the pending recheck schedule (not found is fine), and the elder hears `esc_ack_elder`
+  ("{name} is on the way to help you." with the acknowledger's `display_name`).
+- These are all `urgency = urgent`, so the hourly cap does not apply (section 8.3 rule 4). AuraSenior does not call
+  emergency services; the family decides.
 
 ## 14. Opt-in and STOP
 
-- WhatsApp: `aurasenior_optin_<lang>` sent once at seed time. Reply YES, हाँ, haan or START sets `opted_in`.
-  Until then only that template may go out. STOP, बंद, band (text, or a voice note whose whole normalised transcript
-  is one of these) sets `opted_out` at once and sends one free-form confirmation inside the window. START opts in
-  again.
+- WhatsApp opt-in is started by the person, never by AuraSenior. Meta requires businesses to get opt-in before
+  messaging people on WhatsApp, and to state the business name the person is opting in to (D5). AuraSenior sends no
+  template to anyone who has not written first.
+  1. The household admin helps the elder (and the neighbour) send the word START to the AuraSenior WhatsApp number,
+     using a `https://wa.me/<number>?text=START` link or QR code that prefills the text (open assumption A12 for the
+     link format), or by typing START.
+  2. That inbound message opens the 24-hour window. AuraSenior replies free-form, in the person's language, with a
+     voice note plus short text from phrase `optin_ask`: "This is AuraSenior. {family_name} set this up for you.
+     Each morning I will check in, and I will tell your family if you need help. Reply YES to start, or STOP to
+     stop."
+  3. YES, हाँ, haan, ha (text, or a voice note whose whole normalised transcript is one of these) sets
+     `consent.whatsapp = {status: opted_in, at, source: "wa_inbound_yes"}`. Nothing else is sent until then.
+  4. A message from an unknown number gets nothing (section 16). A known person who has not said YES gets only the
+     `optin_ask` reply, at most once per day.
+- WhatsApp STOP: STOP, बंद, band (text or whole-transcript voice note) sets `opted_out` at once and sends one
+  free-form `stop_confirm` phrase inside the window ("You will not get more messages. Send START to begin again.").
+  START then runs the opt-in steps again.
 - RCS and SMS: the SMS phone number and RCS agent use opt-out list `aurasenior-optout` with the required keywords
   (STOP and the others listed on the keywords page, D6). The inbound handler also sets `opted_out` in the household
   record when the two-way payload keyword is an opt-out keyword. Before every SMS or RCS send the guard checks the
@@ -534,6 +644,22 @@ note. If closed, send `aurasenior_checkin_<lang>` with her name as the parameter
 - Email: summaries and updates are sent with `ListManagementOptions` (contact list `aurasenior-contacts`, topic
   `updates`), so SES adds an unsubscribe link and suppresses unsubscribed addresses (open assumption A8). The
   pharmacy order is transactional and only goes to a pharmacy the household set up.
+- Email consent: there is no public endpoint, so email recipients (doctor, pharmacy, family with an email channel)
+  cannot confirm by link. The household admin (`PROFILE.admin_person_id`) asks them, for example by phone, and then
+  runs a local command with their own AWS credentials:
+
+  ```text
+  python -m aurasenior.admin consent <household_id> <person_id> email opted_in --source "phone call 2026-10-12"
+  ```
+
+  It writes `consent.email = {status, at, source: "admin:<text>"}` and a `TRACE#` item. `opted_out` works the same
+  way. Only the `email` channel can be set like this; the command exits 1 for any other channel, because WhatsApp,
+  RCS and SMS consent come only from the person's own reply. `--source` is required, 1 to 200 characters. The
+  pharmacy order requires `consent.email = opted_in` on the pharmacy person.
+- RCS and SMS opt-in for family: same pattern as WhatsApp. The family member sends START from their own phone to
+  the RCS agent (or, for a simulator record, to the SMS number); AuraSenior replies with `optin_ask` and YES sets
+  `consent.rcs` and `consent.sms` to `opted_in` with `source: "rcs_inbound_yes"` or `"sms_inbound_yes"`. Until YES,
+  nothing else is sent to that person.
 - Consent changes are written to the trace with time and source.
 
 ## 15. Tier 1 voice signals: change from her usual
