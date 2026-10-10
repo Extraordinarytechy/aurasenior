@@ -1,7 +1,7 @@
 # Design
 
-Status: Milestone 1 design, revision 2 (2026-10-10), addressing every finding of the 2026-10-10 design review
-(responses in section 19). Every AWS API, parameter, resource type, model ID and
+Status: Milestone 1 design, revision 3 (2026-10-11), addressing every finding of the second design review
+(responses in section 20; first review responses in section 19). Every AWS API, parameter, resource type, model ID and
 limit named here is backed by an entry in `docs/decisions.md` (official doc URL or a real read-only call saved in
 `docs/evidence/`). Anything not yet confirmed is listed as an open assumption in section 18 and in `decisions.md`
 D13, and must be resolved before the code that depends on it is called done.
@@ -393,6 +393,7 @@ RCS texts and card, and their SMS fallbacks (`config/phrases.toml`, English for 
 | `refill_expired` | "The refill request for {relation_label}'s {display_label} has closed. Tell {brand} if you still want it ordered." | same text |
 | `urgent_alert` | text "URGENT: {relation_label} said \"{quote}\" and may need help." with suggestion "I'm on it" (`esc:ack:<id>`) | `urgent_sms`: "URGENT {brand}: {relation_label} said \"{quote}\". Reply 4 if you are on it." |
 | `esc_ack_family` | "{ack_name} is on it." | same text |
+| `elder_number` | "{relation_label}'s WhatsApp number is {number}." (reply to `info:number`, `refill:call`, SMS `3`) | same text |
 | `agent_unavailable_family` | "{brand} could not answer {relation_label}'s message just now. Please call {relation_label}." | same text |
 | `worth_a_call` | from `config/signals.toml` (section 15) | same text |
 | `sms_help` | "{brand}: reply 1 to order, 2 if you will handle it, 3 for the number, 4 if you are on it. STOP to stop." | same text |
@@ -849,7 +850,7 @@ Agent turns are not replayed token for token, so on a retry the model may word a
    path. If the pharmacy email is blocked or fails, the approval stays `approved`, Rohan gets `refill_order_failed`
    ("The order email could not be sent. Please call the pharmacy.") and an ERROR is logged.
    `self`: status `self`, Kamala hears `refill_self_elder` ("{family_name} will sort out your {display_label}.").
-   `call`: Rohan gets a text with her WhatsApp number.
+   `call`: Rohan gets the fixed phrase `elder_number` ("{relation_label}'s WhatsApp number is {number}.").
 4. SMS replies are single digits:
 
    | Reply | Meaning | Target |
@@ -911,7 +912,7 @@ Agent turns are not replayed token for token, so on a retry the model may word a
      using a `https://wa.me/<number>?text=START` link or QR code that prefills the text (open assumption A12 for the
      link format), or by typing START.
   2. That inbound message opens the 24-hour window. AuraSenior replies free-form, in the person's language, with a
-     voice note plus short text from phrase `optin_ask`: "This is AuraSenior. {family_name} set this up for you.
+     voice note plus short text from phrase `optin_ask`: "This is {brand}. {family_name} set this up for you.
      Each morning I will check in, and I will tell your family if you need help. Reply YES to start, or STOP to
      stop."
   3. YES, हाँ, haan, ha (text, or a voice note whose whole normalised transcript is one of these) sets
@@ -978,8 +979,12 @@ Inputs per voice note, from the Transcribe JSON word items and our own message t
 - amount spoken: word count and speaking time;
 - mentions: pain and low-mood words from `config/keywords.toml` (Hindi and English).
 
-Baseline: her own last 14 days, median and median absolute deviation (MAD) per feature, at least 5 voice notes
-(else no signal). Scaled deviation for a note is `|x - median| / max(1.4826 * MAD, floor)`. `floor` is per feature
+Short notes: a voice note with fewer than 5 words or under 3 s of speech (first word start to last word end) is
+stored with `included = false`. It is left out of the speech rate, pause, reply delay and amount features and out
+of the baseline, so one-word replies such as YES or STOP cannot move them. Its mentions still count.
+
+Baseline: her own last 14 days, median and median absolute deviation (MAD) per feature, at least 5 included voice
+notes (else no signal). Scaled deviation for a note is `|x - median| / max(1.4826 * MAD, floor)`. `floor` is per feature
 in `config/signals.toml` so that a MAD of 0 (for example identical reply delays) never divides by zero: 5 percent
 of the median, with a minimum of 0.1 s for pause and delay features and 1 word for word counts. A feature is changed
 when its scaled deviation is over 2.5 on 3 of her last 5 notes. Mentions count as changed at 3 or more in 7 days
@@ -993,7 +998,7 @@ the README and the demo video say so. Simulated items are never mixed silently w
 from any simulated item is labelled.
 
 Output, the only one allowed: at most one worth a call message per household per day to the first family member,
-built from fixed phrases, for example "Worth a call today: {relation_label} has been speaking more slowly than her
+built from fixed phrases, for example "Worth a call today: {relation_label} has been speaking more slowly than
 usual this week and mentioned knee pain twice." Phrases live in `config/signals.toml`, one table per language row,
 and are checked by a unit test that fails if any phrase contains a disease name, a number presented as a score, or
 the words diagnosis, risk or score (and their Hindi equivalents in `config/wording.toml`). The output is only ever
@@ -1064,6 +1069,35 @@ Tests added for the review findings:
   demo household in each language row and passes the wording rule; every `{{n}}` has a value.
 - Fallback after a block: a `blocked_consent` with no fallback consent sends nothing.
 
+Tests added for the revision 3 findings:
+
+- Consent exemptions: `optin_ask` to a `pending` person passes; a second `optin_ask` the same local day is
+  `blocked_consent`; `stop_confirm` passes once after STOP; `checkin_voice` to a `pending` person is
+  `blocked_consent`.
+- RCS opt-in: `rcs-ask` refuses an unverified number (stubbed `DescribeVerifiedDestinationNumbers`); YES from the
+  device sets `consent.rcs`; `sim-inbound` refuses a person who is not a simulator record and marks consent from a
+  simulator record `simulated`.
+- Scheduled retry: a `checkin` run that raises after the template send is retried and sends the template once.
+- Schedule names: every name in section 10 with a 12-character `hid` and run 12 is 64 characters or fewer and
+  matches `[0-9a-zA-Z-_.]+`; seed rejects `hid` values outside `^[a-z0-9]{1,12}$`.
+- Escalation: keyword path then model `escalate` for one note gives one `ESC#` and one set of alerts; a fall during
+  an open missed check-in upgrades it; missed check-in rechecks send `missed_checkin` content and nothing to the
+  elder; an elder message closes a missed check-in as `resolved_by_elder` and sends `checkin_late_family`; an elder
+  message does not close a fall.
+- Agent outage: a capped day, or a fatal `Converse` error, sends exactly one `agent_unavailable_family` per day.
+- Brand: no file under `config/` except the `[brand]` entry, and no SES template text in the SAM template,
+  contains the literal brand string; rendering replaces every `{brand}`.
+- Pronouns: no phrase or template body contains "her", "him", "she" or "he" as a word for the elder (English rows).
+- Seed labels: a `display_label` that fails the wording rule is rejected.
+- Urgent quote: a quote that fails the wording rule is replaced by `quote_withheld` and the template still goes out.
+- Keywords: "Stop." opts out; "helpful" and "Rohan helps me" do not escalate; "मैं गिर गई" and "I fell" do.
+- Short notes: a 2-word note is `included = false` and does not change the baseline; its mentions count.
+- Refill expiry: the expiry run sends `refill_expired` once and does nothing for an approval already handled.
+- WhatsApp button: a tap with `context.id` of a stored template send resolves to `<action>:<id>`; without
+  `context.id` it falls back to the digit rule.
+- Weekly recipients: Rohan with `addresses.email` and email consent gets the summary even though his preferred
+  channel is RCS.
+
 Agent tests: the agent loop with a stub Converse client that returns recorded `toolUse` responses (shape from the
 D2 evidence), so tool order and validation are tested without model calls. One opt-in live test (`-m live`) runs
 the D2 transcript through the real model.
@@ -1100,9 +1134,16 @@ Each also appears in `docs/decisions.md` D13 with how it will be checked.
   START; the design does not depend on the link.
 - A13. Exact WhatsApp template button payload in the inbound SNS event (part of A2) and that Meta accepts the
   template bodies in section 6.3 as written.
-- A14. The guardrail profile ID for us-east-1 that the Standard tier needs (cross-Region inference), and that the
-  guardrail works with the `us.amazon.nova-2-lite-v1:0` profile in Converse. Checked before and on the first deploy
-  and the first guarded call. Until then the outbound guard is the Hindi wording control.
+- A14. Narrowed in revision 3: the profile ID is now recorded (`us.guardrail.v1:0`, D11). Still open: the exact
+  IAM resources the cross-Region permissions page asks for, and that the guardrail works with the
+  `us.amazon.nova-2-lite-v1:0` profile in Converse. Checked on the first deploy and the first guarded call. If the
+  deploy fails on the profile, redeploy with `GuardrailProfileId` empty (Classic, English only) and record it.
+- A15. An RCS send with `FallbackConfiguration` to a number that is not a verified test device (the simulator
+  record) is delivered as SMS from the fallback origination identity. Checked on the first live RCS to SMS test,
+  with the delivery events saved under `docs/evidence/`. If AWS rejects the send instead, the simulator record's
+  `preferred_channel` becomes `sms` and the fallback is shown with a send to Rohan's device while RCS is switched
+  off on that phone.
+- A16. The `v25.0` Meta API version is accepted by `SendWhatsAppMessage` (first live send).
 
 ## 19. Responses to the design review (2026-10-10)
 
@@ -1136,3 +1177,32 @@ still need a real call are tracked as open assumptions (A11 to A14).
 | 23 | Stock lifecycle after an order | Addressed. `ordered` state and transitions | 9.1, 12 |
 | 24 | Lambda architecture not chosen | Addressed. `arm64` | 2.1, D9 |
 | 25 | Fallback after a consent block | Addressed. Fallback only with consent on the fallback channel, same guard | 7.3, 8.3 |
+
+## 20. Responses to the second design review (2026-10-11)
+
+All 22 findings are addressed. None are backlogged. One (21) needs the owner and is passed to the orchestrator.
+
+| # | Finding | Response | Where |
+| --- | --- | --- | --- |
+| 1 | Guard blocks `optin_ask` and `stop_confirm` | Addressed. Rule 1a, exemption decided from the phrase key, once per person per channel per local day; tests | 8.3, 17 |
+| 2 | RCS and simulator opt-in not shown possible | Addressed. rcs-testing documents verification and the tester invitation, not device-first messages, so RCS opt-in is one business-started `optin_ask` after verification (`rcs-ask` admin command); YES sets consent. test-phone-numbers documents no inbound from simulator destinations, so the simulator record uses `sim-inbound`, labelled simulated and limited to simulator numbers. Fallback trigger is A15 | 6.2, 14, 16, 18, D6, D13 |
+| 3 | No event ID for scheduled runs | Addressed. Event ID table per kind, carried in the payload; retry test | 11.1, 17 |
+| 4 | Schedule names and household ID undefined | Addressed. `^[a-z0-9]{1,12}$` seed check, name table with lengths, Name limit in D8, length test | 9.3, 10, 17, D8 |
+| 5 | Escalation duplicates, content and closing | Addressed. Idempotent per household and reason, upgrade rule, per-reason table, `resolved_by_elder`, `checkin_late_family` | 6.2, 6.3, 8.2, 9.1, 13, 17 |
+| 6 | Family never told after `cost_cap` | Addressed. `agent_unavailable_family` once per household per day; elder hears `not_heard` if the family message is blocked | 6.3, 8.4, 16, 17 |
+| 7 | Brand hard-coded | Addressed. `[brand] name`, `{brand}` everywhere, rendered into WhatsApp bodies at submission, rename means re-submission; test | 6.3, 17 |
+| 8 | Meta API `v20.0` unchecked | Addressed. Meta versions page read: v20.0 expired 2026-09-24; default `v25.0` (until 2028-07-29), newest `v26.0`; config value; A16 | 7.1, 18, D5 |
+| 9 | Per-send button payloads unsourced | Addressed with the fallback the review gave. Meta's button webhook gives the label as `payload` and the template message as `context.id`; buttons are static and resolved through `MSG#.ref`, else the digit rule | 6.2, 6.3, 9.1, 12, D5 |
+| 10 | Stack cannot deploy without the guardrail profile | Addressed. Profile `us.guardrail.v1:0` read from the cross-Region support page; `HasGuardrailProfile` condition with a Classic fallback; trace records the mode; A14 narrowed | 5, 5.1, 8.3, 18, D11 |
+| 11 | Keyword matching undefined | Addressed. `normalise`, whole-text match for STOP/START/YES, token, prefix and phrase entries; tests | 8.2, 17 |
+| 12 | Weekly recipients conflict | Addressed. One rule: everyone with an email address and email consent, except elder and pharmacy | 6.2, 6.3, 10 |
+| 13 | Output listed as parameter, empty ARNs | Addressed. `SmsOriginationNumberArn` is an output; `HasWhatsApp`, `HasRcsAgent` conditions; README order | 5, 5.1 |
+| 14 | Gendered wording | Addressed. Neutral wording and `{relation_label}`; `elder_number` phrase; test | 6.3, 12, 15, 17 |
+| 15 | Labels the guard would always replace | Addressed. Seed rejects labels and names that fail the wording rule | 9.3, 17 |
+| 16 | Guarded quote drops an urgent alert | Addressed. Only the quote is replaced, by `quote_withheld` | 6.3, 8.3, 17 |
+| 17 | Short notes distort signals | Addressed. Under 5 words or 3 s: `included = false`, mentions still counted | 9.1, 15, 17 |
+| 18 | "One reminder" undefined | Addressed. `refill_expired` at expiry only | 6.3, 12, 17 |
+| 19 | Events lost after retries | Addressed. `AWS::Lambda::EventInvokeConfig` on `$LATEST`, 2 retries, on-failure SNS `aurasenior-failed-events`, owner subscribed; plain CloudFormation resource because the SAM property is described for alias or version invocations | 3, 5, 5.1, 16, D9 |
+| 20 | Data kept forever | Addressed. TTL 30 days on `MSG#`, `SIGNAL#`, `USAGE#`, `TRACE#`; 90 days on `LOG#`, `APPROVAL#`, `ESC#` | 9.1 |
+| 21 | AgentCore deviation not confirmed | Passed to the orchestrator: the owner must answer before implementation; D11 keeps "pending" until then | D11 |
+| 22 | `optin_ask` to the admin, `USAGE#` date | Addressed. `optin_ask_admin`; household-local date | 6.3, 8.3, 8.4, 9.1 |
