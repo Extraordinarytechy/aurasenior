@@ -672,14 +672,26 @@ Inputs per voice note, from the Transcribe JSON word items and our own message t
 - amount spoken: word count and speaking time;
 - mentions: pain and low-mood words from `config/keywords.toml` (Hindi and English).
 
-Baseline: her own last 14 days, median and median absolute deviation per feature, at least 5 voice notes (else no
-signal). A feature is changed when it is more than 2.5 scaled deviations from her median on 3 of her last 5 notes.
-Mentions count as changed at 3 or more in 7 days when her 14-day baseline is below 1 per week.
+Baseline: her own last 14 days, median and median absolute deviation (MAD) per feature, at least 5 voice notes
+(else no signal). Scaled deviation for a note is `|x - median| / max(1.4826 * MAD, floor)`. `floor` is per feature
+in `config/signals.toml` so that a MAD of 0 (for example identical reply delays) never divides by zero: 5 percent
+of the median, with a minimum of 0.1 s for pause and delay features and 1 word for word counts. A feature is changed
+when its scaled deviation is over 2.5 on 3 of her last 5 notes. Mentions count as changed at 3 or more in 7 days
+when her 14-day baseline is below 1 per week.
+
+Demo history: the demo needs at least 5 notes in 14 days. The plan is real notes: from 2026-10-12 the demo voice
+sends one voice note a day to the real WhatsApp number (about 14 by 2026-10-26). Backup, used only if real
+WhatsApp is not live in time: `scripts/seed_household.py --simulated-baseline` writes baseline `SIGNAL#` items
+with `simulated = true`. The trace view prints `[SIMULATED BASELINE]` next to any signal computed from them, and
+the README and the demo video say so. Simulated items are never mixed silently with real ones: a signal computed
+from any simulated item is labelled.
 
 Output, the only one allowed: at most one worth a call message per household per day to the first family member,
-built from fixed phrases, for example "Worth a call today: Mom has been speaking more slowly than her usual this
-week and mentioned knee pain twice." Phrases live in `config/signals.toml` and are checked by a unit test that
-fails if any phrase contains a disease name, a number presented as a score, or the words diagnosis or risk.
+built from fixed phrases, for example "Worth a call today: {relation_label} has been speaking more slowly than her
+usual this week and mentioned knee pain twice." Phrases live in `config/signals.toml`, one table per language row,
+and are checked by a unit test that fails if any phrase contains a disease name, a number presented as a score, or
+the words diagnosis, risk or score (and their Hindi equivalents in `config/wording.toml`). The output is only ever
+a suggestion that a call may be worth it; it never states a cause, a condition or a level.
 Signals are never shown to the elder, never called health data in the product, and the weekly summary only repeats
 the plain mentions.
 
@@ -689,21 +701,26 @@ the plain mentions.
 | --- | --- | --- | --- | --- |
 | SNS event parse | Bad JSON, unknown shape | Fatal for that event | Dropped, Lambda returns success so SNS does not retry | WARN with event type only |
 | Sender lookup | No `ADDR#` item | Fatal for that event | Dropped, no reply (unknown numbers get nothing) | INFO, number masked |
-| Dedupe put | Item exists | Expected | Event skipped | DEBUG |
-| `GetWhatsAppMessageMedia` | Throttling or 5xx | Recoverable | Exception raised so Lambda async retry runs (2 retries) | WARN |
+| Dedupe put | Condition fails (`done`, or `processing` under 5 min old) | Expected | Event skipped | DEBUG |
+| Any step after the dedupe put | Recoverable error | Recoverable | `DEDUP#` deleted, exception re-raised so Lambda async retry runs (2 retries); `SEND#` items stop repeat sends | WARN |
+| `GetWhatsAppMessageMedia` | Throttling or 5xx | Recoverable | As above | WARN |
 | Media too large or unsupported type | Over 16 MB or not audio/text | Fatal for that message | Elder gets "Please send a voice note" | INFO |
 | `StartTranscriptionJob` / job `FAILED` | Any | Fatal for that note | Elder gets "I could not hear that, please send it again"; no signal stored | ERROR |
 | `Converse` | Throttling | Recoverable | 3 retries with backoff (SDK standard mode) | WARN |
-| `Converse` | Access denied, validation, model gone | Fatal | Fixed fallback voice note "I will tell Rohan"; deterministic paths still run | ERROR |
+| `Converse` | Access denied, validation, model gone | Fatal | Fixed phrase `cost_cap` ("I will tell {family_name}.") as a voice note; deterministic paths still run | ERROR |
 | Tool input invalid | Schema check fails | Recoverable by model | `toolResult` with `status: error` and the reason, model may retry within 6 iterations | INFO |
 | `SendWhatsAppMessage` | Window closed or template not approved | Fatal for that message | Fallback channel per 7.3; template status re-read once per day | WARN |
 | `SendWhatsAppMessage` / `SendRcsMessage` / `SendTextMessage` / SES `SendEmail` | Throttling, 5xx | Recoverable | 2 retries, then fallback channel | WARN |
 | Same | Validation, access denied, opted out, spend limit | Fatal | Fallback channel; trace `failed` with code | ERROR |
-| `send_pharmacy_order` | Approval not `approved` | Fatal by design | `toolResult` error "not approved"; nothing sent | WARN |
+| `send_pharmacy_order` | Approval not `approved` (conditional update fails) | Fatal by design | Nothing sent; the tapper gets `sms_help` or the RCS help text | WARN |
+| `send_pharmacy_order` | Pharmacy email consent missing, or SES send fails after retries | Fatal for that order | Approval stays `approved`; approver gets `refill_order_failed` | ERROR |
+| Postback or digit | Pattern fails, wrong household or wrong person | Fatal for that event | Ignored | INFO |
+| Admin consent command | Channel not `email`, unknown household or person, `--source` missing | Fatal | Exit 1 with the reason; nothing written | stderr only |
+| `scheduler:CreateSchedule` for a recheck | Throttling or 5xx | Recoverable | Re-raise (the escalation alert was already sent and is protected by `SEND#`) | WARN |
 | `CreateSchedule` | Conflict (same name) | Expected | Treated as already scheduled | DEBUG |
 | `DeleteSchedule` | Not found | Expected | Treated as done | DEBUG |
 | Cost cap reached | Counter over limit | Expected | Section 8.4 | ERROR once per day |
-| Escalation never acknowledged | 6 rechecks | Fatal for automation | Trace `unacknowledged` | ERROR, and the CloudWatch alarm on ERROR count fires |
+| Escalation never acknowledged | 12 rechecks (60 min) | Fatal for automation | Status and trace `unacknowledged` | ERROR, and the CloudWatch alarm on ERROR count fires |
 
 Every handler catches what it can name; anything else propagates so Lambda retries and the CloudWatch alarm
 `aurasenior-errors` (Errors metric over 0 in 5 minutes) fires. Logs are JSON lines with household ID and correlation
@@ -713,16 +730,37 @@ ID; phone numbers and emails are masked, transcripts are never logged.
 
 Unit tests (pytest, no AWS): language table lookups; channel routing and fallback for every row of the matrix in
 section 6.2; outbound guard (consent, window boundary at 23 h 29 min and 23 h 31 min, wording blocklist); STOP and
-START keywords in Hindi and English; postback and SMS digit parsing; approval state machine including double taps
-(only one order); seed file validation; signals on synthetic Transcribe JSON (baseline under 5 notes gives nothing,
-3 of 5 rule, at most one message per day); `config/signals.toml` wording test; parse functions on the payload
-examples from the AWS docs.
+START keywords in Hindi and English; postback and SMS digit parsing (the four digits, no target, regex rejects
+`esc:approve` and `refill:ack`); approval state machine including double taps (only one order) and the pharmacy
+order running with a stub that would fail if any Converse call is made; seed file validation; signals on synthetic
+Transcribe JSON (baseline under 5 notes gives nothing, 3 of 5 rule, MAD of 0 uses the floor, at most one message per
+day, simulated baseline is labelled); `config/signals.toml` wording test; parse functions on the payload examples
+from the AWS docs.
+
+Tests added for the review findings:
+
+- Retry: the first attempt raises a throttling error after the dedupe put, the second attempt processes the event
+  and the stub adapter records exactly one send.
+- Duplicate: the same event delivered twice after success produces one send.
+- Transcribe job name: a `wamid` containing `=` and over 200 characters gives a name that matches the documented
+  pattern and length (D10).
+- Rate cap: one hour of an open escalation sends every urgent message while normal messages stop at 30.
+- Recheck: 12 runs, elder note on each run with an open window, family resend on even runs, `unacknowledged` after
+  run 12, nothing after an ack.
+- Opt-in: no template is ever sent to a person whose WhatsApp consent is not `opted_in`; START then YES opts in.
+- Admin consent: `email` works, `whatsapp` exits 1.
+- `build_week` on a fixed set of items gives the expected `WeekFacts`; with `share_transcripts = false` no quote
+  appears; a family member's prompt never contains `TURN#<elder>#` text.
+- Render and guard: every template in section 6.3 and every phrase in `config/phrases.toml` is rendered with the
+  demo household in each language row and passes the wording rule; every `{{n}}` has a value.
+- Fallback after a block: a `blocked_consent` with no fallback consent sends nothing.
 
 Agent tests: the agent loop with a stub Converse client that returns recorded `toolUse` responses (shape from the
 D2 evidence), so tool order and validation are tested without model calls. One opt-in live test (`-m live`) runs
 the D2 transcript through the real model.
 
-End-to-end on simulators: `python -m aurasenior.demo` replays the demo story (opt-in, check-in template, voice reply,
+End-to-end on simulators: `python -m aurasenior.demo` replays the demo story (START and YES opt-in, check-in
+template, Listen tap and voice note, voice reply,
 log, refill card, Order refill tap, pharmacy email, confirmation voice note, missed check-in, fall alert and ack,
 "How was Mom?", weekly summary, STOP) with all adapters on `sim` and fake Transcribe output, then prints the trace.
 
@@ -747,3 +785,12 @@ Each also appears in `docs/decisions.md` D13 with how it will be checked.
 - A9. CloudFormation can create `AWS::Budgets::Budget` `aurasenior-monthly` with the deploy user's permissions
   (`budgets:ModifyBudget` on `aurasenior-*`).
 - A10. EventBridge rule permissions (`events:PutRule` and related) are available to the deploy user (D14).
+- A11. Kamala mixes Hindi and some English. Jobs use one language (`hi-IN`); accuracy on mixed speech is checked on
+  the first real transcription. No language identification feature is added.
+- A12. The `wa.me` link with `?text=START` prefills the message on the elder's phone. If it does not, the admin types
+  START; the design does not depend on the link.
+- A13. Exact WhatsApp template button payload in the inbound SNS event (part of A2) and that Meta accepts the
+  template bodies in section 6.3 as written.
+- A14. The Bedrock guardrail with the Standard tier is accepted by `AWS::Bedrock::Guardrail` with the property shown
+  in D11, and works with the `us.amazon.nova-2-lite-v1:0` profile in Converse. Checked on first deploy and the first
+  guarded call.
