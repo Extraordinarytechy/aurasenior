@@ -145,7 +145,7 @@ All verified, see `docs/decisions.md` (entry in brackets).
 | Service | Used for | APIs / resources |
 | --- | --- | --- |
 | End User Messaging Social | WhatsApp text, voice notes and templates with elder and neighbour | `SendWhatsAppMessage` (`originationPhoneNumberId`, `message`, `metaApiVersion`), `PostWhatsAppMessageMedia` (`sourceS3File`), `GetWhatsAppMessageMedia` (`destinationS3File`), `CreateWhatsAppMessageTemplate`, `ListWhatsAppMessageTemplates`, `PutWhatsAppBusinessAccountEventDestinations`, `GetLinkedWhatsAppBusinessAccount`. No CloudFormation type exists (D5) |
-| End User Messaging SMS and RCS | RCS rich cards and text to family in the US, SMS fallback, STOP keywords | `SendRcsMessage` (`RcsMessageContent`, `FallbackConfiguration` with `Channel` `SMS`), `SendTextMessage`, `CreateVerifiedDestinationNumber` (test device), `UpdateRcsAgent`, `DescribeOptedOutNumbers`; `AWS::SMSVOICE::PhoneNumber` (type `SIMULATOR`), `AWS::SMSVOICE::OptOutList`, `AWS::SMSVOICE::ConfigurationSet` (D6) |
+| End User Messaging SMS and RCS | RCS rich cards and text to family in the US, SMS fallback, STOP keywords | `SendRcsMessage` (`RcsMessageContent`, `FallbackConfiguration` with `Channel` `SMS`), `SendTextMessage`, `CreateVerifiedDestinationNumber` (test device), `DescribeVerifiedDestinationNumbers` (admin CLI, section 14), `UpdateRcsAgent`, `DescribeOptedOutNumbers`; `AWS::SMSVOICE::PhoneNumber` (type `SIMULATOR`), `AWS::SMSVOICE::OptOutList`, `AWS::SMSVOICE::ConfigurationSet` (D6) |
 | Amazon SES | Pharmacy order, weekly summary, email fallback | SES v2 `SendEmail` with `FromEmailAddress` (`SenderEmail`), `Content.Template`, `ConfigurationSetName`, `ListManagementOptions`; `GetEmailIdentity` (post-deploy check only); `AWS::SES::Template`, `AWS::SES::ConfigurationSet`, `AWS::SES::ConfigurationSetEventDestination`, `AWS::SES::ContactList` (D7) |
 | Amazon Bedrock | Agent reasoning and replies | `Converse` with `toolConfig`, `guardrailConfig`; inference profile `us.amazon.nova-2-lite-v1:0`; `AWS::Bedrock::Guardrail` with `TopicPolicyConfig.TopicsTierConfig.TierName` `STANDARD` and `CrossRegionConfig` (D1, D2, D11) |
 | Amazon Transcribe | Voice note to text with word timings | `StartTranscriptionJob` (`MediaFormat` `ogg`, `LanguageCode` `hi-IN`/`en-IN`/`en-US`, `OutputBucketName`), `GetTranscriptionJob`; EventBridge `Transcribe Job State Change` (D10) |
@@ -155,7 +155,7 @@ All verified, see `docs/decisions.md` (entry in brackets).
 | AWS Lambda | All compute | `AWS::Lambda::Function` via `AWS::Serverless::Function` (D9, D12) |
 | Amazon DynamoDB | All household state and trace | `AWS::DynamoDB::Table`, on-demand, TTL (D9) |
 | Amazon S3 | Voice notes in and out, transcripts | `AWS::S3::Bucket` `aurasenior-media-<account>`, lifecycle expiry 30 days (D9) |
-| Amazon SNS | Inbound and event fan-in | `AWS::SNS::Topic`, `AWS::SNS::TopicPolicy`, `AWS::SNS::Subscription` (D5, D6) |
+| Amazon SNS | Inbound and event fan-in; failed async events to the owner | `AWS::SNS::Topic`, `AWS::SNS::TopicPolicy`, `AWS::SNS::Subscription`; topic `aurasenior-failed-events` as the `AWS::Lambda::EventInvokeConfig` on-failure destination (D5, D6, D9) |
 | Amazon CloudWatch, AWS Budgets | Logs, alarm on errors, monthly budget | Lambda log groups (retention 14 days), `AWS::CloudWatch::Alarm`, budget `aurasenior-monthly` (D9) |
 
 ## 4. Agent runtime decision
@@ -229,9 +229,37 @@ Deploy command (D12): `sam deploy --stack-name aurasenior --region us-east-1 --t
 --capabilities CAPABILITY_NAMED_IAM`. The roles have explicit `aurasenior-` names, and CloudFormation requires
 `CAPABILITY_NAMED_IAM` for IAM resources with custom names (D12). The README uses the same command.
 
-Stack parameters: `OwnerEmail` (budget alerts), `SenderEmail` (SES From address), `RcsAgentId`,
-`SmsOriginationNumberArn` (created by the stack, output only), `WhatsAppPhoneNumberId` (empty until the owner links
-WhatsApp; the WhatsApp adapter stays on `sim` while it is empty), `GuardrailProfileArn` (A14).
+Stack parameters: `OwnerEmail` (budget alerts and failed-event notices), `SenderEmail` (SES From address),
+`RcsAgentId` (default empty), `WhatsAppPhoneNumberId` (default empty until the owner links WhatsApp; the WhatsApp
+adapter stays on `sim` while it is empty), `GuardrailProfileId` (default `us.guardrail.v1:0`, the US guardrail
+profile listed for source Region us-east-1 on the guardrails-cross-region-support page, D11; empty selects the
+Classic tier).
+
+Stack outputs: `SmsOriginationNumberArn` (the simulator number the stack creates), the three SNS topic ARNs, the
+table name, the guardrail ID and version.
+
+Conditions (CloudFormation `Conditions` with `Fn::If` and `AWS::NoValue` to drop a property or statement, D12):
+
+| Condition | True when | Effect |
+| --- | --- | --- |
+| `HasWhatsApp` | `WhatsAppPhoneNumberId` not empty | the `social-messaging:*` statement is in both function roles; false: the statement is left out, so no empty ARN is written |
+| `HasRcsAgent` | `RcsAgentId` not empty | the RCS agent ARN is in the `sms-voice:SendRcsMessage` statement; false: only the simulator number and configuration set are listed |
+| `HasGuardrailProfile` | `GuardrailProfileId` not empty | true: `TierName: STANDARD`, `CrossRegionConfig.GuardrailProfileIdentifier = GuardrailProfileId`, and the profile ARN is in the `bedrock:ApplyGuardrail` resources. False: `TierName: CLASSIC`, no `CrossRegionConfig`, profile ARN left out. In Classic mode the denied topics cover English only (D11), and the outbound guard with `config/wording.toml` is the only Hindi control |
+
+The function reads the guardrail mode from an environment variable set by the same condition, and every `TRACE#`
+item for a Converse call records `guardrail_mode` (`standard` or `classic`).
+
+README order: deploy once with `RcsAgentId` empty (the stack works on the RCS simulator adapter), then the owner
+creates the RCS testing agent and test device in the console, then redeploy with `RcsAgentId` set and run
+`post_deploy.py`. The same pattern applies to `WhatsAppPhoneNumberId`.
+
+Failed async events: each function has an `AWS::Lambda::EventInvokeConfig` with `Qualifier: $LATEST`,
+`MaximumRetryAttempts: 2` and `DestinationConfig.OnFailure.Destination` = SNS topic `aurasenior-failed-events`
+(D9). Lambda passes the invocation record to the topic, and the function role gets `sns:Publish` on that topic
+only. The owner email (`OwnerEmail`) is subscribed to it (`AWS::SNS::Subscription`, protocol `email`; the owner
+clicks the confirmation link once). A plain CloudFormation resource is used instead of the SAM `EventInvokeConfig`
+property, because the SAM page describes that property for alias or version invocations and the functions are
+invoked on `$LATEST`.
 
 SES sender identity: `SenderEmail` must be a verified SES identity, and in the sandbox every recipient must be
 verified too (D7). The README has an owner step: "In the SES console, Verified identities, create an email identity
@@ -253,10 +281,12 @@ type, or only a type AuraSenior does not use.
 | | `transcribe:StartTranscriptionJob` | `*` (no resource type for this action) |
 | | `transcribe:GetTranscriptionJob` | `transcriptionjob` resources named `aurasenior-*` (ARN format taken from the Service Reference data when the template is written) |
 | | `bedrock:InvokeModel` | the `us.amazon.nova-2-lite-v1:0` inference profile ARN and the foundation model ARNs it routes to, as listed for that profile in `bedrock-inference-profiles-2026-10-10.json` (D1) |
-| | `bedrock:ApplyGuardrail` | guardrail `aurasenior-safety` ARN and `GuardrailProfileArn` |
+| | `bedrock:ApplyGuardrail` | guardrail `aurasenior-safety` ARN; plus `arn:aws:bedrock:us-east-1:<account>:guardrail-profile/<GuardrailProfileId>` only under `HasGuardrailProfile` (any extra ARNs the cross-Region permissions page requires are A14) |
 | | `polly:SynthesizeSpeech` | `*` (its only resource type is a lexicon; no lexicons are used) |
-| | `social-messaging:SendWhatsAppMessage`, `PostWhatsAppMessageMedia`, `GetWhatsAppMessageMedia` | the WhatsApp phone number ID ARN from `WhatsAppPhoneNumberId` |
-| | `sms-voice:SendRcsMessage`, `sms-voice:SendTextMessage` | RCS agent `RcsAgentId`, the simulator phone number, configuration set `aurasenior-sms` |
+| | `social-messaging:SendWhatsAppMessage`, `PostWhatsAppMessageMedia`, `GetWhatsAppMessageMedia` | the WhatsApp phone number ID ARN from `WhatsAppPhoneNumberId`; statement present only under `HasWhatsApp` |
+| | `sms-voice:SendRcsMessage`, `sms-voice:SendTextMessage` | the simulator phone number and configuration set `aurasenior-sms`; RCS agent `RcsAgentId` only under `HasRcsAgent` |
+| | `sms-voice:DescribeVerifiedDestinationNumbers` | not in a function role; used only by the admin CLI with the developer's credentials (section 14) |
+| | `sns:Publish` | topic `aurasenior-failed-events` only (Lambda async on-failure destination, section 5) |
 | | `ses:SendEmail` | identity `SenderEmail`, configuration set `aurasenior-email`, the `aurasenior-*` templates; plus the recipient identities while in the sandbox |
 | | `scheduler:CreateSchedule`, `scheduler:DeleteSchedule` | `arn:aws:scheduler:us-east-1:<account>:schedule/aurasenior/*` |
 | | `iam:PassRole` with condition `iam:PassedToService = scheduler.amazonaws.com` | role `aurasenior-scheduler` only |
@@ -415,8 +445,13 @@ Implementations, chosen per channel by `[channels] <name> = "aws" | "sim"` in `c
 
 - `WhatsAppAws`: voice notes are Polly `SynthesizeSpeech` (`ogg_opus`, 48000 Hz) written to
   `s3://aurasenior-media-<account>/out/<household>/<id>.ogg`, then `PostWhatsAppMessageMedia` with `sourceS3File`
-  returns a media ID, then `SendWhatsAppMessage` with a Cloud API `audio` message using that ID. `metaApiVersion` is
-  `v20.0`, as in the AWS examples (D5). Inbound audio is fetched with `GetWhatsAppMessageMedia`
+  returns a media ID, then `SendWhatsAppMessage` with a Cloud API `audio` message using that ID. `metaApiVersion`
+  comes from `[whatsapp] meta_api_version` in `config/app.toml`, default `v25.0`. The AWS example's `v20.0`
+  expired on September 24, 2026 on Meta's Graph API versions page; `v25.0` is listed as available until
+  July 29, 2028 and `v26.0` (released July 29, 2026) is the newest (D5). The SDK model types the field as a plain
+  string with no enum, so the value is not checked by AWS before the call. The first live send (A1) confirms it and
+  the response is saved under `docs/evidence/`. Template messages use the same field; buttons need no send-time
+  component because their labels are static (section 6.3). Inbound audio is fetched with `GetWhatsAppMessageMedia`
   `destinationS3File` into `in/<household>/<id>.ogg`.
 - `RcsAws`: `SendRcsMessage` with `RcsMessageContent` (a `RichCard.StandaloneCard`, `CardOrientation` `VERTICAL`,
   up to 4 card suggestions; or plain text), `FallbackConfiguration` `{Channel: "SMS", MessageBody,
@@ -557,7 +592,10 @@ if a language row is missing any phrase key, or if any phrase fails the wording 
 The Bedrock guardrail `aurasenior-safety` adds denied topics for medical diagnosis and medication dose advice on
 model input and output text. It uses the Standard safeguard tier for denied topics, because the Classic tier
 supports only English, French and Spanish for denied topics, while the Standard tier lists Hindi as "Optimized and
-supported" (D11). The Standard tier uses cross-Region inference (D11). Tool call arguments are not evaluated by a
+supported" (D11). The Standard tier uses cross-Region inference through guardrail profile `us.guardrail.v1:0`
+(source us-east-1, destinations us-east-1, us-east-2, us-west-2, D11). If the stack is deployed with
+`GuardrailProfileId` empty, the guardrail falls back to the Classic tier (section 5 condition
+`HasGuardrailProfile`) and covers English only. Tool call arguments are not evaluated by a
 guardrail in Converse (D11), which is why the guard above is the main wording control. The Hindi and English lists
 in `config/wording.toml` are required and tested whatever the guardrail does.
 
@@ -989,6 +1027,9 @@ the plain mentions.
 | `DeleteSchedule` | Not found | Expected | Treated as done | DEBUG |
 | Cost cap reached | Counter over limit | Expected | Section 8.4 | ERROR once per day |
 | Escalation never acknowledged | 12 rechecks (60 min) | Fatal for automation | Status and trace `unacknowledged` | ERROR, and the CloudWatch alarm on ERROR count fires |
+| Lambda async invocation | 2 retries exhausted | Fatal for that event | Invocation record published to `aurasenior-failed-events`; the owner gets the email; the event is not replayed automatically | ERROR on each failed attempt |
+| `sim-inbound` demo command | Target person is not a simulator record | Fatal | Exit 1, nothing published | stderr only |
+| `rcs-ask` admin command | Number not a verified test device for the agent, or `optin_ask` already sent today | Fatal | Exit 1 with the reason, nothing sent | stderr only |
 
 Every handler catches what it can name; anything else propagates so Lambda retries and the CloudWatch alarm
 `aurasenior-errors` (Errors metric over 0 in 5 minutes) fires. Logs are JSON lines with household ID and correlation
