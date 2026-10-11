@@ -92,7 +92,8 @@ def test_ack_stops_rechecks_and_tells_elder_for_falls(sample):
     assert schedules.name_recheck(eid, 1) in schedules.client().names()
     assert escalation.ack_escalation(sample, eid, "rohan")
     assert schedules.name_recheck(eid, 1) not in schedules.client().names()
-    assert _elder_sends()[-1]["text"] == "Rohan आपकी मदद के लिए आ रहे हैं।"
+    # Only what is true: the person knows and is handling it, not that they are on the way.
+    assert _elder_sends()[-1]["text"] == "Rohan को पता है और वे देख रहे हैं। मैं आपके साथ हूँ।"
     assert not escalation.ack_escalation(sample, eid, "nbr")
     n = len(sim.read("whatsapp"))
     escalation.recheck_run(sample, eid, 1)
