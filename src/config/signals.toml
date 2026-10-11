@@ -19,28 +19,30 @@ needed = 3
 min_words = 5
 min_seconds = 3.0
 
+# Feature phrases are neutral because a change is detected in either direction.
+# Mention phrases report what was said, not how the person seemed.
 [en]
 opening = "Worth a call today: {relation_label}"
-words_per_minute = "has been speaking more slowly than usual"
-pause_count = "has been pausing more than usual"
-pause_mean = "has been pausing longer than usual"
-reply_delay = "has been taking longer than usual to reply"
-word_count = "has been saying less than usual"
-speaking_time = "has been speaking for less time than usual"
+words_per_minute = "has been speaking differently from usual"
+pause_count = "has been pausing differently from usual"
+pause_mean = "has been pausing for different lengths from usual"
+reply_delay = "has been replying at a different pace from usual"
+word_count = "has been saying a different amount from usual"
+speaking_time = "has been speaking for a different length of time from usual"
 pain = "mentioned pain a few times"
-low_mood = "sounded low a few times"
+low_mood = "mentioned feeling low a few times"
 joiner = " and "
 closing = " this week."
 
 [hi]
 opening = "आज फ़ोन कर लें: {relation_label}"
-words_per_minute = "इस हफ़्ते सामान्य से धीरे बोल रही हैं"
-pause_count = "बोलते हुए सामान्य से ज़्यादा रुक रही हैं"
-pause_mean = "बोलते हुए सामान्य से देर तक रुक रही हैं"
-reply_delay = "जवाब देने में सामान्य से ज़्यादा समय ले रही हैं"
-word_count = "सामान्य से कम बोल रही हैं"
-speaking_time = "सामान्य से कम देर बोल रही हैं"
-pain = "ने कई बार दर्द की बात कही"
-low_mood = "कई बार उदास लगीं"
+words_per_minute = "सामान्य से अलग ढंग से बोल रही हैं"
+pause_count = "बोलते हुए सामान्य से अलग ढंग से रुक रही हैं"
+pause_mean = "बोलते हुए सामान्य से अलग देर तक रुक रही हैं"
+reply_delay = "जवाब देने में सामान्य से अलग समय ले रही हैं"
+word_count = "सामान्य से अलग मात्रा में बोल रही हैं"
+speaking_time = "सामान्य से अलग देर तक बोल रही हैं"
+pain = "कई बार दर्द की बात कर चुकी हैं"
+low_mood = "कई बार उदास होने की बात कर चुकी हैं"
 joiner = " और "
 closing = "।"

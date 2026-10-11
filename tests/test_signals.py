@@ -66,6 +66,26 @@ def test_one_message_a_day_and_no_numbers(sample):
     assert text.startswith("Worth a call today: Mom") and not re.search(r"\d|score|risk", text, re.IGNORECASE)
 
 
+def test_fewer_pauses_gives_the_neutral_phrase(sample):
+    def note(day, i, pauses):
+        store.put({"PK": store.hh(sample), "SK": f"SIGNAL#{day}#p{i:02d}", "date": day, "included": True,
+                   "simulated": False, "features": {"pause_count": pauses}, "mentions": {"pain": 0, "low_mood": 0}})
+
+    for i in range(8):
+        note(f"2026-10-0{i + 1}", i, 4.0 + (i % 2))
+    for i, pauses in enumerate([0.0, 0.0, 4.0, 0.0, 5.0]):
+        note(f"2026-10-{i + 8:02d}", 20 + i, pauses)
+    changed, _ = signals.changes(sample, "2026-10-12")
+    assert changed == ["pause_count"]
+    assert signals.phrase_for(changed, "en-IN", "Mom") == "Worth a call today: Mom has been pausing differently from usual this week."
+    assert "अलग ढंग से रुक" in signals.phrase_for(changed, "hi-IN", "माँ")
+
+
+def test_hindi_mentions_join_cleanly():
+    out = signals.phrase_for(["pain", "low_mood"], "hi-IN", "माँ")
+    assert out == "आज फ़ोन कर लें: माँ कई बार दर्द की बात कर चुकी हैं और कई बार उदास होने की बात कर चुकी हैं।"
+
+
 def test_simulated_baseline_is_labelled(sample):
     for i in range(6):
         _note(sample, f"2026-10-{i + 6:02d}", i, pain=1 if i >= 3 else 0, simulated=i < 3)
