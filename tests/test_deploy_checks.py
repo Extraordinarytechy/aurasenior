@@ -39,6 +39,16 @@ def test_template_submission_replaces_brand_and_skips_existing():
     assert "aurasenior_checkin_hi" not in names and "aurasenior_checkin_en" in names and len(names) == 13
 
 
+def test_every_body_variable_has_one_example_value():
+    import re
+
+    for d in deploy_checks.template_definitions():
+        body = d["components"][0]
+        n = len(set(re.findall(r"\{\{(\d+)\}\}", body["text"])))
+        assert n > 0, d["name"]
+        assert len(body["example"]["body_text"][0]) == n, d["name"]
+
+
 def test_action_list_includes_every_memory_handler_permission():
     data = json.loads(EVIDENCE.read_text(encoding="utf-8"))
     needed = set()

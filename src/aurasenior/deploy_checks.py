@@ -102,7 +102,11 @@ def template_definitions() -> list[dict]:
             continue
         for lang, t in langs.items():
             row = {"hi": ("_hi", "hi"), "en": ("_en", "en_US")}[lang]
-            comps = [{"type": "BODY", "text": t["body"].replace("{brand}", config.brand())}]
+            body = {"type": "BODY", "text": t["body"].replace("{brand}", config.brand())}
+            if t.get("example"):
+                # Meta reviews a body with {{n}} variables only with sample values, one per variable.
+                body["example"] = {"body_text": [list(t["example"])]}
+            comps = [body]
             if t["buttons"]:
                 comps.append({"type": "BUTTONS", "buttons": [{"type": "QUICK_REPLY", "text": b} for b in t["buttons"]]})
             out.append({"name": base + row[0], "language": row[1], "category": "UTILITY", "components": comps})
