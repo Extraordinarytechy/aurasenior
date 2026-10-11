@@ -1,0 +1,34 @@
+Service Reference ARN formats and actions, fetched 2026-10-11
+source https://servicereference.us-east-1.amazonaws.com/v1/<service>/<service>.json
+=== transcribe https://servicereference.us-east-1.amazonaws.com/v1/transcribe/transcribe.json
+  resource transcriptionjob: ['arn:${Partition}:transcribe:${Region}:${Account}:transcription-job/${JobName}']
+  transcribe:GetTranscriptionJob resources=['transcriptionjob']
+=== social-messaging https://servicereference.us-east-1.amazonaws.com/v1/social-messaging/social-messaging.json
+  resource phone-number-id: ['arn:${Partition}:social-messaging:${Region}:${Account}:phone-number-id/${OriginationPhoneNumberId}']
+  social-messaging:SendWhatsAppMessage resources=['phone-number-id']
+=== sms-voice https://servicereference.us-east-1.amazonaws.com/v1/sms-voice/sms-voice.json
+  resource PhoneNumber: ['arn:${Partition}:sms-voice:${Region}:${Account}:phone-number/${PhoneNumberId}']
+  resource ConfigurationSet: ['arn:${Partition}:sms-voice:${Region}:${Account}:configuration-set/${ConfigurationSetName}']
+  resource RcsAgent: ['arn:${Partition}:sms-voice:${Region}:${Account}:rcs-agent/${RcsAgentId}']
+  sms-voice:SendRcsMessage resources=['ConfigurationSet', 'PhoneNumber', 'Pool', 'ProtectConfiguration', 'RcsAgent', 'SenderId']
+  sms-voice:SendTextMessage resources=['ConfigurationSet', 'PhoneNumber', 'Pool', 'ProtectConfiguration', 'SenderId']
+=== ses https://servicereference.us-east-1.amazonaws.com/v1/ses/ses.json
+  resource identity: ['arn:${Partition}:ses:${Region}:${Account}:identity/${IdentityName}']
+  resource template: ['arn:${Partition}:ses:${Region}:${Account}:template/${TemplateName}']
+  resource configuration-set: ['arn:${Partition}:ses:${Region}:${Account}:configuration-set/${ConfigurationSetName}']
+  ses:SendEmail resources=['configuration-set', 'identity', 'template']
+=== logs https://servicereference.us-east-1.amazonaws.com/v1/logs/logs.json
+  resource log-group: ['arn:${Partition}:logs:${Region}:${Account}:log-group:${LogGroupName}']
+  resource log-stream: ['arn:${Partition}:logs:${Region}:${Account}:log-group:${LogGroupName}:log-stream:${LogStreamName}']
+  logs:CreateLogStream resources=['log-stream']
+  logs:PutLogEvents resources=['log-stream']
+=== bedrock-agentcore https://servicereference.us-east-1.amazonaws.com/v1/bedrock-agentcore/bedrock-agentcore.json
+  resource memory: ['arn:${Partition}:bedrock-agentcore:${Region}:${Account}:memory/${MemoryId}']
+  bedrock-agentcore:CreateMemory resources=['*']
+  bedrock-agentcore:GetMemory resources=['memory']
+  bedrock-agentcore:CreateEvent resources=['memory']
+  bedrock-agentcore:ListEvents resources=['memory']
+  bedrock-agentcore:RetrieveMemoryRecords resources=['memory']
+  bedrock-agentcore:ListMemoryRecords resources=['memory']
+  bedrock-agentcore:BatchCreateMemoryRecords resources=['memory']
+  bedrock-agentcore:DeleteMemory resources=['memory']

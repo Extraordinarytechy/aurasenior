@@ -476,8 +476,10 @@ Guardrail tier and Hindi (read 2026-10-10):
 - `bedrock:ApplyGuardrail` supports resource types `guardrail` and `guardrail-profile` (Service Reference,
   `service-reference-actions-2026-10-10.txt`); both are granted to the function roles.
 
-Owner confirmation of this runtime decision: pending. VISION.md names AgentCore; this entry parks it in the
-roadmap. The orchestrator asks the owner at the next check-in and records "Owner confirmed: yes/no, date" here.
+Owner confirmed: yes, 2026-10-11. Core agent on Lambda + Bedrock Converse. Milestone 1 adds Amazon Bedrock
+AgentCore Memory for long-term memory behind the memory interface (DynamoDB memory as fallback). Milestone 2
+(Oct 16-20, planned) moves the agent onto AgentCore Runtime behind AgentRunner. (Recorded by the design review
+step on the orchestrator's instruction; also in BUILD_BRIEF.md "Agent runtime".)
 
 Docs added in revision 3:
 - https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region-support.html

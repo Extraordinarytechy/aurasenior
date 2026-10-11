@@ -1,0 +1,194 @@
+{
+ "botocore": "1.43.111",
+ "ops": {
+  "bedrock-agentcore-control.CreateMemory": {
+   "input_members": [
+    "clientToken",
+    "description",
+    "encryptionKeyArn",
+    "eventExpiryDuration",
+    "indexedKeys",
+    "memoryExecutionRoleArn",
+    "memoryStrategies",
+    "name",
+    "namespaceKeys",
+    "streamDeliveryResources",
+    "tags"
+   ],
+   "required": [
+    "eventExpiryDuration",
+    "name"
+   ],
+   "output_members": [
+    "memory"
+   ],
+   "eventExpiryDuration": {
+    "min": 3,
+    "max": 365
+   },
+   "name": {
+    "pattern": "[a-zA-Z][a-zA-Z0-9_]{0,47}"
+   }
+  },
+  "bedrock-agentcore-control.GetMemory": {
+   "input_members": [
+    "memoryId",
+    "view"
+   ],
+   "required": [
+    "memoryId"
+   ],
+   "output_members": [
+    "memory"
+   ],
+   "memoryId": {
+    "min": 12,
+    "pattern": "[a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9]{10}"
+   }
+  },
+  "bedrock-agentcore.CreateEvent": {
+   "input_members": [
+    "actorId",
+    "branch",
+    "clientToken",
+    "eventTimestamp",
+    "extractionConfig",
+    "extractionMode",
+    "memoryId",
+    "metadata",
+    "payload",
+    "sessionId"
+   ],
+   "required": [
+    "actorId",
+    "eventTimestamp",
+    "memoryId",
+    "payload"
+   ],
+   "output_members": [
+    "event"
+   ],
+   "memoryId": {
+    "min": 12,
+    "pattern": "(arn:(aws|aws-cn|aws-us-gov):bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:memory/)?[a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9]{10}"
+   },
+   "actorId": {
+    "min": 1,
+    "max": 255,
+    "pattern": "[a-zA-Z0-9][a-zA-Z0-9-_/]*(?::[a-zA-Z0-9-_/]+)*[a-zA-Z0-9-_/]*"
+   },
+   "sessionId": {
+    "min": 1,
+    "max": 100,
+    "pattern": "[a-zA-Z0-9][a-zA-Z0-9-_]*"
+   }
+  },
+  "bedrock-agentcore.ListEvents": {
+   "input_members": [
+    "actorId",
+    "filter",
+    "includePayloads",
+    "maxResults",
+    "memoryId",
+    "nextToken",
+    "sessionId"
+   ],
+   "required": [
+    "actorId",
+    "memoryId",
+    "sessionId"
+   ],
+   "output_members": [
+    "events",
+    "nextToken"
+   ],
+   "memoryId": {
+    "min": 12,
+    "pattern": "(arn:(aws|aws-cn|aws-us-gov):bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:memory/)?[a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9]{10}"
+   },
+   "actorId": {
+    "min": 1,
+    "max": 255,
+    "pattern": "[a-zA-Z0-9][a-zA-Z0-9-_/]*(?::[a-zA-Z0-9-_/]+)*[a-zA-Z0-9-_/]*"
+   },
+   "sessionId": {
+    "min": 1,
+    "max": 100,
+    "pattern": "[a-zA-Z0-9][a-zA-Z0-9-_]*"
+   }
+  },
+  "bedrock-agentcore.RetrieveMemoryRecords": {
+   "input_members": [
+    "maxResults",
+    "memoryId",
+    "namespace",
+    "namespacePath",
+    "nextToken",
+    "searchCriteria"
+   ],
+   "required": [
+    "memoryId",
+    "searchCriteria"
+   ],
+   "output_members": [
+    "memoryRecordSummaries",
+    "nextToken"
+   ],
+   "memoryId": {
+    "min": 12,
+    "pattern": "(arn:(aws|aws-cn|aws-us-gov):bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:memory/)?[a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9]{10}"
+   },
+   "namespace": {
+    "min": 1,
+    "max": 1024,
+    "pattern": "[a-zA-Z0-9/*][a-zA-Z0-9-_/*]*(?::[a-zA-Z0-9-_/*]+)*[a-zA-Z0-9-_/*]*"
+   }
+  },
+  "bedrock-agentcore.ListMemoryRecords": {
+   "input_members": [
+    "maxResults",
+    "memoryId",
+    "memoryStrategyId",
+    "metadataFilters",
+    "namespace",
+    "namespacePath",
+    "nextToken"
+   ],
+   "required": [
+    "memoryId"
+   ],
+   "output_members": [
+    "memoryRecordSummaries",
+    "nextToken"
+   ],
+   "memoryId": {
+    "min": 12,
+    "pattern": "(arn:(aws|aws-cn|aws-us-gov):bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:memory/)?[a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9]{10}"
+   },
+   "namespace": {
+    "min": 1,
+    "max": 1024,
+    "pattern": "[a-zA-Z0-9/*][a-zA-Z0-9-_/*]*(?::[a-zA-Z0-9-_/*]+)*[a-zA-Z0-9-_/*]*"
+   }
+  },
+  "bedrock-agentcore.BatchCreateMemoryRecords": {
+   "input_members": [
+    "clientToken",
+    "memoryId",
+    "records"
+   ],
+   "required": [
+    "memoryId",
+    "records"
+   ],
+   "output_members": [
+    "failedRecords",
+    "successfulRecords"
+   ],
+   "memoryId": {
+    "min": 12,
+    "pattern": "(arn:(aws|aws-cn|aws-us-gov):bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:memory/)?[a-zA-Z][a-zA-Z0-9-_]{0,99}-[a-zA-Z0-9]{10}"
+   }
+  }
+ }
+}

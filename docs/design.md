@@ -1,7 +1,8 @@
 # Design
 
-Status: Milestone 1 design, revision 3 (2026-10-11), addressing every finding of the second design review
-(responses in section 20; first review responses in section 19). Every AWS API, parameter, resource type, model ID and
+Status: Milestone 1 design, revision 4 (2026-10-11), addressing every finding of the third design review
+(responses in section 21; second review in section 20, first review in section 19) and adding Amazon Bedrock
+AgentCore Memory (section 8.7) per the owner decision recorded in D11. Every AWS API, parameter, resource type, model ID and
 limit named here is backed by an entry in `docs/decisions.md` (official doc URL or a real read-only call saved in
 `docs/evidence/`). Anything not yet confirmed is listed as an open assumption in section 18 and in `decisions.md`
 D13, and must be resolved before the code that depends on it is called done.
@@ -77,8 +78,10 @@ flowchart LR
 
   subgraph AGENT["Agent, same code package in both functions"]
     AG["Agent loop<br/>Bedrock Converse + tool use"]
-    TOOLS["Model tools: get_household, get_week,<br/>log_medicine, message_person,<br/>request_refill_approval, escalate, ack_escalation,<br/>schedule_followup, cancel_followup,<br/>remember, suggest_call"]
-    DET["Deterministic paths, no model:<br/>dedupe, STOP and opt-in, fall keywords,<br/>approval taps and pharmacy order,<br/>Listen tap voice note, weekly summary"]
+    TOOLS["Model tools: get_household, get_week,<br/>log_medicine, message_person,<br/>request_refill_approval, escalate, ack_escalation,<br/>remember, suggest_call"]
+    DET["Deterministic paths, no model:<br/>dedupe, STOP and opt-in, fall keywords,<br/>approval and ack taps, pharmacy order,<br/>Listen tap voice note, follow-up and<br/>missed check-in scheduling, weekly summary"]
+    SCHED["schedules.py, plain code<br/>(not a model tool)"]
+    MEM["MemoryStore<br/>AgentCore Memory, DynamoDB fallback"]
     GUARD["Outbound guard<br/>consent, 24h window, wording, rate"]
     ADP["Channel adapters<br/>real AWS or local simulator"]
   end
@@ -94,7 +97,12 @@ flowchart LR
   ADP -- "PostWhatsAppMessageMedia, SendWhatsAppMessage" --> WA
   ADP -- "SendRcsMessage, SendTextMessage" --> RCS
   ADP -- "SendEmail templated" --> SES
-  TOOLS -- "CreateSchedule, DeleteSchedule" --> SCH
+  DET --> SCHED
+  TOOLS -- "escalate, ack_escalation" --> SCHED
+  SCHED -- "CreateSchedule, DeleteSchedule" --> SCH
+  AG <--> MEM
+  MEM -- "CreateEvent, RetrieveMemoryRecords" --> ACM["Bedrock AgentCore Memory<br/>aurasenior_memory"]
+  MEM -- "fallback, MEMORY item" --> DDB
   AG <--> DDB[("DynamoDB aurasenior-household<br/>people, consent, meds, log, memory,<br/>approvals, signals, trace")]
   IN --> DDB
   TRACE["Trace view, local CLI<br/>reads TRACE items"] --> DDB
@@ -129,8 +137,10 @@ through a configuration set SNS destination (D7), Transcribe completion through 
 for approvals uses reply digits instead of a short link, so no web page is needed. The trace view is a local CLI
 (`python -m aurasenior.trace`) that reads DynamoDB with the developer's own credentials. With no public endpoint
 there is nothing to authenticate or rate limit on the internet side; abuse control is the per-household model call
-cap (section 8.4) and the SNS topic policies. Each topic policy allows only its own publisher to `sns:Publish`, with
-an `aws:SourceAccount` condition set to the stack account:
+cap (section 8.4) and the SNS topic policies. Each topic policy has one Allow statement for its service principal
+(`sns:Publish`, with an `aws:SourceAccount` condition set to the stack account) and no Deny statement. Same-account
+IAM principals, such as the developer running the `sim-inbound` command (section 14), publish through their own
+identity policy:
 
 | Topic | Publisher principal | Doc |
 | --- | --- | --- |
@@ -156,16 +166,21 @@ All verified, see `docs/decisions.md` (entry in brackets).
 | Amazon DynamoDB | All household state and trace | `AWS::DynamoDB::Table`, on-demand, TTL (D9) |
 | Amazon S3 | Voice notes in and out, transcripts | `AWS::S3::Bucket` `aurasenior-media-<account>`, lifecycle expiry 30 days (D9) |
 | Amazon SNS | Inbound and event fan-in; failed async events to the owner | `AWS::SNS::Topic`, `AWS::SNS::TopicPolicy`, `AWS::SNS::Subscription`; topic `aurasenior-failed-events` as the `AWS::Lambda::EventInvokeConfig` on-failure destination (D5, D6, D9) |
-| Amazon CloudWatch, AWS Budgets | Logs, alarm on errors, monthly budget | Lambda log groups (retention 14 days), `AWS::CloudWatch::Alarm`, budget `aurasenior-monthly` (D9) |
+| Amazon Bedrock AgentCore Memory | Elder's long-term memory (routine, people, past check-ins), behind `MemoryStore` with DynamoDB fallback (section 8.7) | `AWS::BedrockAgentCore::Memory` `aurasenior_memory`; data plane `CreateEvent`, `RetrieveMemoryRecords`; control plane `GetMemory` (post-deploy check only) (D11) |
+| Amazon CloudWatch, AWS Budgets | Logs, alarm on ERROR log lines and function errors, monthly budget | `AWS::Logs::LogGroup` per function (retention 14 days), `AWS::Logs::MetricFilter` per log group (metric `AuraSenior/ErrorLogs`), `AWS::CloudWatch::Alarm` `aurasenior-errors` with an SNS alarm action, budget `aurasenior-monthly` (D9) |
+| AWS Lambda permissions | SNS and EventBridge invoke `aurasenior-inbound` | `AWS::Lambda::Permission` and `AWS::SNS::Subscription`, generated by SAM event sources (section 5, D12) |
 
 ## 4. Agent runtime decision
 
-Decision: Option B, the agent loop runs inside Lambda and calls the Bedrock Converse API with tool use. Memory, state
-and the trace are kept in DynamoDB. Recorded as D11 in `docs/decisions.md`.
+Decision (owner confirmed 2026-10-11, D11): the agent loop runs inside Lambda and calls the Bedrock Converse API
+with tool use. State and the trace are kept in DynamoDB. Milestone 1 adds Amazon Bedrock AgentCore Memory for the
+elder's long-term memory, behind the `MemoryStore` interface (section 8.5), with the DynamoDB `MEMORY` item as the
+automatic fallback (section 8.7). Milestone 2, a separate run (target Oct 16-20), moves the agent loop onto
+AgentCore Runtime behind `AgentRunner`.
 
-Option A was Bedrock AgentCore Runtime, Memory and Observability with a Strands agent. AgentCore is reachable in
-this account and region (D4), and the `bedrock-agentcore` 1.24.1 and `strands-agents` 1.59.0 packages install in
-the project venv. It is not chosen for Milestone 1 for these reasons:
+Option A was Bedrock AgentCore Runtime, Memory and Observability with a Strands agent from the start. AgentCore is
+reachable in this account and region (D4), and the `bedrock-agentcore` 1.24.1 and `strands-agents` 1.59.0 packages
+install in the project venv. AgentCore Runtime is not used in Milestone 1 for these reasons:
 
 1. Converse with tool use is already proven end to end in this account with the default model, including a Hindi
    reply (D2). AgentCore Runtime has not had a single successful deploy or invoke here yet.
@@ -179,9 +194,10 @@ the project venv. It is not chosen for Milestone 1 for these reasons:
 4. The timeline needs core flows working on simulators by Oct 15.
 
 The agent sits behind one interface, `AgentRunner.run_turn(household_id, person_id, event) -> TurnResult`, so a
-later AgentCore implementation can replace the Lambda in-process runner without touching tools, adapters or data.
-Moving to AgentCore is listed in `docs/roadmap.md` and is only considered after every must-have is done and
-verified by 2026-10-20 (BUILD_BRIEF.md). It is not part of this design.
+later AgentCore Runtime implementation can replace the Lambda in-process runner without touching tools, adapters or
+data. That move is Milestone 2 (`docs/roadmap.md`), designed in its own run; Lambda stays the event entry point. If
+Runtime cannot be made reliable by Oct 20, Lambda stays and the docs say so (BUILD_BRIEF.md "Agent runtime").
+AgentCore Memory is part of this design (section 8.7).
 
 Model: `us.amazon.nova-2-lite-v1:0` from `[agent] model_id` in `config/app.toml` (D2). Hindi output quality is
 reviewed by a person before the demo (open assumption A6).
@@ -216,6 +232,71 @@ What is not in the template, and why:
   `UpdateRcsAgent` to set the two-way SNS topic and the opt-out list.
 - Per-household schedules: households are data, so `scripts/seed_household.py` creates their schedules. The stack
   only creates the schedule group `aurasenior` and the scheduler execution role.
+
+Event sources and invoke permissions (D12):
+
+- `aurasenior-inbound` uses SAM event sources: three `Type: SNS` events (`Topic` = the ARN of
+  `aurasenior-whatsapp-events`, `aurasenior-sms-rcs-events` and `aurasenior-email-events`) and one
+  `Type: EventBridgeRule` event (`RuleName: aurasenior-transcribe-done`, `Pattern` exactly as in section 11.2).
+  SAM generates the `AWS::SNS::Subscription`, `AWS::Events::Rule` and `AWS::Lambda::Permission` resources from
+  them, so no permission or subscription is written by hand.
+- `aurasenior-scheduled` has no event source. It is invoked only by EventBridge Scheduler through the
+  `aurasenior-scheduler` role (`lambda:InvokeFunction`, section 5.1), which needs no resource-based permission.
+
+Log groups: two `AWS::Logs::LogGroup` resources, `/aws/lambda/aurasenior-inbound` and
+`/aws/lambda/aurasenior-scheduled`, each with `RetentionInDays: 14`. Each function has `DependsOn` its log group,
+so the group exists before the first invocation and the function roles need only `logs:CreateLogStream` and
+`logs:PutLogEvents` on it (section 5.1), not `logs:CreateLogGroup`. Lambda writes to `/aws/lambda/<function name>`
+by default (D9).
+
+Error alarm (D9). The Lambda `Errors` metric only counts invocations that end in a function error, and many
+handled failures log ERROR and then return success (unacknowledged escalation, cost cap, failed pharmacy email). So
+the alarm counts ERROR log lines as well:
+
+```yaml
+ErrorLogMetricFilterInbound:          # and ErrorLogMetricFilterScheduled for /aws/lambda/aurasenior-scheduled
+  Type: AWS::Logs::MetricFilter
+  DependsOn: InboundLogGroup
+  Properties:
+    LogGroupName: /aws/lambda/aurasenior-inbound
+    FilterPattern: '{ $.level = "ERROR" }'          # logs are JSON lines with a top-level "level" (section 16)
+    MetricTransformations:
+      - MetricNamespace: AuraSenior
+        MetricName: ErrorLogs
+        MetricValue: "1"
+ErrorsAlarm:
+  Type: AWS::CloudWatch::Alarm
+  Properties:
+    AlarmName: aurasenior-errors
+    Metrics:                                         # metric math: one alarm on the sum
+      - Id: logs
+        MetricStat: {Metric: {Namespace: AuraSenior, MetricName: ErrorLogs}, Period: 300, Stat: Sum}
+        ReturnData: false
+      - Id: fin
+        MetricStat: {Metric: {Namespace: AWS/Lambda, MetricName: Errors,
+                     Dimensions: [{Name: FunctionName, Value: aurasenior-inbound}]}, Period: 300, Stat: Sum}
+        ReturnData: false
+      - Id: fsc
+        MetricStat: {Metric: {Namespace: AWS/Lambda, MetricName: Errors,
+                     Dimensions: [{Name: FunctionName, Value: aurasenior-scheduled}]}, Period: 300, Stat: Sum}
+        ReturnData: false
+      - Id: total
+        Expression: "FILL(logs,0) + FILL(fin,0) + FILL(fsc,0)"
+        Label: aurasenior error count
+        ReturnData: true
+    EvaluationPeriods: 1
+    ComparisonOperator: GreaterThanThreshold
+    Threshold: 0
+    TreatMissingData: notBreaching
+    AlarmActions: [!Ref FailedEventsTopic]           # aurasenior-failed-events, OwnerEmail is subscribed
+```
+
+The two metric filters publish to the same metric (no dimensions), so one `ErrorLogs` series covers both
+functions. The `aurasenior-failed-events` topic gets an `AWS::SNS::TopicPolicy` with one Allow statement for
+`cloudwatch.amazonaws.com` to `sns:Publish` with `aws:SourceAccount` (and no Deny); the Lambda on-failure
+destination publishes through the function role's identity policy, as in section 5.1. Whether CloudWatch needs
+that statement for an unencrypted topic in the same account is recorded in D9 from the alarm actions page; the
+statement is kept either way because it is harmless and the default topic policy is replaced by any explicit one.
 
 In the template, beyond the functions, table, bucket, topics, rule and SES and SMS resources: budget
 `aurasenior-monthly` as `AWS::Budgets::Budget` (monthly cost budget, email alert at 80 percent to the owner address
