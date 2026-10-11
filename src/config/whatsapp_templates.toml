@@ -8,7 +8,7 @@ body = "Good morning {{1}}. {brand} here with your morning check-in. Tap Listen 
 buttons = ["Listen"]
 example = ["Asha"]
 [aurasenior_checkin.hi]
-body = "सुप्रभात {{1}}। {brand} आपका सुबह का हालचाल लेने आई है। सुनने के लिए सुनें दबाएँ।"
+body = "सुप्रभात {{1}}। {brand} आपका सुबह का हालचाल लेने आई है। सुनने के लिए 'सुनें' दबाएँ।"
 buttons = ["सुनें"]
 example = ["Asha"]
 
@@ -17,7 +17,7 @@ body = "{{1}}, {brand} again. Just checking you are okay this morning. Tap Liste
 buttons = ["Listen"]
 example = ["Asha"]
 [aurasenior_followup.hi]
-body = "{{1}}, फिर से {brand}। बस पूछ रही हूँ कि आप ठीक हैं। सुनें दबाएँ।"
+body = "{{1}}, फिर से {brand}। बस पूछ रही हूँ कि आप ठीक हैं। 'सुनें' दबाएँ।"
 buttons = ["सुनें"]
 example = ["Asha"]
 
