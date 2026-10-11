@@ -685,7 +685,8 @@ Revision 5 (read 2026-10-11, HTTP 200): logical IDs. The parameters page: each p
 alphanumeric and unique among all logical names within the template"; the resources page: resource logical names
 "must be alphanumeric (A-Za-z0-9) and unique within the template". The parameter is `AgentCoreMemory`, so the
 memory resource is `AuraSeniorMemory` and the conditional output is `AgentCoreMemoryId`
-(`Fn::GetAtt AuraSeniorMemory.MemoryId`, condition `HasAgentCoreMemory`).
+(`Fn::GetAtt AuraSeniorMemory.MemoryId`, condition `HasAgentCoreMemory`; the outputs page: "To associate a
+condition with an output, define the condition in the Conditions section of the template").
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resources-section-structure.html
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html

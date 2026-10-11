@@ -742,8 +742,8 @@ class MemoryStore(Protocol):
     def record_checkin(self, household_id: str, person_id: str, local_date: str, line: str) -> None: ...
 ```
 
-No method raises: every implementation catches its own errors and logs them (section 8.7 table), except a failed
-DynamoDB write in `remember`, which is a normal DynamoDB error (section 16).
+AgentCore errors never leave `AgentCoreMemoryStore` (section 8.7 table), so `record_turn` and `record_checkin`
+never raise to the caller. DynamoDB errors in `recall` and `remember` are normal DynamoDB errors (section 16).
 
 - `DynamoMemoryStore` (`memory/dynamo.py`) is the current behaviour and the fallback: a `MEMORY#<pid>` item per
   person with up to 50 short notes (routine, people mentioned, grandchildren's names), oldest dropped.
