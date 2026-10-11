@@ -1,0 +1,12 @@
+{
+  "eventType": "TEXT_DELIVERED",
+  "eventVersion": "1.0",
+  "eventTimestamp": 1791776200000,
+  "isFinal": true,
+  "originationPhoneNumber": "+12025550199",
+  "destinationPhoneNumber": "+14254147755",
+  "isoCountryCode": "US",
+  "messageId": "sms-msg-0001",
+  "messageStatus": "DELIVERED",
+  "context": {"correlation_id": "checkin#sample01#2026-10-12#1"}
+}

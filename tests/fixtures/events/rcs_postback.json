@@ -1,0 +1,8 @@
+{
+  "originationNumber": "+12025550101",
+  "destinationNumber": "+12025550199",
+  "messageBody": "Order refill",
+  "postbackData": "refill:approve:0123456789ab",
+  "channel": "RCS",
+  "inboundMessageId": "8d1c0f7e-0000-4000-8000-000000000001"
+}

@@ -1,0 +1,5 @@
+{
+  "whatsAppWebhookEntry": "{\"id\":\"100000000000001\",\"changes\":[{\"value\":{\"messaging_product\":\"whatsapp\",\"metadata\":{\"phone_number_id\":\"200000000000001\"},\"messages\":[{\"from\":\"910000000001\",\"id\":\"wamid.AUDIO0001==\",\"timestamp\":\"1791775900\",\"type\":\"audio\",\"audio\":{\"mime_type\":\"audio/ogg; codecs=opus\",\"id\":\"300000000000001\",\"voice\":true}}]},\"field\":\"messages\"}]}",
+  "aws_account_id": "000000000000",
+  "messageId": "22222222-2222-2222-2222-222222222222"
+}

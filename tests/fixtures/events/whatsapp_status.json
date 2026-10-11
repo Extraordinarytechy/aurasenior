@@ -1,0 +1,5 @@
+{
+  "whatsAppWebhookEntry": "{\"id\":\"100000000000001\",\"changes\":[{\"value\":{\"messaging_product\":\"whatsapp\",\"metadata\":{\"phone_number_id\":\"200000000000001\"},\"statuses\":[{\"id\":\"wamid.OUT0001\",\"status\":\"delivered\",\"timestamp\":\"1791776100\",\"recipient_id\":\"910000000001\"}]},\"field\":\"messages\"}]}",
+  "aws_account_id": "000000000000",
+  "messageId": "44444444-4444-4444-4444-444444444444"
+}

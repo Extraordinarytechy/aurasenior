@@ -1,0 +1,10 @@
+Sample inbound and status payloads used by the parser tests.
+
+whatsapp_*.json: End User Messaging Social SNS message with the Meta webhook entry as a JSON string in
+  whatsAppWebhookEntry. Message objects follow the Meta Cloud API webhook reference (text, audio, button with
+  button.payload and context.id, statuses). The exact SNS envelope is confirmed on the first real event.
+sms_inbound.json, rcs_postback.json: two-way SMS payload fields (originationNumber, destinationNumber,
+  messageKeyword, messageBody, inboundMessageId). The RCS postback field name is confirmed on the first real tap.
+sms_delivered.json, rcs_read.json: End User Messaging SMS configuration set event records.
+ses_delivery.json: SES configuration set event record (eventType, mail.messageId).
+All numbers are fictional.

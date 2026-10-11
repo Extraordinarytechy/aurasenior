@@ -1,0 +1,8 @@
+{
+  "eventType": "RCS_READ",
+  "eventVersion": "1.0",
+  "eventTimestamp": 1791776300000,
+  "destinationPhoneNumber": "+12025550101",
+  "messageId": "rcs-msg-0001",
+  "messageStatus": "READ"
+}

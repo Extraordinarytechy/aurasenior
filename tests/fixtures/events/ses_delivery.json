@@ -1,0 +1,10 @@
+{
+  "eventType": "Delivery",
+  "mail": {
+    "timestamp": "2026-10-18T12:30:00.000Z",
+    "source": "sender@example.com",
+    "messageId": "010001-ses-0001",
+    "destination": ["doctor@example.com"]
+  },
+  "delivery": {"timestamp": "2026-10-18T12:30:01.000Z", "recipients": ["doctor@example.com"]}
+}
