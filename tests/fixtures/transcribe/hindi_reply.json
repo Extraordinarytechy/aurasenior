@@ -1,0 +1,21 @@
+{
+  "jobName": "aurasenior-sample01-0000000000000000000000000000000a",
+  "status": "COMPLETED",
+  "results": {
+    "transcripts": [{"transcript": "शुगर की गोली ले ली। BP वाली खत्म हो गई। आज घुटने में थोड़ा दर्द है।"}],
+    "items": [
+      {"type": "pronunciation", "start_time": "0.40", "end_time": "0.90", "alternatives": [{"confidence": "0.98", "content": "शुगर"}]},
+      {"type": "pronunciation", "start_time": "0.95", "end_time": "1.10", "alternatives": [{"confidence": "0.99", "content": "की"}]},
+      {"type": "pronunciation", "start_time": "1.15", "end_time": "1.50", "alternatives": [{"confidence": "0.97", "content": "गोली"}]},
+      {"type": "pronunciation", "start_time": "1.55", "end_time": "1.80", "alternatives": [{"confidence": "0.99", "content": "ले"}]},
+      {"type": "pronunciation", "start_time": "1.85", "end_time": "2.10", "alternatives": [{"confidence": "0.99", "content": "ली"}]},
+      {"type": "punctuation", "alternatives": [{"confidence": "0.0", "content": "।"}]},
+      {"type": "pronunciation", "start_time": "3.40", "end_time": "3.70", "alternatives": [{"confidence": "0.95", "content": "BP"}]},
+      {"type": "pronunciation", "start_time": "3.75", "end_time": "4.10", "alternatives": [{"confidence": "0.98", "content": "वाली"}]},
+      {"type": "pronunciation", "start_time": "4.15", "end_time": "4.60", "alternatives": [{"confidence": "0.98", "content": "खत्म"}]},
+      {"type": "pronunciation", "start_time": "4.65", "end_time": "4.90", "alternatives": [{"confidence": "0.99", "content": "हो"}]},
+      {"type": "pronunciation", "start_time": "4.95", "end_time": "5.20", "alternatives": [{"confidence": "0.99", "content": "गई"}]},
+      {"type": "pronunciation", "start_time": "5.40", "end_time": "5.90", "alternatives": [{"confidence": "0.96", "content": "दर्द"}]}
+    ]
+  }
+}

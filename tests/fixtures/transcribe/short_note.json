@@ -1,0 +1,11 @@
+{
+  "jobName": "aurasenior-sample01-0000000000000000000000000000000b",
+  "status": "COMPLETED",
+  "results": {
+    "transcripts": [{"transcript": "दर्द है"}],
+    "items": [
+      {"type": "pronunciation", "start_time": "0.30", "end_time": "0.80", "alternatives": [{"confidence": "0.97", "content": "दर्द"}]},
+      {"type": "pronunciation", "start_time": "0.85", "end_time": "1.10", "alternatives": [{"confidence": "0.99", "content": "है"}]}
+    ]
+  }
+}
