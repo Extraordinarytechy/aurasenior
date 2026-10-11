@@ -72,6 +72,8 @@ Hindi and an English voice reply, the refill card and Order refill tap, the phar
 note, a missed check-in, a fall alert and acknowledgement, "How was Mom this week?", the Sunday summary and STOP.
 Channels, Transcribe and Scheduler are local simulators, DynamoDB and S3 are in-memory mocks, and the model is a
 scripted stand-in replaying recorded responses. The trace labels these `[SIMULATED]` and `[SCRIPTED MODEL]`.
+The channel simulators report each message as delivered right after the send. One case is scripted as not
+delivered: the son's RCS fall alert, so the delivery check sends the SMS fallback and he replies 4 by SMS.
 
 ## Deploy
 

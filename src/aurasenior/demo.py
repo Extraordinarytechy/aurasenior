@@ -33,10 +33,12 @@ def _wa(sender: str, wamid: str, **message) -> dict:
     return _sns("aurasenior-whatsapp-events", {"whatsAppWebhookEntry": json.dumps(entry, ensure_ascii=False)})
 
 
-def _two_way(sender: str, msg_id: str, body: str, postback: str | None = None) -> dict:
+def _two_way(sender: str, msg_id: str, body: str, postback: str | None = None, rcs: bool = True) -> dict:
     # RCS replies arrive in the two-way SMS shape; the channel marker is how the replay tells them apart.
     m = {"originationNumber": sender, "destinationNumber": "+12025550199", "messageBody": body,
-         "inboundMessageId": msg_id, "channel": "RCS"}
+         "inboundMessageId": msg_id}
+    if rcs:
+        m["channel"] = "RCS"
     if postback:
         m["postbackData"] = postback
     return _sns("aurasenior-sms-rcs-events", m)
@@ -77,8 +79,9 @@ class Replay:
         inbound.handler(_wa(sender, f"wamid.DEMO{self.n:03d}", type="button", button={"payload": label, "text": label},
                             context={"id": context_id}))
 
-    def voice(self, sender: str, transcript_file: str, scripted: str | None) -> None:
-        from . import aws, transcribe
+    def voice(self, sender: str, transcript_file: str, scripted: str | None, rcs_undelivered: bool = False) -> None:
+        """rcs_undelivered: RCS messages sent while the transcript is handled never reach the phone."""
+        from . import aws, channels, transcribe
         from .handlers import inbound
 
         self.n += 1
@@ -91,8 +94,14 @@ class Replay:
                                     Body=json.dumps(data, ensure_ascii=False).encode())
         if scripted:
             self.model.add(self.turns[scripted])
-        inbound.handler({"id": f"evb-{self.n}", "source": "aws.transcribe", "detail-type": "Transcribe Job State Change",
-                         "detail": {"TranscriptionJobName": job, "TranscriptionJobStatus": "COMPLETED"}})
+        rcs = channels.get("rcs")
+        rcs.deliver = not rcs_undelivered
+        try:
+            inbound.handler({"id": f"evb-{self.n}", "source": "aws.transcribe",
+                             "detail-type": "Transcribe Job State Change",
+                             "detail": {"TranscriptionJobName": job, "TranscriptionJobStatus": "COMPLETED"}})
+        finally:
+            rcs.deliver = True
 
     def rcs(self, body: str, postback: str | None = None, scripted: str | None = None) -> None:
         from .handlers import inbound
@@ -101,6 +110,12 @@ class Replay:
         if scripted:
             self.model.add(self.turns[scripted])
         inbound.handler(_two_way(SON, f"in-demo-{self.n:03d}", body, postback))
+
+    def sms(self, body: str) -> None:
+        from .handlers import inbound
+
+        self.n += 1
+        inbound.handler(_two_way(SON, f"in-demo-{self.n:03d}", body, rcs=False))
 
     def advance(self, minutes: float) -> None:
         from . import clock
@@ -148,6 +163,9 @@ class Replay:
         self.step("Admin asks the son on RCS (test device check is simulated), son replies YES")
         consent._ask(store.get_person(self.hid, "rohan"), "rcs", None, "rcsask#demo", rcs_verified=True)
         self.rcs("YES")
+        self.step("Son also opts in to SMS, the fallback channel: START, then YES")
+        self.sms("START")
+        self.sms("YES")
         self.step("Admin records email consent for son, doctor and pharmacy")
         for pid in ("rohan", "doctor", "pharmacy"):
             admin.cmd_consent(self.hid, pid, "email", "opted_in", "phone call (sample)")
@@ -175,12 +193,12 @@ class Replay:
         self.step("Day 2, 09:00: check-in, no reply, follow-up at 10:30, missed check-in alert at 11:30")
         scheduled.handler({"kind": "checkin", "household_id": self.hid})
         self.at(13, 11, 42)
-        self.step("Elder says she slipped near the chair: late reply closes the missed check-in, fall alert at once")
-        self.voice(ELDER, "fall_note.json", "fall_note")
-        esc = [e for e in store.escalations(self.hid) if e.reason == "fall_or_help"][0]
+        self.step("Elder says she slipped near the chair: late reply closes the missed check-in, fall alert at once. "
+                  "Scripted: the son's RCS alert is not delivered, so the SMS fallback goes out 3 minutes later")
+        self.voice(ELDER, "fall_note.json", "fall_note", rcs_undelivered=True)
         self.advance(7)
-        self.step("Son taps I'm on it: elder hears who is coming, neighbour is told, rechecks stop")
-        self.rcs("I'm on it", postback=f"esc:ack:{esc.escalation_id}")
+        self.step("Son replies 4 to the SMS: elder hears that he knows and is on it, neighbour is told, rechecks stop")
+        self.sms("4")
 
         self.advance(60)
         self.step("Son asks over RCS: How was Mom this week?")

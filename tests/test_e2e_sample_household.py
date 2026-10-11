@@ -33,6 +33,14 @@ def test_sample_household_story(capsys):
     assert [t for t in items if t["step"] == "consent"][-1]["outcome"] == "opted_out"
     # the model ran only on the four conversational turns; deterministic paths made no call
     assert result["unused_scripted"] == 0 and result["model_calls"] == 9
+    # simulated receipts: most sends are delivered; the one scripted undelivered RCS alert falls back to SMS
+    checks = [t["outcome"] for t in items if t["step"] == "delivery_check"]
+    assert checks.count("no_delivery") == 1 and checks.count("delivered") >= 1
+    sms = sim.read("sms")
+    fallback = [m for m in sms if m["person_id"] == "rohan" and m.get("urgency") == "urgent"]
+    assert len(fallback) == 1 and fallback[0]["text"].startswith("URGENT")
+    acks = [t for t in items if t["step"] == "inbound" and t.get("channel") == "sms" and t.get("text") == "4"]
+    assert len(acks) == 1
     # every send is labelled simulated and the trace shows the labels
     assert all(x["simulated"] for x in wa + rcs + emails)
     assert "[SIMULATED]" in result["trace"] and "[SCRIPTED MODEL]" in result["trace"]
