@@ -14,6 +14,9 @@ from aurasenior import wording
         ("yeh madhumeh hai", "hi-IN", "disease"),
         ("doguni khurak lo", "hi-IN", "dose"),
         ("आपका स्कोर अच्छा है", "hi-IN", "score"),
+        ("यह स्ट्रोक हो सकता है", "hi-IN", "disease"),
+        ("घुटने में इन्फेक्शन है", "hi-IN", "disease"),
+        ("हाइपरटेंशन की दवा", "hi-IN", "disease"),
     ],
 )
 def test_wording_hits_return_rule_id(text, lang, rule):

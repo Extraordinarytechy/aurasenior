@@ -13,7 +13,10 @@ score = ["score", "diagnosis", "diagnose", "diagnosed", "risk level", "risk scor
 [hi]
 disease = ["मधुमेह", "डायबिटीज़", "डायबिटीज", "शुगर की बीमारी", "उच्च रक्तचाप", "डिमेंशिया", "अवसाद", "डिप्रेशन",
   "लकवा", "कैंसर", "हार्ट अटैक", "गठिया", "madhumeh", "diabetes", "dementia", "depression", "lakwa", "cancer",
-  "heart attack", "gathiya", "uchch raktchap"]
+  "heart attack", "gathiya", "uchch raktchap",
+  # English terms as Hindi speakers write them in Devanagari, and in Latin script
+  "स्ट्रोक", "इन्फेक्शन", "इंफेक्शन", "संक्रमण", "हाइपरटेंशन", "अल्ज़ाइमर", "अल्जाइमर", "पार्किंसन", "आर्थराइटिस",
+  "stroke", "infection", "hypertension"]
 dose = ["दोगुनी खुराक", "खुराक बढ़ा", "खुराक कम", "दवा बंद कर", "दो गोली ले", "doguni khurak", "khurak badha",
   "khurak kam", "dawa band kar", "do goli le", "double dose"]
-score = ["स्कोर", "निदान", "जोखिम स्तर", "score", "nidan", "diagnosis", "diagnose", "risk level"]
+score = ["स्कोर", "निदान", "जोखिम स्तर", "डायग्नोसिस", "score", "nidan", "diagnosis", "diagnose", "risk level"]
