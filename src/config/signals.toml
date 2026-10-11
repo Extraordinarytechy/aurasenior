@@ -1,0 +1,46 @@
+# Voice change signals: per-feature floors and the only phrases a signal can produce.
+# A signal is a suggestion to call, never a cause, a condition or a level.
+
+[floors]
+# floor = max(fraction * median, minimum)
+words_per_minute = { fraction = 0.05, minimum = 1.0 }
+pause_count = { fraction = 0.05, minimum = 1.0 }
+pause_mean = { fraction = 0.05, minimum = 0.1 }
+reply_delay = { fraction = 0.05, minimum = 0.1 }
+word_count = { fraction = 0.05, minimum = 1.0 }
+speaking_time = { fraction = 0.05, minimum = 0.1 }
+
+[rules]
+min_notes = 5
+baseline_days = 14
+threshold = 2.5
+window = 5
+needed = 3
+min_words = 5
+min_seconds = 3.0
+
+[en]
+opening = "Worth a call today: {relation_label}"
+words_per_minute = "has been speaking more slowly than usual"
+pause_count = "has been pausing more than usual"
+pause_mean = "has been pausing longer than usual"
+reply_delay = "has been taking longer than usual to reply"
+word_count = "has been saying less than usual"
+speaking_time = "has been speaking for less time than usual"
+pain = "mentioned pain a few times"
+low_mood = "sounded low a few times"
+joiner = " and "
+closing = " this week."
+
+[hi]
+opening = "आज फ़ोन कर लें: {relation_label}"
+words_per_minute = "इस हफ़्ते सामान्य से धीरे बोल रही हैं"
+pause_count = "बोलते हुए सामान्य से ज़्यादा रुक रही हैं"
+pause_mean = "बोलते हुए सामान्य से देर तक रुक रही हैं"
+reply_delay = "जवाब देने में सामान्य से ज़्यादा समय ले रही हैं"
+word_count = "सामान्य से कम बोल रही हैं"
+speaking_time = "सामान्य से कम देर बोल रही हैं"
+pain = "ने कई बार दर्द की बात कही"
+low_mood = "कई बार उदास लगीं"
+joiner = " और "
+closing = "।"

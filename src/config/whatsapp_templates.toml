@@ -1,0 +1,69 @@
+# WhatsApp message templates (category UTILITY). post_deploy.py submits them with {brand} replaced by the
+# [brand] name value. {{n}} are Meta positional variables. Name = <base><template_suffix>.
+# Button labels are static (25 characters or fewer); a tap is mapped back to an action with [actions].
+
+[aurasenior_checkin.en]
+body = "Good morning {{1}}. {brand} here with your morning check-in. Tap Listen to hear it."
+buttons = ["Listen"]
+[aurasenior_checkin.hi]
+body = "सुप्रभात {{1}}। {brand} आपका सुबह का हालचाल लेकर आया है। सुनने के लिए सुनें दबाएँ।"
+buttons = ["सुनें"]
+
+[aurasenior_followup.en]
+body = "{{1}}, {brand} again. Just checking you are okay this morning. Tap Listen."
+buttons = ["Listen"]
+[aurasenior_followup.hi]
+body = "{{1}}, फिर से {brand}। बस पूछ रहे हैं कि आप ठीक हैं। सुनें दबाएँ।"
+buttons = ["सुनें"]
+
+[aurasenior_refill_update.en]
+body = "{{1}}, your {{2}} have been ordered by {{3}}."
+buttons = []
+[aurasenior_refill_update.hi]
+body = "{{1}}, आपकी {{2}} {{3}} ने मँगवा दी है।"
+buttons = []
+
+[aurasenior_family_missed.en]
+body = "{brand}: no reply from {{1}} to this morning's check-in."
+buttons = ["I'm on it", "Send number"]
+[aurasenior_family_missed.hi]
+body = "{brand}: {{1}} ने आज सुबह के हालचाल का जवाब नहीं दिया।"
+buttons = ["मैं देख रहा हूँ", "नंबर भेजें"]
+
+[aurasenior_family_refill.en]
+body = "{brand}: {{1}} said the {{2}} have run out. Order a refill from the usual pharmacy?"
+buttons = ["Order refill", "I'll handle it", "Call"]
+[aurasenior_family_refill.hi]
+body = "{brand}: {{1}} ने बताया कि {{2}} खत्म हो गई है। हमेशा वाली दुकान से मँगवाएँ?"
+buttons = ["मँगवाएँ", "मैं देख लूँगा", "फ़ोन करें"]
+
+[aurasenior_family_update.en]
+body = "{brand} update about {{1}}: {{2}}"
+buttons = []
+[aurasenior_family_update.hi]
+body = "{{1}} के बारे में {brand} की जानकारी: {{2}}"
+buttons = []
+
+[aurasenior_urgent_alert.en]
+body = "URGENT from {brand}: {{1}} said \"{{2}}\" and may need help. Please check on {{1}} now."
+buttons = ["I'm on it"]
+[aurasenior_urgent_alert.hi]
+body = "{brand} से ज़रूरी: {{1}} ने कहा \"{{2}}\" और मदद चाहिए हो सकती है। कृपया अभी {{1}} का हाल लें।"
+buttons = ["मैं देख रहा हूँ"]
+
+# Tapped label (button.payload) to action, per phrase language.
+[actions.en]
+"Listen" = "listen"
+"I'm on it" = "esc:ack"
+"Send number" = "info:number"
+"Order refill" = "refill:approve"
+"I'll handle it" = "refill:self"
+"Call" = "refill:call"
+
+[actions.hi]
+"सुनें" = "listen"
+"मैं देख रहा हूँ" = "esc:ack"
+"नंबर भेजें" = "info:number"
+"मँगवाएँ" = "refill:approve"
+"मैं देख लूँगा" = "refill:self"
+"फ़ोन करें" = "refill:call"
