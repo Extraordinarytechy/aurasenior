@@ -26,6 +26,16 @@ def test_error_line_is_one_json_object(capsys):
     assert lines[0].startswith("{")
 
 
+def test_selftest_line_after_a_household_run_carries_no_household(capsys):
+    from aurasenior.handlers import scheduled
+
+    log.set_context(household_id="hh1", correlation_id="checkin#hh1#2026-10-12")
+    scheduled.handler({"kind": "selftest_error"})
+    obj = json.loads(capsys.readouterr().out.splitlines()[-1])
+    assert obj["msg"] == "selftest_error"
+    assert obj["household_id"] is None and obj["correlation_id"] is None
+
+
 def test_logger_does_not_propagate_and_has_one_handler():
     a = log.get()
     b = log.get()

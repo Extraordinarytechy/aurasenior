@@ -10,6 +10,7 @@ KINDS = {"checkin", "followup", "missed_checkin", "escalation_recheck", "deliver
 
 
 def handler(event: dict, context=None) -> dict:
+    log.clear_context()
     agentcore.reset_invocation()
     kind = event.get("kind")
     if kind not in KINDS:

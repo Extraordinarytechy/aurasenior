@@ -64,6 +64,11 @@ def set_context(**kw: str | None) -> None:
             _context[k] = v
 
 
+def clear_context() -> None:
+    """Called at handler entry: a warm container must not carry the last invocation's household into new lines."""
+    _context.clear()
+
+
 def mask_phone(number: str | None) -> str | None:
     if not number:
         return number

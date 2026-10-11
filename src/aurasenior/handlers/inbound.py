@@ -33,6 +33,7 @@ def _topic_kind(arn: str) -> str | None:
 
 
 def handler(event: dict, context=None) -> dict:
+    log.clear_context()
     agentcore.reset_invocation()
     if event.get("source") == "aws.transcribe":
         on_transcribe_event(event)
@@ -86,6 +87,7 @@ def _lookup(m: InboundMessage) -> tuple[str, str] | None:
 
 
 def process(m: InboundMessage) -> None:
+    log.clear_context()  # one SNS event can carry records for different households
     eid = f"{m.channel}#{m.event_id}"
     if not dedupe.claim(eid):
         return
