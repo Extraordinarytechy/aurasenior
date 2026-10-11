@@ -41,7 +41,7 @@ def handle(person: Person, channel: str, text: str, *, correlation_id: str, simu
             source = "wa_inbound_yes"
         else:
             # Only the SMS simulator record gets the simulator source; "simulated" alone just labels the trace.
-            source = "sms_sim_inbound_yes" if person.simulated else "rcs_inbound_yes"
+            source = "sms_sim_inbound_yes" if person.simulated else f"{channel}_inbound_yes"
         store.set_consent(person.household_id, person.person_id, channel, "opted_in", source, simulated)
         p = store.get_person(person.household_id, person.person_id)
         router.send(p, Content(phrase="optin_done", vars={"relation_label": p.relation_label or ""}),

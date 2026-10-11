@@ -40,6 +40,12 @@ def test_rcs_yes_and_stop(sample):
     assert store.get_person(sample, "rohan").consent_status("rcs") == "opted_out"
 
 
+def test_sms_yes_records_the_sms_source(sample):
+    p = _pending(sample, "rohan", "sms")
+    assert consent.handle(p, "sms", "YES", correlation_id="c9")
+    assert store.get_person(sample, "rohan").consent["sms"]["source"] == "sms_inbound_yes"
+
+
 def test_simulator_record_consent_is_simulated(sample):
     p = _pending(sample, "simfam", "sms")
     consent.handle(p, "sms", "YES", correlation_id="c7", simulated=True)
