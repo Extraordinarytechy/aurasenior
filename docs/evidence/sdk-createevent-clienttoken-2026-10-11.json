@@ -1,0 +1,11 @@
+{
+ "botocore": "1.43.111",
+ "op": "bedrock-agentcore.CreateEvent",
+ "member": "clientToken",
+ "shape": "String",
+ "type": "string",
+ "metadata": {
+  "idempotencyToken": true
+ },
+ "documentation": "<p>A unique, case-sensitive identifier to ensure that the operation completes no more than one time. If this token matches a previous request, AgentCore ignores the request, but does not return an error.</p>"
+}

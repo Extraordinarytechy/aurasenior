@@ -1,0 +1,65 @@
+{
+ "date": "2026-10-11",
+ "region": "us-east-1",
+ "call": "cloudformation.describe_type(Type='RESOURCE', TypeName='AWS::BedrockAgentCore::Memory')",
+ "typeVersionArn": "arn:aws:cloudformation:us-east-1::type/resource/AWS-BedrockAgentCore-Memory",
+ "defaultVersionId": null,
+ "handlers": {
+  "create": [
+   "bedrock-agentcore:CreateMemory",
+   "bedrock-agentcore:GetMemory",
+   "iam:PassRole",
+   "kms:DescribeKey",
+   "kms:CreateGrant",
+   "kms:Decrypt",
+   "kms:GenerateDataKeyWithoutPlaintext",
+   "kms:ReEncryptTo",
+   "kms:ReEncryptFrom",
+   "kms:GenerateDataKey",
+   "bedrock-agentcore:TagResource"
+  ],
+  "read": [
+   "bedrock-agentcore:GetMemory",
+   "bedrock-agentcore:ListTagsForResource",
+   "kms:Decrypt",
+   "kms:DescribeKey",
+   "kms:GenerateDataKey"
+  ],
+  "update": [
+   "bedrock-agentcore:UpdateMemory",
+   "bedrock-agentcore:GetMemory",
+   "iam:PassRole",
+   "bedrock-agentcore:TagResource",
+   "bedrock-agentcore:UntagResource",
+   "bedrock-agentcore:ListTagsForResource",
+   "kms:DescribeKey",
+   "kms:Decrypt",
+   "kms:GenerateDataKeyWithoutPlaintext",
+   "kms:ReEncryptTo",
+   "kms:ReEncryptFrom",
+   "kms:GenerateDataKey"
+  ],
+  "delete": [
+   "bedrock-agentcore:DeleteMemory",
+   "bedrock-agentcore:GetMemory",
+   "kms:Decrypt",
+   "kms:DescribeKey",
+   "kms:GenerateDataKey"
+  ],
+  "list": [
+   "bedrock-agentcore:ListMemories"
+  ]
+ },
+ "tagging": {
+  "cloudFormationSystemTags": true,
+  "tagOnCreate": true,
+  "tagProperty": "/properties/Tags",
+  "tagUpdatable": true,
+  "taggable": true,
+  "permissions": [
+   "bedrock-agentcore:TagResource",
+   "bedrock-agentcore:UntagResource",
+   "bedrock-agentcore:ListTagsForResource"
+  ]
+ }
+}

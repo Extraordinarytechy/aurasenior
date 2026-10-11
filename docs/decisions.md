@@ -410,6 +410,27 @@ Revision 4 (read 2026-10-11; every URL below returned HTTP 200; types confirmed 
 - `AWS::CloudWatch::Alarm` re-read with `describe-type`: `Metrics`, `AlarmActions`, `TreatMissingData`,
   `ComparisonOperator`, `Threshold`, `EvaluationPeriods` are properties.
 
+Revision 5 (read 2026-10-11, both URLs HTTP 200; passages saved verbatim in
+`lambda-logging-and-createevent-docs-2026-10-11.txt`):
+- Python logging (python-logging): "if your function outputs logs using Python print statements, Lambda can only
+  send log outputs to CloudWatch Logs in plain text format"; the example log output shows the printed lines
+  unchanged between the `START` and `END` lines; "Currently, the default log format for all Python runtimes is
+  plain text"; the page then shows that records from the standard `logging` module (root logger, runtime handler)
+  are captured in plain text with Lambda's own formatting. The logformat page: `LoggingConfig.LogFormat` is `Text`
+  or `JSON`, and "If you don't specify a log format when you create a function, Lambda uses the default log format
+  for the runtime version"; in JSON format, application log records carry `"timestamp"`, `"level"`, `"message"` and
+  `"requestId"`.
+- Decision: no `LoggingConfig` (plain text default). Our logger `aurasenior` has `propagate = False` and one
+  `StreamHandler(sys.stdout)` writing `json.dumps` lines, so the runtime handler never adds its prefix and each
+  stdout line is one JSON object for `{ $.level = "ERROR" }` (design 16). Checked live by A19 with a
+  `selftest_error` invoke and `get-metric-data`. Fallback if the filter gets no data point: `LogFormat: JSON`, log
+  through the standard logging module, and keep the filter on the documented `"level"` key.
+
+Docs added in revision 5:
+- https://docs.aws.amazon.com/lambda/latest/dg/python-logging.html
+- https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs-logformat.html
+- https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html
+
 Docs added in revision 4:
 - https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs.html
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-logs-loggroup.html
@@ -519,6 +540,14 @@ from a real `describe-type`, `cfn-types-2026-10-11.json`; IAM from the Service R
 - Data plane `RetrieveMemoryRecords`: required `memoryId` and `searchCriteria` (`searchQuery` required, `topK`,
   `memoryStrategyId`, `metadataFilters`); `namespace` is a prefix filter, and either `namespace` or `namespacePath`
   is required. Output `memoryRecordSummaries` with `content`, `memoryRecordId`, `namespaces`, `score`.
+- `CreateEvent` `clientToken` (revision 5, API_CreateEvent page, passage saved in
+  `lambda-logging-and-createevent-docs-2026-10-11.txt`): "A unique, case-sensitive identifier to ensure that the
+  operation completes no more than one time. If this token matches a previous request, AgentCore ignores the
+  request, but does not return an error." Not required. The botocore 1.43.111 model marks it
+  `idempotencyToken: true` with no length or pattern constraint (`sdk-createevent-clienttoken-2026-10-11.json`), so
+  the SDK fills a random one when it is not given. The page does not say how long a token is remembered. Decision:
+  `record_checkin` passes `sha256("checkin#<hid>#<pid>#<local_date>").hexdigest()[:32]` so a retried run or a second
+  trigger on the same day writes one check-in line (design 8.7); `record_turn` and `remember` pass none.
 - Read but not used in Milestone 1: `ListEvents`, `ListMemoryRecords`, `BatchCreateMemoryRecords`.
 - IAM (Service Reference): `bedrock-agentcore:CreateEvent` and `bedrock-agentcore:RetrieveMemoryRecords` support
   the `memory` resource type, ARN `arn:${Partition}:bedrock-agentcore:${Region}:${Account}:memory/${MemoryId}`;
@@ -527,7 +556,15 @@ from a real `describe-type`, `cfn-types-2026-10-11.json`; IAM from the Service R
 - Decision: memory `aurasenior_memory`, `EventExpiryDuration: 30`, semantic strategy `facts` on
   `/aurasenior/facts/{actorId}/` and summary strategy `checkins` on `/aurasenior/checkins/{actorId}/{sessionId}/`,
   no execution role (built-in strategies only, A18), stack condition `HasAgentCoreMemory` with parameter
-  `AgentCoreMemory` (`on` by default). Elder only; DynamoDB fallback on any error (design 8.7).
+  `AgentCoreMemory` (`on` by default), logical ID `AuraSeniorMemory`, conditional stack output `AgentCoreMemoryId`
+  read by `post_deploy.py`. Elder only, enforced in `memory.build_store(person)`; DynamoDB fallback on any error;
+  recalled records pass the `config/wording.toml` rule before they reach the prompt (design 8.5, 8.7).
+- CloudFormation resource handler permissions for `AWS::BedrockAgentCore::Memory` (revision 5, real
+  `describe-type`, `cfn-agentcore-memory-handlers-2026-10-11.json`): create `bedrock-agentcore:CreateMemory`,
+  `GetMemory`, `TagResource`, `iam:PassRole` and KMS `DescribeKey`, `CreateGrant`, `Decrypt`,
+  `GenerateDataKeyWithoutPlaintext`, `ReEncryptTo`, `ReEncryptFrom`, `GenerateDataKey`; update adds `UpdateMemory`,
+  `UntagResource`, `ListTagsForResource`; delete `DeleteMemory`, `GetMemory` and KMS `Decrypt`, `DescribeKey`,
+  `GenerateDataKey`; list `ListMemories`. These are checked for the deploy user in D14 item 7.
 
 Docs added in revision 4 (AgentCore Memory):
 - https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory.html
@@ -644,6 +681,15 @@ Revision 4 (read 2026-10-11, HTTP 200): SAM event sources on `aurasenior-inbound
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-lambda-permission.html
 - https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-logs-loggroup.html
 
+Revision 5 (read 2026-10-11, HTTP 200): logical IDs. The parameters page: each parameter's logical ID "must be
+alphanumeric and unique among all logical names within the template"; the resources page: resource logical names
+"must be alphanumeric (A-Za-z0-9) and unique within the template". The parameter is `AgentCoreMemory`, so the
+memory resource is `AuraSeniorMemory` and the conditional output is `AgentCoreMemoryId`
+(`Fn::GetAtt AuraSeniorMemory.MemoryId`, condition `HasAgentCoreMemory`).
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resources-section-structure.html
+- https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/outputs-section-structure.html
+
 Docs:
 - https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html
 - https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
@@ -674,7 +720,7 @@ Docs:
 | A16 | `metaApiVersion` `v25.0` is accepted by `SendWhatsAppMessage` | First live send, response saved under `docs/evidence/` |
 | A17 | A registered RCS test device's free-form text and Reply postbacks reach `aurasenior-sms-rcs-events` (rcs-testing mentions two-way testing "by sending messages with auto-response keywords", D6) | First YES from Rohan's phone, event saved under `docs/evidence/`; if only keywords arrive, Rohan's record switches to `preferred_channel = whatsapp` (data only) and the README says so |
 | A18 | The stack creates `aurasenior_memory` with built-in semantic and summary strategies and no `MemoryExecutionRoleArn`; status reaches `ACTIVE`; extraction works on Hindi turns | First deploy and `post_deploy.py` `GetMemory`; live test in design 8.7 with output saved under `docs/evidence/`; on failure deploy with `AgentCoreMemory = off` and record why in D11 |
-| A19 | A same-account CloudWatch alarm can publish to `aurasenior-failed-events` with the default topic policy | After the first deploy, `aws cloudwatch set-alarm-state --alarm-name aurasenior-errors --state-value ALARM --state-reason test`; owner email arrives; if not, add the CloudWatch Allow statement (D9) |
+| A19 | A same-account CloudWatch alarm can publish to `aurasenior-failed-events` with the default topic policy, and the `ErrorLogs` metric filter matches our stdout JSON lines in the plain text log format | After the first deploy, `aws cloudwatch set-alarm-state --alarm-name aurasenior-errors --state-value ALARM --state-reason test` (owner email arrives; if not, add the CloudWatch Allow statement, D9); then invoke `aurasenior-scheduled` with `{"kind": "selftest_error"}`, `get-metric-data` shows `AuraSenior/ErrorLogs` = 1, alarm fires, email arrives; output in `docs/evidence/error-alarm-live-<date>.json`; if no data point, switch to `LogFormat: JSON` (D9) |
 
 ## D14. Permissions needed beyond the `aurasenior-dev` policy
 
@@ -719,6 +765,16 @@ call:
    `aurasenior` names in `aurasenior-dev`); `AWS::BedrockAgentCore::Memory` `aurasenior_memory` and
    `bedrock-agentcore:GetMemory` for `post_deploy.py` (AgentCore allowed in `aurasenior-dev`). Before the first
    deploy, `iam simulate-principal-policy` is run for `logs:CreateLogGroup`, `logs:PutRetentionPolicy`,
-   `logs:PutMetricFilter`, `cloudwatch:PutMetricAlarm`, `bedrock-agentcore:CreateMemory` and
-   `bedrock-agentcore:GetMemory`; anything denied goes to the owner for approval. Function roles additionally get
-   `bedrock-agentcore:CreateEvent` and `RetrieveMemoryRecords` on the memory ARN only (design 5.1).
+   `logs:PutMetricFilter`, `cloudwatch:PutMetricAlarm` and every action in the create, update and delete handler
+   lists of the `AWS::BedrockAgentCore::Memory` schema (D11, `cfn-agentcore-memory-handlers-2026-10-11.json`):
+   `bedrock-agentcore:CreateMemory`, `GetMemory`, `UpdateMemory`, `DeleteMemory`, `TagResource`, `UntagResource`,
+   `ListTagsForResource`, `ListMemories`, plus the KMS actions `DescribeKey`, `CreateGrant`, `Decrypt`,
+   `GenerateDataKey`, `GenerateDataKeyWithoutPlaintext`, `ReEncryptTo`, `ReEncryptFrom`. Delete and tag actions
+   matter for a stack rollback and for the `project=aurasenior` tag. The template sets no `EncryptionKeyArn` and no
+   `MemoryExecutionRoleArn`, so the KMS actions and `iam:PassRole` are expected to be unused; they are simulated
+   anyway and a deny on them is recorded but does not block the first deploy unless that deploy fails on one. Any
+   other deny goes to the owner for approval before the deploy. D4 shows only `List*` AgentCore calls succeeding
+   (and `ListRegistries` denied), so "AgentCore allowed in `aurasenior-dev`" is an expectation until this
+   simulation runs; the output is saved as `docs/evidence/deploy-permissions-simulate-<date>.json`. Function roles
+   additionally get `bedrock-agentcore:CreateEvent` and `RetrieveMemoryRecords` on the memory ARN only (design
+   5.1).

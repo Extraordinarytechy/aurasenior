@@ -1,8 +1,8 @@
 # Design
 
-Status: Milestone 1 design, revision 4 (2026-10-11), addressing every finding of the third design review
-(responses in section 21; second review in section 20, first review in section 19) and adding Amazon Bedrock
-AgentCore Memory (section 8.7) per the owner decision recorded in D11. Every AWS API, parameter, resource type, model ID and
+Status: Milestone 1 design, revision 5 (2026-10-11), addressing every finding of the fourth design review
+(responses in section 22; third review in section 21, second in section 20, first in section 19), with Amazon
+Bedrock AgentCore Memory (section 8.7) per the owner decision recorded in D11. Every AWS API, parameter, resource type, model ID and
 limit named here is backed by an entry in `docs/decisions.md` (official doc URL or a real read-only call saved in
 `docs/evidence/`). Anything not yet confirmed is listed as an open assumption in section 18 and in `decisions.md`
 D13, and must be resolved before the code that depends on it is called done.
@@ -260,7 +260,7 @@ ErrorLogMetricFilterInbound:          # and ErrorLogMetricFilterScheduled for /a
   DependsOn: InboundLogGroup
   Properties:
     LogGroupName: /aws/lambda/aurasenior-inbound
-    FilterPattern: '{ $.level = "ERROR" }'          # logs are JSON lines with a top-level "level" (section 16)
+    FilterPattern: '{ $.level = "ERROR" }'          # one JSON object per stdout line, top-level "level" (section 16)
     MetricTransformations:
       - MetricNamespace: AuraSenior
         MetricName: ErrorLogs
@@ -301,7 +301,15 @@ so this is A19: after the first deploy, `aws cloudwatch set-alarm-state --alarm-
 --state-value ALARM --state-reason test` must deliver the owner email, and the result is saved under
 `docs/evidence/`. If it does not, a topic policy with one Allow statement for the CloudWatch service principal
 (principal name taken from the CloudWatch SNS permissions page, recorded in D9) and `aws:SourceAccount` is added,
-with no Deny.
+with no Deny. `set-alarm-state` skips the metric filter, so A19 also tests the filter end to end: after
+`set-alarm-state` has returned to `OK`, `aws lambda invoke --function-name aurasenior-scheduled --invocation-type
+Event --payload '{"kind": "selftest_error"}'`. The scheduled handler accepts `selftest_error` only as a self-test:
+it writes one ERROR line (`"msg": "selftest_error"`, no household data), sends nothing and returns success, so
+`AWS/Lambda Errors` stays 0 and only `ErrorLogs` can move the alarm. Pass: `aws cloudwatch get-metric-data` shows
+a data point of 1 for `AuraSenior/ErrorLogs` in that 5-minute period, the alarm goes to `ALARM` and the owner email
+arrives. The `get-metric-data` output and the alarm history are saved as
+`docs/evidence/error-alarm-live-<date>.json`. Any other unknown `kind` is rejected the same way (ERROR, nothing
+sent, success returned), because a retry would not fix it.
 
 In the template, beyond the functions, table, bucket, topics, rule and SES and SMS resources: budget
 `aurasenior-monthly` as `AWS::Budgets::Budget` (monthly cost budget, email alert at 80 percent to the owner address
@@ -322,7 +330,11 @@ profile listed for source Region us-east-1 on the guardrails-cross-region-suppor
 Classic tier), `AgentCoreMemory` (`on` or `off`, default `on`; section 8.7).
 
 Stack outputs: `SmsOriginationNumberArn` (the simulator number the stack creates), the three SNS topic ARNs, the
-table name, the guardrail ID and version.
+table name, the guardrail ID and version, and `AgentCoreMemoryId` (`Condition: HasAgentCoreMemory`, value
+`Fn::GetAtt AuraSeniorMemory.MemoryId`; logical ID `AuraSeniorMemory`, not `AgentCoreMemory`, because the
+parameter already uses that name and logical IDs must be unique in the template). `post_deploy.py` reads `AgentCoreMemoryId` with
+`cloudformation describe-stacks`; when the output is absent (`AgentCoreMemory = off`) it prints "AgentCore Memory
+off, DynamoDB memory only" and skips the `GetMemory` check.
 
 Conditions (CloudFormation `Conditions` with `Fn::If` and `AWS::NoValue` to drop a property or statement, D12):
 
@@ -331,7 +343,6 @@ Conditions (CloudFormation `Conditions` with `Fn::If` and `AWS::NoValue` to drop
 | `HasWhatsApp` | `WhatsAppPhoneNumberId` not empty | the `social-messaging:*` statement is in both function roles; false: the statement is left out, so no empty ARN is written |
 | `HasRcsAgent` | `RcsAgentId` not empty | the RCS agent ARN is in the `sms-voice:SendRcsMessage` statement; false: only the simulator number and configuration set are listed |
 | `HasGuardrailProfile` | `GuardrailProfileId` not empty | true: `TierName: STANDARD`, `CrossRegionConfig.GuardrailProfileIdentifier = GuardrailProfileId`, and the profile ARN is in the `bedrock:ApplyGuardrail` resources. False: `TierName: CLASSIC`, no `CrossRegionConfig`, profile ARN left out. In Classic mode the denied topics cover English only (D11), and the outbound guard with `config/wording.toml` is the only Hindi control |
-
 | `HasAgentCoreMemory` | `AgentCoreMemory` = `on` | the `AWS::BedrockAgentCore::Memory` resource `aurasenior_memory` exists, its ID is in the `AGENTCORE_MEMORY_ID` environment variable of both functions, and the `bedrock-agentcore` statement is in both roles. False: no resource, the variable is empty, and `MemoryStore` is DynamoDB only (section 8.7) |
 
 The function reads the guardrail mode from an environment variable set by the same condition, and every `TRACE#`
@@ -590,7 +601,8 @@ Simulated sends are labelled: the adapter sets `simulated=True`, the trace item 
 ### 8.1 Turn loop
 
 `AgentRunner.run_turn` builds the system prompt (rules, the person, today's facts, and memory from
-`MemoryStore.recall` for the person speaking, section 8.5), adds the last 10 turns, and calls `Converse` with
+`MemoryStore.recall` for the person speaking, section 8.5; `query` is the first 500 characters of the current
+inbound text or transcript, and `None` on scheduled turns), adds the last 10 turns, and calls `Converse` with
 `toolConfig` and `guardrailConfig` (guardrail `aurasenior-safety`, version from the stack). It runs tools for each
 `toolUse` block, returns `toolResult` blocks, and repeats until `stopReason` is `end_turn` or 6 iterations have run
 (then it stops and logs WARN). Max output tokens 800 per call. Pattern verified in D2. After the turn it calls
@@ -727,15 +739,28 @@ class MemoryStore(Protocol):
     def recall(self, household_id: str, person_id: str, query: str | None = None) -> list[str]: ...
     def remember(self, household_id: str, person_id: str, note: str) -> None: ...
     def record_turn(self, household_id: str, person_id: str, user_text: str, reply_text: str) -> None: ...
+    def record_checkin(self, household_id: str, person_id: str, local_date: str, line: str) -> None: ...
 ```
+
+No method raises: every implementation catches its own errors and logs them (section 8.7 table), except a failed
+DynamoDB write in `remember`, which is a normal DynamoDB error (section 16).
 
 - `DynamoMemoryStore` (`memory/dynamo.py`) is the current behaviour and the fallback: a `MEMORY#<pid>` item per
   person with up to 50 short notes (routine, people mentioned, grandchildren's names), oldest dropped.
-  `record_turn` is a no-op here, because turns are already `TURN#` items.
+  `record_turn` and `record_checkin` are no-ops here, because turns are already `TURN#` items and check-ins are
+  already `LOG#` items.
 - `AgentCoreMemoryStore` (`memory/agentcore.py`) adds Amazon Bedrock AgentCore Memory for the elder (section 8.7)
   and wraps a `DynamoMemoryStore` it falls back to.
-- `memory.build_store()` returns `AgentCoreMemoryStore` when `AGENTCORE_MEMORY_ID` is set (stack condition
-  `HasAgentCoreMemory`, section 5), else `DynamoMemoryStore`.
+- `memory.build_store(person)` takes the resolved person record and returns `AgentCoreMemoryStore` only when
+  `AGENTCORE_MEMORY_ID` is set (stack condition `HasAgentCoreMemory`, section 5) and `person.role == "elder"`;
+  otherwise `DynamoMemoryStore`. The "elder only" rule is enforced here, the one place that sees the role, so
+  `AgentCoreMemoryStore` never receives a family turn and needs no role check of its own.
+- Wording filter, in both implementations' `recall`: every recalled item (DynamoDB note or AgentCore record) is
+  checked with the wording rule of `config/wording.toml` for the person's language (the same function the outbound
+  guard uses, section 8.3). An item that fails is dropped and logged at WARN with the rule ID that matched and the
+  source (`dynamodb` or `agentcore`), never the text. So a disease name or diagnosis-like phrase written by the
+  AgentCore extraction model never reaches the system prompt, where it could trip the denied-topic guardrail on
+  input or give the model wording the product does not use.
 
 Short-term context stays in DynamoDB: turns as `TURN#<person_id>#<ts>` items with a 7-day TTL, and medicines and
 log from their own items. Privacy rule, kept by every implementation: memory is keyed per person. A turn's prompt
@@ -767,15 +792,35 @@ straight into the SES template variables, with no model call.
 Owner decision (D11): the elder's long-term memory uses Amazon Bedrock AgentCore Memory, behind `MemoryStore`, with
 DynamoDB as the automatic fallback. Every API, IAM action and CloudFormation property below has its doc URL in D11.
 
-What is stored, for the elder only (family memory stays in `DynamoMemoryStore`):
+What is stored, for the elder only (family memory stays in `DynamoMemoryStore`; `memory.build_store(person)`
+enforces this, section 8.5):
 
 | What | How it gets in | Strategy and namespace |
 | --- | --- | --- |
 | Routine and people (wakes at 6, chai with tablets, granddaughter Priya, the neighbour's name) | her turns (`record_turn`: her transcript as `USER`, the reply as `ASSISTANT`) and `remember` notes (`ASSISTANT` text "Note: ...") | semantic, `/aurasenior/facts/{actorId}/` |
-| Past check-ins | the same turns, one session per household-local day, plus one deterministic `ASSISTANT` line per check-in built from `LOG#` ("Check-in 2026-10-12: replied 09:14, BP tablets taken") | summary, `/aurasenior/checkins/{actorId}/{sessionId}/` |
+| Past check-ins | the same turns, one session per household-local day, plus one deterministic `ASSISTANT` line per check-in day written by `record_checkin` ("Check-in 2026-10-12: replied 09:14" or "Check-in 2026-10-12: no reply") | summary, `/aurasenior/checkins/{actorId}/{sessionId}/` |
 
-Resource (in the SAM template, condition `HasAgentCoreMemory`): `AWS::BedrockAgentCore::Memory` with
-`Name: aurasenior_memory` (pattern `^[a-zA-Z][a-zA-Z0-9_]{0,47}$`, so no hyphen), `EventExpiryDuration: 30` (days,
+Check-in line (`record_checkin`, deterministic, no model call). Two triggers:
+
+- Replied: in the inbound path, right after `schedules.delete_checkin_chain(hid, local_date)` (section 10) when it
+  reports that it deleted at least one schedule (not found does not count), so the line is written once, on her
+  first reply or Listen tap after that day's check-in. Line: "Check-in <yyyy-mm-dd>: replied <HH:MM>" (household
+  local time of the inbound message). Medicines are not in the line, because `log_medicine` may run later in the
+  same turn; her turn itself carries what she said about them.
+- No reply: the `missed_checkin` run, after `escalate(missed_checkin)`, writes "Check-in <yyyy-mm-dd>: no reply". A
+  later reply that day closes the escalation as `resolved_by_elder` (section 13) and writes no second line.
+
+`AgentCoreMemoryStore.record_checkin` sends one `CreateEvent`: role `ASSISTANT`, `sessionId <hid>-<pid>-<yyyymmdd>`,
+`clientToken = sha256(f"checkin#{hid}#{pid}#{local_date}").hexdigest()[:32]`. The `CreateEvent` page documents
+`clientToken` as "A unique, case-sensitive identifier to ensure that the operation completes no more than one time.
+If this token matches a previous request, AgentCore ignores the request, but does not return an error" (D11), so a
+retried run, or both triggers firing on one day, writes the line once. Failures follow the `CreateEvent` rows of the
+fallback table below. The line is best effort: if the invocation ends between `delete_checkin_chain` and
+`record_checkin`, the retry deletes nothing and writes no line; the `LOG#`, `MSG#` and `ESC#` items stay the source
+of truth for the weekly facts (section 8.6).
+
+Resource (in the SAM template, condition `HasAgentCoreMemory`): `AWS::BedrockAgentCore::Memory`, logical ID
+`AuraSeniorMemory`, with `Name: aurasenior_memory` (pattern `^[a-zA-Z][a-zA-Z0-9_]{0,47}$`, so no hyphen), `EventExpiryDuration: 30` (days,
 allowed 3 to 365, matching the 30-day trace retention), and `MemoryStrategies` with one `SemanticMemoryStrategy`
 (`Name: facts`, `Namespaces: ["/aurasenior/facts/{actorId}/"]`) and one `SummaryMemoryStrategy` (`Name: checkins`,
 `Namespaces: ["/aurasenior/checkins/{actorId}/{sessionId}/"]`). Built-in strategies only, so
@@ -791,7 +836,7 @@ the memory organization page recommends, so `hid-a` never matches `hid-ab`.
 APIs (data plane client `bedrock-agentcore`, D4):
 
 - `CreateEvent(memoryId, actorId, sessionId, eventTimestamp, payload=[{conversational: {content: {text}, role}}])`
-  from `record_turn` and `remember`. Text is capped at 2,000 characters per event. Long-term extraction runs
+  from `record_turn`, `remember` and `record_checkin` (only `record_checkin` sets `clientToken`). Text is capped at 2,000 characters per event. Long-term extraction runs
   asynchronously after the event is stored, so a new fact is not expected in the same turn.
 - `RetrieveMemoryRecords(memoryId, namespace, searchCriteria={searchQuery, topK})` from `recall`: once for
   `/aurasenior/facts/<actorId>/` (`topK` 5) and once for `/aurasenior/checkins/<actorId>/` (`topK` 3, the prefix
@@ -803,8 +848,16 @@ APIs (data plane client `bedrock-agentcore`, D4):
 
 Recall, as the prompt builder sees it: DynamoDB notes for the person (always read, they are the fallback and cost
 one `GetItem`), then AgentCore records for the elder, de-duplicated by exact text, records over 300 characters
-dropped, and the whole memory block capped at 1,500 characters. Recall is never called with the elder's actor for a
-family member's turn.
+dropped, items failing the wording rule dropped (section 8.5), and the whole memory block capped at 1,500
+characters. When the cap is hit, items are kept in this order until the next one does not fit: DynamoDB notes
+(newest first), then AgentCore facts (`/aurasenior/facts/`, highest `score` first), then check-in summaries
+(`/aurasenior/checkins/`, highest `score` first). Recall is never called with the elder's actor for a family
+member's turn, because `build_store` gives family a `DynamoMemoryStore`.
+
+Client: one `bedrock-agentcore` boto3 client per container, created at cold start with
+`Config(retries={"mode": "standard", "max_attempts": 2}, connect_timeout=2, read_timeout=3)`. That config covers
+every AgentCore call (`CreateEvent` and both `RetrieveMemoryRecords`). Worst case per elder turn is about 30 s
+(three calls of two attempts at up to 5 s each), inside the 120 s function timeout.
 
 Fallback (owned by `AgentCoreMemoryStore`, so no caller handles AgentCore errors):
 
@@ -830,9 +883,17 @@ after the live check in A18 is saved under `docs/evidence/` (BUILD_BRIEF.md "nev
 
 Tests: unit tests with a stub `bedrock-agentcore` client: a `ClientError` or timeout on either call falls back to
 DynamoDB and the turn completes; an access-denied error disables AgentCore for the invocation and logs ERROR once;
-`remember` writes DynamoDB before `CreateEvent`; a family turn never calls `RetrieveMemoryRecords` with the elder's
-actor; `actorId`, `sessionId` and namespaces built from 12-character IDs match the SDK patterns; the memory block cap
-holds. Live test (`-m live`, after deploy): three Hindi turns via `CreateEvent`, then `RetrieveMemoryRecords`
+`remember` writes DynamoDB before `CreateEvent`; `build_store` returns `DynamoMemoryStore` for every non-elder role
+and for the elder when `AGENTCORE_MEMORY_ID` is empty, and a family turn makes no `bedrock-agentcore` call at all
+(stub records zero calls); `actorId`, `sessionId` and namespaces built from 12-character IDs match the SDK patterns;
+the memory block cap holds and keeps DynamoDB notes, then facts, then check-in summaries in that order; `recall`
+passes the first 500 characters of the inbound text as `searchQuery` and the fixed text on a scheduled turn; a
+recalled record containing a phrase from `config/wording.toml` (Hindi and English rows) is dropped, is not in the
+system prompt, and logs WARN with the rule ID and no text; check-in line: an elder reply after the check-in, with
+the follow-up schedule still pending, calls `record_checkin` once with "Check-in <date>: replied <HH:MM>" and the
+`clientToken` from the formula above; a second reply the same day (nothing left to delete) does not call it; the
+`missed_checkin` run calls it with "Check-in <date>: no reply"; a retried `missed_checkin` run passes the same
+`clientToken`; `DynamoMemoryStore.record_checkin` writes nothing. Live test (`-m live`, after deploy): three Hindi turns via `CreateEvent`, then `RetrieveMemoryRecords`
 polled for up to 5 minutes; output saved as `docs/evidence/agentcore-memory-live-<date>.json`.
 
 ## 9. Household data model
@@ -946,7 +1007,9 @@ message, so it opens the 24-hour window (D5). The inbound handler recognises the
 अपनी BP की गोली ले ली?"). Her voice reply then runs the normal agent turn. Header media types on templates: Meta's
 template docs list the allowed header formats (D5); an audio header is not used, so this button rule is the
 design. When she replies by voice or taps the button, the inbound path calls `schedules.delete_checkin_chain`,
-which deletes the follow-up and missed check-in schedules (not found is fine).
+which deletes the follow-up and missed check-in schedules (not found is fine) and returns how many it actually
+deleted. When that is 1 or more, the inbound path calls `MemoryStore.record_checkin` with "Check-in <date>:
+replied <HH:MM>" (section 8.7).
 
 Weekly summary run (`{"kind":"weekly_summary"}`): `summary.build_week(household_id, today)` (section 8.6), then
 one SES `SendEmail` per recipient. Recipient rule (the same in 6.2 and 6.3): every person in the household,
@@ -1069,7 +1132,8 @@ Agent turns are not replayed token for token, so on a retry the model may word a
 
 - Missed check-in: the `followup` run sends `aurasenior_followup` and calls `schedules.create_missed_checkin`
   (60 minutes later, plain code, section 8.2); that run calls `escalate(missed_checkin)` in code for the escalation
-  order list. The model cannot create or cancel these schedules.
+  order list, then `MemoryStore.record_checkin` with "Check-in <date>: no reply" (section 8.7). The model cannot
+  create or cancel these schedules.
 - Fall or help: keyword match (section 8.2) or the model calling `escalate(fall_or_help)`. Family and neighbour are
   alerted at once as urgent, and the elder gets the `esc_told_elder` voice note at once ("I have told
   {family_name}. Someone will call you soon. I am here with you."; the Hindi row is translated the same way, with
@@ -1234,6 +1298,7 @@ the plain mentions.
 | `scheduler:CreateSchedule` for a recheck | Throttling or 5xx | Recoverable | Re-raise (the escalation alert was already sent and is protected by `SEND#`) | WARN |
 | `CreateSchedule` | Conflict (same name) | Expected | Treated as already scheduled | DEBUG |
 | `DeleteSchedule` | Not found | Expected | Treated as done | DEBUG |
+| Scheduled payload | `kind` is `selftest_error` or not a known kind | Fatal for that event | Nothing sent or written; returns success, so Lambda does not retry | ERROR (`selftest_error` is the A19 filter check) |
 | Cost cap reached | Counter over limit | Expected | Section 8.4 | ERROR once per day |
 | Escalation never acknowledged | 12 rechecks (60 min) | Fatal for automation | Status and trace `unacknowledged` | ERROR log line, counted by the `ErrorLogs` metric filter; `aurasenior-errors` alarm emails the owner |
 | AgentCore Memory call | Any (section 8.7 table) | Recoverable by fallback | DynamoDB memory used; the turn continues | WARN, or ERROR once per invocation for access denied or not found |
@@ -1244,9 +1309,18 @@ the plain mentions.
 Every handler catches what it can name; anything else propagates so Lambda retries. The CloudWatch alarm
 `aurasenior-errors` (section 5) fires when the sum of ERROR log lines (counted by the `ErrorLogs` metric filter on
 both log groups) and the Lambda `Errors` metric of both functions is over 0 in a 5-minute period; its alarm action
-publishes to `aurasenior-failed-events`, which emails the owner. Logs are JSON lines with a top-level `"level"`
-field (`DEBUG`, `INFO`, `WARN`, `ERROR`), household ID and correlation ID; phone numbers and emails are masked,
-transcripts are never logged.
+publishes to `aurasenior-failed-events`, which emails the owner.
+
+Logger (`src/aurasenior/log.py`): one `logging.Logger` named `aurasenior`, with `propagate = False` and a single
+`logging.StreamHandler(sys.stdout)` whose formatter returns `json.dumps({...})` (no indent, so one line per record)
+with top-level `"level"` (`DEBUG`, `INFO`, `WARN`, `ERROR`), `"msg"`, household ID and correlation ID. All code
+logs through `log.get()`; nothing logs through the root logger, so the Lambda runtime's own handler, which adds a
+text prefix in the plain text format, never formats our lines. The functions do not set `LoggingConfig`, so
+`LogFormat` stays at the Python runtime default, plain text. In that format Lambda sends stdout lines to the log
+group as written (python-logging page: print output goes to CloudWatch Logs in plain text, and the example log
+output shows the printed lines unchanged; D9), so each line is one JSON object and the `{ $.level = "ERROR" }`
+filter can parse it. A19 checks this end to end (section 5). Phone numbers and emails are masked, transcripts are
+never logged.
 
 ## 17. Testing plan
 
@@ -1319,6 +1393,12 @@ Tests added for the third review findings:
   both.
 - Logger: every log line is one JSON object with `"level"` as a top-level field, and `ERROR` lines match the
   metric filter pattern `{ $.level = "ERROR" }` (checked with a small matcher for that one pattern).
+- Logger emission (round 4): with `capsys`, an ERROR record written through `log.get()` appears on stdout as
+  exactly one line that `json.loads` parses, with no text prefix; the `aurasenior` logger has `propagate = False`
+  and one `StreamHandler` on `sys.stdout`; no module under `src/aurasenior/` calls `logging.getLogger()` without a
+  name or `logging.basicConfig` (grep test). The CloudWatch side is checked live in A19.
+- Self-test: `aurasenior-scheduled` with `{"kind": "selftest_error"}` writes one ERROR line, sends nothing,
+  touches no household item and returns success; an unknown `kind` does the same.
 - Brand: an identifier such as `aurasenior_checkin_hi` does not fail the brand test; the exact value in a phrase
   does.
 - Elder fall phrases: `esc_told_elder` contains no physical instruction (no "stay", "do not move", "रुक" or similar
@@ -1379,9 +1459,14 @@ Each also appears in `docs/decisions.md` D13 with how it will be checked.
   useful records from Hindi (Devanagari) turns (live test in section 8.7, evidence saved). If creation fails, deploy
   with `AgentCoreMemory = off` (DynamoDB only) and record why in D11. If Hindi extraction is poor, DynamoDB notes
   still cover recall and the README says what AgentCore Memory does and does not do.
-- A19. The `aurasenior-errors` alarm action reaches `aurasenior-failed-events` with the default topic policy.
-  Checked after the first deploy with `set-alarm-state` (section 5); if the owner email does not arrive, add the
-  CloudWatch Allow statement and record the principal and doc in D9.
+- A19. The `aurasenior-errors` alarm action reaches `aurasenior-failed-events` with the default topic policy, and
+  the `ErrorLogs` metric filter matches our stdout JSON lines. Checked after the first deploy with `set-alarm-state`
+  (SNS path), then with one `aurasenior-scheduled` invoke of `{"kind": "selftest_error"}` (filter path):
+  `get-metric-data` shows `AuraSenior/ErrorLogs` = 1, the alarm fires and the owner email arrives; output saved as
+  `docs/evidence/error-alarm-live-<date>.json` (section 5). If the email does not arrive after `set-alarm-state`,
+  add the CloudWatch Allow statement and record the principal and doc in D9. If the metric gets no data point, read
+  one log event with `logs filter-log-events`, switch to `LoggingConfig: {LogFormat: JSON}` with the `"level"` key
+  the logformat page documents, and record it in D9.
 
 ## 19. Responses to the design review (2026-10-10)
 
@@ -1464,3 +1549,17 @@ All 10 findings are addressed with the fix the review gave. None are backlogged 
 | 8 | "Stay where you are" after a fall | Addressed. "I have told {family_name}. Someone will call you soon. I am here with you."; Hindi row the same; test | 13, 17 |
 | 9 | Topic policy wording reads as a Deny | Addressed. One Allow per service principal with `aws:SourceAccount`, no Deny; same-account principals use identity policy | 2.3 |
 | 10 | Brand test fails on identifiers | Addressed. Exact, case-sensitive whole-word match of the `[brand] name` value; `aurasenior[-_][a-z_-]+` ignored | 6.3, 17 |
+
+## 22. Responses to the fourth design review (2026-10-11)
+
+All 7 findings are addressed with the fix the review gave. None are backlogged or ignored.
+
+| # | Finding | Response | Where |
+| --- | --- | --- | --- |
+| 1 | `ErrorLogs` filter depends on how log lines are written; no live check of the filter | Addressed. Logger pinned: `aurasenior` logger, `propagate = False`, one `StreamHandler(sys.stdout)` with a one-line `json.dumps` formatter, no `LoggingConfig` (plain text default). The python-logging page confirms stdout lines reach the log group as written in plain text, recorded in D9 with the fallback to `LogFormat: JSON`. A19 extended with a `selftest_error` invoke and `get-metric-data`; emission and self-test unit tests | 5, 16, 17, 18, D9, D13 |
+| 2 | Per-check-in memory line has no method and no trigger | Addressed. `record_checkin(household_id, person_id, local_date, line)` in the Protocol (no-op in DynamoDB); triggers: inbound path after `delete_checkin_chain` deletes at least one schedule ("replied <HH:MM>", no medicines), and the `missed_checkin` run ("no reply"); deterministic `clientToken`, whose documented meaning is now in D11; tests | 8.5, 8.7, 10, 13, D11 |
+| 3 | "Elder only" not decidable by the store | Addressed. `build_store(person)` returns `AgentCoreMemoryStore` only for `role == "elder"` with `AGENTCORE_MEMORY_ID` set; test that a family turn makes no `bedrock-agentcore` call | 8.5, 8.7 |
+| 4 | Recall query, truncation order, client config | Addressed. Query is the first 500 characters of the inbound text, `None` on scheduled turns; cap order DynamoDB notes, facts by `score`, check-in summaries by `score`; one client with the retry and timeout config for every AgentCore call, worst case about 30 s | 8.1, 8.7 |
+| 5 | Memory records skip the wording rule | Addressed. `recall` drops any item that fails `config/wording.toml` for the person's language and logs WARN with the rule ID only; test | 8.5, 8.7 |
+| 6 | `post_deploy.py` cannot find the memory ID | Addressed. Conditional output `AgentCoreMemoryId` (`Fn::GetAtt AuraSeniorMemory.MemoryId`; logical ID differs from the `AgentCoreMemory` parameter); check skipped when absent | 5, 8.7, D11 |
+| 7 | Conditions table row cut off; deploy simulation misses handler permissions | Addressed. Blank line removed. Handler permissions read with `describe-type` (`cfn-agentcore-memory-handlers-2026-10-11.json`) and all added to the D14 item 7 simulation, with how KMS and `iam:PassRole` denies are treated | 5, D11, D14 |
