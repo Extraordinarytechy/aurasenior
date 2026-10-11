@@ -6,9 +6,12 @@ import pytest
 def pytest_collection_modifyitems(config, items):
     if os.environ.get("AURASENIOR_LIVE") == "1":
         return
+    # This hook sees every collected test, so only mark the ones in this folder.
     skip = pytest.mark.skip(reason="live AWS test: set AURASENIOR_LIVE=1")
+    here = str(__import__("pathlib").Path(__file__).resolve().parent)
     for item in items:
-        item.add_marker(skip)
+        if str(item.path).startswith(here):
+            item.add_marker(skip)
 
 
 @pytest.fixture(autouse=True)
