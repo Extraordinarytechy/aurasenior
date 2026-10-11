@@ -33,6 +33,12 @@ def window_open(person: Person) -> bool:
     return clock.now() - clock.parse(person.wa_last_inbound_at) < WINDOW
 
 
+def _household_date(person: Person) -> str:
+    """Once-a-day limits use the household's local day, like the USAGE# counters."""
+    h = store.get_household(person.household_id)
+    return clock.local_date(h.timezone if h else "UTC")
+
+
 def _exemption(person: Person, channel: str, msg: OutboundMessage, inbound_text: str | None,
                rcs_verified: bool) -> str | None:
     """Consent exemptions are decided here from the phrase key, never from a caller flag."""
@@ -41,14 +47,14 @@ def _exemption(person: Person, channel: str, msg: OutboundMessage, inbound_text:
     if key in OPTIN_KEYS and status in ("pending", "opted_out"):
         replying = inbound_text is not None and (status == "pending" or keywords.is_start(inbound_text, person.language))
         if replying or (channel == "rcs" and rcs_verified):
-            local = clock.local_date("UTC")
+            local = _household_date(person)
             if store.set_usage_flag(person.household_id, local, f"optin_{person.person_id}_{channel}"):
                 return "optin_ask"
         return None
     if key == "stop_confirm" and status == "opted_out" and inbound_text is not None:
         if keywords.is_stop(inbound_text, person.language):
             src = person.consent.get(channel, {}).get("at", "")
-            if store.set_usage_flag(person.household_id, clock.local_date("UTC"), f"stopc_{person.person_id}_{channel}_{src}"):
+            if store.set_usage_flag(person.household_id, _household_date(person), f"stopc_{person.person_id}_{channel}_{src}"):
                 return "stop_confirm"
     return None
 

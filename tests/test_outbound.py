@@ -33,6 +33,18 @@ def test_optin_ask_once_per_day_for_pending_person(sample):
     assert outbound.guard(p, "whatsapp", m, inbound_text="START").reason == "blocked_consent"
 
 
+def test_optin_ask_day_follows_the_household_timezone(sample):
+    from datetime import datetime, timezone
+
+    store.set_consent(sample, "kamala", "whatsapp", "pending", "test")
+    clock.freeze(datetime(2026, 10, 12, 18, 0, tzinfo=timezone.utc))  # 23:30 in Asia/Kolkata
+    open_window(sample, "kamala")
+    m = _msg(phrase_key="optin_ask")
+    assert outbound.guard(store.get_person(sample, "kamala"), "whatsapp", m, inbound_text="START").ok
+    clock.advance(60)  # 00:30 local on the 13th, still the 12th in UTC
+    assert outbound.guard(store.get_person(sample, "kamala"), "whatsapp", m, inbound_text="START").ok
+
+
 def test_checkin_voice_to_pending_person_is_blocked(sample):
     store.set_consent(sample, "kamala", "whatsapp", "pending", "test")
     open_window(sample, "kamala")
