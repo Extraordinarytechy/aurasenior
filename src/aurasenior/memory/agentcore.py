@@ -101,10 +101,10 @@ class AgentCoreMemoryStore:
         self._event(household_id, person_id, [self._msg(f"Note: {note}", "ASSISTANT")])
 
     def record_turn(self, household_id: str, person_id: str, user_text: str, reply_text: str) -> None:
-        payload = [self._msg(user_text, "USER")]
-        if reply_text:
-            payload.append(self._msg(reply_text, "ASSISTANT"))
-        self._event(household_id, person_id, payload)
+        # CreateEvent rejects empty conversational text (min length 1), so empty sides are left out.
+        payload = [self._msg(t, role) for t, role in ((user_text, "USER"), (reply_text, "ASSISTANT")) if t.strip()]
+        if payload:
+            self._event(household_id, person_id, payload)
 
     def record_checkin(self, household_id: str, person_id: str, local_date: str, line: str) -> None:
         self._event(household_id, person_id, [self._msg(line, "ASSISTANT")], local_date,

@@ -70,6 +70,15 @@ def test_recoverable_error_falls_back_and_turn_completes(table, frozen, stub, er
     assert "ERROR" not in levels and "WARN" in levels
 
 
+def test_empty_turn_sides_are_never_sent(table, frozen, stub):
+    m = _store()
+    m.record_turn(HID, PID, "", "")
+    assert stub.calls == []
+    m.record_turn(HID, PID, " ", "namaste")
+    payload = stub.calls[0][1]["payload"]
+    assert [p["conversational"]["role"] for p in payload] == ["ASSISTANT"]
+
+
 def test_access_denied_logs_error_once_and_disables(table, frozen, stub, capsys):
     stub.error = _err("AccessDeniedException")
     m = _store()
