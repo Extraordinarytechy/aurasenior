@@ -1,0 +1,19 @@
+{
+  "_label": "Simulated Transcribe output for the offline replay.",
+  "results": {
+    "transcripts": [{"transcript": "शुगर की गोली ले ली। BP वाली खत्म हो गई। आज घुटने में थोड़ा दर्द है।"}],
+    "items": [
+      {"type": "pronunciation", "start_time": "0.40", "end_time": "0.90", "alternatives": [{"content": "शुगर"}]},
+      {"type": "pronunciation", "start_time": "0.95", "end_time": "1.10", "alternatives": [{"content": "की"}]},
+      {"type": "pronunciation", "start_time": "1.15", "end_time": "1.50", "alternatives": [{"content": "गोली"}]},
+      {"type": "pronunciation", "start_time": "1.55", "end_time": "1.80", "alternatives": [{"content": "ले"}]},
+      {"type": "pronunciation", "start_time": "1.85", "end_time": "2.10", "alternatives": [{"content": "ली"}]},
+      {"type": "pronunciation", "start_time": "3.40", "end_time": "3.70", "alternatives": [{"content": "BP"}]},
+      {"type": "pronunciation", "start_time": "3.75", "end_time": "4.10", "alternatives": [{"content": "वाली"}]},
+      {"type": "pronunciation", "start_time": "4.15", "end_time": "4.60", "alternatives": [{"content": "खत्म"}]},
+      {"type": "pronunciation", "start_time": "4.65", "end_time": "4.90", "alternatives": [{"content": "हो"}]},
+      {"type": "pronunciation", "start_time": "4.95", "end_time": "5.20", "alternatives": [{"content": "गई"}]},
+      {"type": "pronunciation", "start_time": "5.40", "end_time": "5.90", "alternatives": [{"content": "दर्द"}]}
+    ]
+  }
+}

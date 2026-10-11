@@ -1,0 +1,40 @@
+{
+  "_label": "Scripted model responses for the offline sample-household replay. Not real model output.",
+  "hindi_reply": [
+    {"output": {"message": {"role": "assistant", "content": [
+      {"toolUse": {"toolUseId": "h1", "name": "log_medicine", "input": {"medicine_id": "sugar", "taken": true, "out_of_stock": false}}},
+      {"toolUse": {"toolUseId": "h2", "name": "log_medicine", "input": {"medicine_id": "bp", "taken": false, "out_of_stock": true}}}]}},
+     "stopReason": "tool_use"},
+    {"output": {"message": {"role": "assistant", "content": [
+      {"toolUse": {"toolUseId": "h3", "name": "request_refill_approval", "input": {"medicine_id": "bp", "ask_person_id": "rohan"}}},
+      {"toolUse": {"toolUseId": "h4", "name": "remember", "input": {"note": "Knee hurt a little on 12 October"}}}]}},
+     "stopReason": "tool_use"},
+    {"output": {"message": {"role": "assistant", "content": [
+      {"text": "अच्छा किया कि शुगर की गोली ले ली। BP की गोलियों के लिए मैंने रोहन से पूछ लिया है। घुटने का ध्यान रखिए।"}]}},
+     "stopReason": "end_turn"}
+  ],
+  "english_reply": [
+    {"output": {"message": {"role": "assistant", "content": [
+      {"toolUse": {"toolUseId": "e1", "name": "remember", "input": {"note": "Granddaughter Priya is visiting on Sunday"}}}]}},
+     "stopReason": "tool_use"},
+    {"output": {"message": {"role": "assistant", "content": [
+      {"text": "That sounds lovely. Enjoy your Sunday with Priya."}]}},
+     "stopReason": "end_turn"}
+  ],
+  "fall_note": [
+    {"output": {"message": {"role": "assistant", "content": [
+      {"toolUse": {"toolUseId": "f1", "name": "escalate", "input": {"reason": "fall_or_help", "quote": "मैं कुर्सी के पास फिसल गई"}}}]}},
+     "stopReason": "tool_use"},
+    {"output": {"message": {"role": "assistant", "content": [
+      {"text": "मैंने रोहन को बता दिया है। मैं आपके साथ हूँ।"}]}},
+     "stopReason": "end_turn"}
+  ],
+  "how_was_mom": [
+    {"output": {"message": {"role": "assistant", "content": [
+      {"toolUse": {"toolUseId": "w1", "name": "get_week", "input": {}}}]}},
+     "stopReason": "tool_use"},
+    {"output": {"message": {"role": "assistant", "content": [
+      {"text": "Mom took the sugar tablet on the days logged so far, the BP tablets were reordered, one morning check-in was missed and one fall alert was acknowledged."}]}},
+     "stopReason": "end_turn"}
+  ]
+}

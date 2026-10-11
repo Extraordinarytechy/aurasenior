@@ -1,0 +1,19 @@
+{
+  "_label": "Simulated Transcribe output for the offline replay.",
+  "results": {
+    "transcripts": [{"transcript": "Priya is coming to see me on Sunday. I am happy."}],
+    "items": [
+      {"type": "pronunciation", "start_time": "0.30", "end_time": "0.70", "alternatives": [{"content": "Priya"}]},
+      {"type": "pronunciation", "start_time": "0.75", "end_time": "0.90", "alternatives": [{"content": "is"}]},
+      {"type": "pronunciation", "start_time": "0.95", "end_time": "1.30", "alternatives": [{"content": "coming"}]},
+      {"type": "pronunciation", "start_time": "1.35", "end_time": "1.45", "alternatives": [{"content": "to"}]},
+      {"type": "pronunciation", "start_time": "1.50", "end_time": "1.70", "alternatives": [{"content": "see"}]},
+      {"type": "pronunciation", "start_time": "1.75", "end_time": "1.90", "alternatives": [{"content": "me"}]},
+      {"type": "pronunciation", "start_time": "1.95", "end_time": "2.10", "alternatives": [{"content": "on"}]},
+      {"type": "pronunciation", "start_time": "2.15", "end_time": "2.70", "alternatives": [{"content": "Sunday"}]},
+      {"type": "pronunciation", "start_time": "3.20", "end_time": "3.30", "alternatives": [{"content": "I"}]},
+      {"type": "pronunciation", "start_time": "3.35", "end_time": "3.50", "alternatives": [{"content": "am"}]},
+      {"type": "pronunciation", "start_time": "3.55", "end_time": "3.95", "alternatives": [{"content": "happy"}]}
+    ]
+  }
+}

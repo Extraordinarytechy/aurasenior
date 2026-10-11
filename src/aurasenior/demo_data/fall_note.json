@@ -1,0 +1,14 @@
+{
+  "_label": "Simulated Transcribe output for the offline replay.",
+  "results": {
+    "transcripts": [{"transcript": "मैं कुर्सी के पास फिसल गई।"}],
+    "items": [
+      {"type": "pronunciation", "start_time": "0.50", "end_time": "0.70", "alternatives": [{"content": "मैं"}]},
+      {"type": "pronunciation", "start_time": "0.80", "end_time": "1.30", "alternatives": [{"content": "कुर्सी"}]},
+      {"type": "pronunciation", "start_time": "1.35", "end_time": "1.50", "alternatives": [{"content": "के"}]},
+      {"type": "pronunciation", "start_time": "1.55", "end_time": "1.80", "alternatives": [{"content": "पास"}]},
+      {"type": "pronunciation", "start_time": "2.40", "end_time": "2.90", "alternatives": [{"content": "फिसल"}]},
+      {"type": "pronunciation", "start_time": "3.00", "end_time": "3.30", "alternatives": [{"content": "गई"}]}
+    ]
+  }
+}
