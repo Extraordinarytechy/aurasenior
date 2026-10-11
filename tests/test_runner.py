@@ -1,9 +1,11 @@
 import json
 
+import pytest
 from botocore.exceptions import ClientError
 
-from aurasenior import aws, sim, store
+from aurasenior import aws, channels, sim, store
 from aurasenior.agent.runner import AgentRunner
+from aurasenior.channels.base import SendResult
 from aurasenior.sim.converse import ScriptedConverse, end_turn, tool_use
 from conftest import open_window
 
@@ -62,6 +64,29 @@ def test_capped_turns_after_a_blocked_notice_promise_nothing(sample):
     AgentRunner().run_turn(sample, "kamala", {"event_id": "ev3", "text": "hello"})
     AgentRunner().run_turn(sample, "kamala", {"event_id": "ev4", "text": "hello again"})
     assert [x["phrase_key"] for x in sim.read("whatsapp")] == ["not_heard", "not_heard"]
+
+
+def test_retry_after_a_throttled_notice_sends_it(sample, monkeypatch):
+    open_window(sample, "kamala")
+    store.put({"PK": store.hh(sample), "SK": "USAGE#2026-10-12", "converse_calls": 150})
+    _scripted([])
+    rcs = channels.get("rcs")
+    real = rcs.send
+    state = {"done": False}
+
+    def throttle_once(msg):
+        if not state["done"]:
+            state["done"] = True
+            return SendResult.failed("ThrottlingException", True, simulated=True)
+        return real(msg)
+
+    monkeypatch.setattr(rcs, "send", throttle_once)
+    with pytest.raises(Exception):
+        AgentRunner().run_turn(sample, "kamala", {"event_id": "ev3", "text": "hello"})
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev3", "text": "hello"})
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev4", "text": "hello again"})
+    assert len([x for x in sim.read("rcs") if x.get("phrase_key") == "agent_unavailable_family"]) == 1
+    assert [x["phrase_key"] for x in sim.read("whatsapp")] == ["cost_cap", "cost_cap"]
 
 
 def _blocked():
