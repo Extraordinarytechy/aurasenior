@@ -1,0 +1,19 @@
+# Words the product never says: disease names, dose instructions, scores and diagnoses.
+# Lists per phrase language. Hindi has Devanagari and Latin script entries.
+# Matching uses keywords.normalise and whole tokens (or token sequences for multi-word entries).
+
+[en]
+disease = ["diabetes", "diabetic", "hypertension", "dementia", "alzheimer", "alzheimers", "parkinson",
+  "parkinsons", "depression", "stroke", "arthritis", "cancer", "heart attack", "heart disease", "copd",
+  "osteoporosis", "infection"]
+dose = ["double the dose", "double dose", "increase the dose", "reduce the dose", "skip the dose",
+  "take two tablets", "take an extra", "stop taking", "change the dose"]
+score = ["score", "diagnosis", "diagnose", "diagnosed", "risk level", "risk score"]
+
+[hi]
+disease = ["मधुमेह", "डायबिटीज़", "डायबिटीज", "शुगर की बीमारी", "उच्च रक्तचाप", "डिमेंशिया", "अवसाद", "डिप्रेशन",
+  "लकवा", "कैंसर", "हार्ट अटैक", "गठिया", "madhumeh", "diabetes", "dementia", "depression", "lakwa", "cancer",
+  "heart attack", "gathiya", "uchch raktchap"]
+dose = ["दोगुनी खुराक", "खुराक बढ़ा", "खुराक कम", "दवा बंद कर", "दो गोली ले", "doguni khurak", "khurak badha",
+  "khurak kam", "dawa band kar", "do goli le", "double dose"]
+score = ["स्कोर", "निदान", "जोखिम स्तर", "score", "nidan", "diagnosis", "diagnose", "risk level"]
