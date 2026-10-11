@@ -43,3 +43,28 @@ def table():
 
         store.create_table()
         yield store.table()
+
+
+@pytest.fixture
+def sample(table, frozen):
+    """The sample household seeded with simulators, every person opted in on every channel they have."""
+    from pathlib import Path
+
+    from aurasenior import channels, schedules, seed, store
+
+    schedules.reset_sim()
+    channels.reset()
+    data = seed.load_file(Path(__file__).resolve().parent.parent / "households" / "sample.toml")
+    seed.seed(data)
+    for p in store.people("sample01"):
+        for ch in p.addresses:
+            store.set_consent("sample01", p.person_id, ch, "opted_in", "test")
+    yield "sample01"
+    schedules.reset_sim()
+    channels.reset()
+
+
+def open_window(hid, pid):
+    from aurasenior import store
+
+    store.set_wa_inbound(hid, pid)
