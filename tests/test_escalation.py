@@ -1,7 +1,26 @@
 import json
 
-from aurasenior import clock, escalation, schedules, sim, store
+import pytest
+
+from aurasenior import channels, clock, escalation, schedules, sim, store
+from aurasenior.channels.base import SendResult
+from aurasenior.router import RetryableSendError
 from conftest import open_window
+
+
+def throttle_once(monkeypatch, channel, person_id):
+    """The first send on this channel to this person is throttled, later ones go through."""
+    adapter = channels.get(channel)
+    real = adapter.send
+    state = {"done": False}
+
+    def send(msg):
+        if msg.person_id == person_id and not state["done"]:
+            state["done"] = True
+            return SendResult.failed("ThrottlingException", True, simulated=True)
+        return real(msg)
+
+    monkeypatch.setattr(adapter, "send", send)
 
 
 def _family_sends():
@@ -88,6 +107,56 @@ def test_elder_message_closes_missed_checkin_but_not_fall(sample):
     fid = escalation.escalate(sample, "fall_or_help", "help")
     assert not escalation.resolve_by_elder(sample)
     assert store.get_escalation(sample, fid).status == "open"
+
+
+def _to(pid, phrase=None):
+    return [x for x in sim.read("rcs") + sim.read("whatsapp") + sim.read("email")
+            if x["person_id"] == pid and (phrase is None or x.get("phrase_key") == phrase)]
+
+
+def test_retry_after_a_throttled_alert_reaches_everyone_and_starts_rechecks(sample, monkeypatch):
+    open_window(sample, "kamala")
+    throttle_once(monkeypatch, "whatsapp", "nbr")
+    with pytest.raises(RetryableSendError):
+        escalation.escalate(sample, "fall_or_help", "I fell")
+    eid = escalation.escalate(sample, "fall_or_help", "I fell")
+    assert len(_to("rohan")) == 1 and len(_to("nbr")) == 1
+    assert len(_to("kamala", "esc_told_elder")) == 1
+    assert schedules.name_recheck(eid, 1) in schedules.client().names()
+    escalation.escalate(sample, "fall_or_help", "I fell again")
+    assert len(_to("rohan")) == 1 and len(_to("nbr")) == 1 and len(_to("kamala")) == 1
+
+
+def test_retried_recheck_run_tells_the_elder_once(sample):
+    open_window(sample, "kamala")
+    eid = escalation.escalate(sample, "fall_or_help", "help")
+    escalation.recheck_run(sample, eid, 1)
+    escalation.recheck_run(sample, eid, 1)
+    assert len(_to("kamala", "esc_reassure_elder")) == 1
+
+
+def test_retried_ack_finishes_the_notices(sample, monkeypatch):
+    open_window(sample, "kamala")
+    eid = escalation.escalate(sample, "fall_or_help", "help")
+    throttle_once(monkeypatch, "whatsapp", "nbr")
+    with pytest.raises(RetryableSendError):
+        escalation.ack_escalation(sample, eid, "rohan")
+    assert escalation.ack_escalation(sample, eid, "rohan")
+    assert len(_to("nbr")) == 2  # the alert, then one ack notice
+    assert len(_to("kamala", "esc_ack_elder")) == 1
+    assert not escalation.ack_escalation(sample, eid, "nbr")
+
+
+def test_retried_late_reply_finishes_the_notices(sample, monkeypatch):
+    eid = escalation.escalate(sample, "missed_checkin")
+    throttle_once(monkeypatch, "whatsapp", "nbr")
+    with pytest.raises(RetryableSendError):
+        escalation.resolve_by_elder(sample, "whatsapp#wamid.L1")
+    assert escalation.resolve_by_elder(sample, "whatsapp#wamid.L1")
+    assert store.get_escalation(sample, eid).status == "resolved_by_elder"
+    assert len([x for x in sim.read("rcs") if "has replied now" in x.get("text", "")]) == 1
+    assert len(_to("nbr")) == 2
+    assert not escalation.resolve_by_elder(sample, "whatsapp#wamid.L2")
 
 
 def test_an_hour_of_urgent_sends_is_not_capped(sample):

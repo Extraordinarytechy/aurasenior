@@ -68,6 +68,7 @@ class Approval:
     handled_at: str | None = None
     ran_out_at: str | None = None
     ordered_at: str | None = None
+    handled_cid: str | None = None  # tap event that handled it, so a retry of that tap can finish
 
 
 @dataclass
@@ -81,3 +82,4 @@ class Escalation:
     recheck_run: int = 0
     acknowledged_by: str | None = None
     acknowledged_at: str | None = None
+    resolved_cid: str | None = None  # inbound event that closed it, so a retry of that event can finish

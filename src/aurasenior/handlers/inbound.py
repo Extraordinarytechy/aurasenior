@@ -98,14 +98,14 @@ def process(m: InboundMessage) -> None:
         raise
 
 
-def _elder_replied(person: Person) -> None:
+def _elder_replied(person: Person, eid: str) -> None:
     h = store.get_household(person.household_id)
     now = clock.local_now(h.timezone)
     local_date = now.strftime("%Y-%m-%d")
     if schedules.delete_checkin_chain(person.household_id, local_date) >= 1:
         build_store(person).record_checkin(person.household_id, person.person_id, local_date,
                                            f"Check-in {local_date}: replied {now.strftime('%H:%M')}")
-    escalation.resolve_by_elder(person.household_id)
+    escalation.resolve_by_elder(person.household_id, eid)
 
 
 def _process(m: InboundMessage, eid: str) -> None:
@@ -129,7 +129,7 @@ def _process(m: InboundMessage, eid: str) -> None:
     store.trace(hid, "inbound", channel=m.channel, person_id=pid, kind=m.kind,
                 text=(m.text or m.button_payload or m.postback or "")[:200], simulated=simulated)
     if person.is_elder:
-        _elder_replied(person)
+        _elder_replied(person, eid)
     if m.channel == "whatsapp" and m.kind == "audio":
         if (m.audio_size or 0) > transcribe.MAX_MEDIA or not (m.audio_mime or "audio").startswith("audio"):
             router.send(person, Content(phrase="send_voice_note"), correlation_id=f"{eid}#1")
