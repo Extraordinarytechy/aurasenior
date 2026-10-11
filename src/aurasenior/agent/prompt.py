@@ -39,6 +39,8 @@ def system_prompt(hid: str, speaker: Person, event: dict) -> tuple[str, list[str
              f"Today ({today}) medicines: {meds}. Log: {taken}."]
     if not speaker.is_elder:
         parts.append(f"The family member calls the elder \"{speaker.relation_label}\". Use get_week for weekly questions.")
+    if event.get("elder_told"):
+        parts.append("The elder has just been told that family was alerted. Do not repeat that.")
     if memory:
         parts.append("What you remember about the person speaking:\n- " + "\n- ".join(memory))
     return "\n".join(parts), memory

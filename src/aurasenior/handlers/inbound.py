@@ -178,14 +178,24 @@ def _tap(person: Person, res, eid: str) -> None:
 def handle_text(person: Person, channel: str, text: str, eid: str, *, voice: bool, simulated: bool = False) -> None:
     if consent.handle(person, channel, text, correlation_id=f"{eid}#consent", simulated=simulated):
         return
-    if person.is_elder and keywords.fall_or_help(text):
-        escalation.escalate(person.household_id, "fall_or_help", text[:200])
+    told = _fall_words(person, text)
     if channel in ("sms", "rcs") and not person.is_elder:
         res = postback.digit(person, text)
         if res is not None:
             _tap(person, res, eid)
             return
-    AgentRunner().run_turn(person.household_id, person.person_id, {"event_id": eid, "text": text, "voice": voice})
+    AgentRunner().run_turn(person.household_id, person.person_id,
+                           {"event_id": eid, "text": text, "voice": voice, "elder_told": told})
+
+
+def _fall_words(person: Person, text: str) -> bool:
+    """Escalate on fall or help words. True when this message started the fall alert, so the elder has just
+    heard esc_told_elder and the model reply must not repeat it."""
+    if not (person.is_elder and keywords.fall_or_help(text)):
+        return False
+    new = not escalation.is_open(person.household_id, "fall_or_help")
+    escalation.escalate(person.household_id, "fall_or_help", text[:200])
+    return new
 
 
 def _reply_delay(hid: str, pid: str, wamid: str) -> float | None:
@@ -228,14 +238,13 @@ def on_transcribe_event(event: dict) -> None:
             # Silence or noise: nothing to answer, and an empty turn would be rejected by memory.
             router.send(person, Content(phrase="not_heard", voice=True), correlation_id=f"{eid}#nh")
         elif not consent.handle(person, "whatsapp", text, correlation_id=f"{eid}#consent", simulated=simulated):
-            if person.is_elder and keywords.fall_or_help(text):
-                escalation.escalate(hid, "fall_or_help", text[:200])
+            told = _fall_words(person, text)
             if person.is_elder:
                 sig = signals.extract(data, _reply_delay(hid, pid, tjob["wamid"]))
                 h = store.get_household(hid)
                 signals.store_signal(hid, pid, tjob["wamid"][-16:], clock.local_date(h.timezone), sig,
                                      simulated=simulated)
-            AgentRunner().run_turn(hid, pid, {"event_id": eid, "text": text, "voice": True})
+            AgentRunner().run_turn(hid, pid, {"event_id": eid, "text": text, "voice": True, "elder_told": told})
         dedupe.done(eid)
     except Exception:
         dedupe.release(eid)

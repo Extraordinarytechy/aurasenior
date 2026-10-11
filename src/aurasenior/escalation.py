@@ -197,5 +197,9 @@ def resolve_by_elder(hid: str, correlation_id: str = "") -> bool:
     return True
 
 
+def is_open(hid: str, reason: str) -> bool:
+    return _open(hid, reason) is not None
+
+
 def open_escalations(hid: str) -> list[Escalation]:
     return [e for e in store.escalations(hid) if e.status == "open"]

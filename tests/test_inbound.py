@@ -47,6 +47,30 @@ def test_same_event_twice_gives_one_send(sample):
     assert len(sim.read("whatsapp")) == 1
 
 
+def test_fall_words_give_one_told_message_not_two(sample):
+    s = ScriptedConverse([end_turn("मैंने रोहन को बता दिया है। मैं आपके साथ हूँ।")])
+    aws.override("bedrock-runtime", s)
+    inbound.handler(wa_text(ELDER, "wamid.F1", "I fell near the chair"))
+    to_elder = [x for x in sim.read("whatsapp") if x["person_id"] == "kamala"]
+    assert [x.get("phrase_key") for x in to_elder] == ["esc_told_elder"]
+    assert "just been told" in s.calls[0]["system"][0]["text"]
+    assert any(t["step"] == "reply" and t["outcome"] == "skipped_already_messaged" for t in store.traces(sample))
+
+
+def test_model_escalate_tool_does_not_repeat_the_told_message(sample):
+    from aurasenior.sim.converse import tool_use
+
+    store.set_wa_inbound(sample, "kamala")
+    aws.override("bedrock-runtime", ScriptedConverse([
+        tool_use("escalate", {"reason": "fall_or_help", "quote": "not feeling safe"}),
+        end_turn("I have told Rohan.")]))
+    from aurasenior.agent.runner import AgentRunner
+
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev-t", "text": "not feeling safe"})
+    to_elder = [x for x in sim.read("whatsapp") if x["person_id"] == "kamala"]
+    assert [x.get("phrase_key") for x in to_elder] == ["esc_told_elder"]
+
+
 def test_elder_reply_records_checkin_once(sample, monkeypatch):
     monkeypatch.setenv("AGENTCORE_MEMORY_ID", "aurasenior_memory-abc")
     calls = []

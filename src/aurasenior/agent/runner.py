@@ -48,6 +48,8 @@ class AgentRunner:
         agent_cfg = config.agent()
         text = event.get("text", "")
         ctx = tools.ToolContext(hid, speaker, event["event_id"], voice_reply=bool(event.get("voice")))
+        if event.get("elder_told"):
+            ctx.messaged.add(speaker.person_id)  # she just heard esc_told_elder from the fall path
         system, memory = prompt.system_prompt(hid, speaker, event)
         messages = prompt.history(hid, speaker) + [{"role": "user", "content": [{"text": text or "(scheduled)"}]}]
         client = converse_client()
@@ -105,14 +107,20 @@ class AgentRunner:
         if not ended:
             log.get().warning("agent turn hit the iteration limit", extra={"household_id": hid})
             result.outcome = "max_iterations"
-        if result.reply and speaker.person_id not in ctx.messaged:
-            router.send(speaker, Content(text=result.reply, voice=speaker.is_elder and ctx.voice_reply),
+        reply = result.reply
+        if reply and speaker.person_id in ctx.messaged:
+            # Already messaged this turn (fall alert or message_person): do not send a second, similar reply,
+            # and do not keep words she never heard in history or memory.
+            store.trace(hid, "reply", person_id=speaker.person_id, outcome="skipped_already_messaged")
+            reply = ""
+        if reply:
+            router.send(speaker, Content(text=reply, voice=speaker.is_elder and ctx.voice_reply),
                         correlation_id=f"{event['event_id']}#reply", inbound_text=text)
         if text:
             store.put_turn(hid, speaker.person_id, "user", text)
-        if result.reply:
-            store.put_turn(hid, speaker.person_id, "assistant", result.reply)
-        build_store(speaker).record_turn(hid, speaker.person_id, text, result.reply)
+        if reply:
+            store.put_turn(hid, speaker.person_id, "assistant", reply)
+        build_store(speaker).record_turn(hid, speaker.person_id, text, reply)
         return result
 
     def _guardrail_blocked(self, hid: str, speaker, ctx, event: dict) -> None:
