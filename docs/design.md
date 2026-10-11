@@ -174,7 +174,7 @@ All verified, see `docs/decisions.md` (entry in brackets).
 
 Decision (owner confirmed 2026-10-11, D11): the agent loop runs inside Lambda and calls the Bedrock Converse API
 with tool use. State and the trace are kept in DynamoDB. Milestone 1 adds Amazon Bedrock AgentCore Memory for the
-elder's long-term memory, behind the `MemoryStore` interface (section 8.5), with the DynamoDB `MEMORY` item as the
+elder's long-term memory, behind the `MemoryStore` interface (section 8.5), with the DynamoDB `MEMORY#<pid>` items as the
 automatic fallback (section 8.7). Milestone 2, a separate run (target Oct 16-20), moves the agent loop onto
 AgentCore Runtime behind `AgentRunner`.
 
@@ -188,7 +188,8 @@ install in the project venv. AgentCore Runtime is not used in Milestone 1 for th
    entrypoint that follows the runtime service contract (D11 doc links). Every inbound message would then go
    Lambda to `InvokeAgentRuntime` to the agent, which adds a hop and a second deploy artifact while the event
    sources (SNS, EventBridge, Scheduler) still need Lambda anyway.
-3. The demo trace view needs every tool call, every channel decision and the simulated flag in one place. Writing
+3. The demo trace view needs every tool call, every channel decision and the simulated flag in one place (this
+   is also why AgentCore Observability is left to Milestone 2). Writing
    our own `TRACE` items gives exactly that, and it is easy to unit test. AgentCore Observability needs CloudWatch
    Transaction Search set up (D11), which was not checked against the `aurasenior-dev` policy.
 4. The timeline needs core flows working on simulators by Oct 15.
@@ -292,11 +293,15 @@ ErrorsAlarm:
 ```
 
 The two metric filters publish to the same metric (no dimensions), so one `ErrorLogs` series covers both
-functions. The `aurasenior-failed-events` topic gets an `AWS::SNS::TopicPolicy` with one Allow statement for
-`cloudwatch.amazonaws.com` to `sns:Publish` with `aws:SourceAccount` (and no Deny); the Lambda on-failure
-destination publishes through the function role's identity policy, as in section 5.1. Whether CloudWatch needs
-that statement for an unencrypted topic in the same account is recorded in D9 from the alarm actions page; the
-statement is kept either way because it is harmless and the default topic policy is replaced by any explicit one.
+functions. The `aurasenior-failed-events` topic is an unencrypted standard topic in the same account and gets no
+`AWS::SNS::TopicPolicy` in Milestone 1, so SNS keeps its default topic policy; the Lambda on-failure destination
+publishes through the function role's identity policy (section 5.1). The pages read for D9 do not state whether a
+same-account CloudWatch alarm needs a topic policy statement (the SNS examples cover the cross-account case only),
+so this is A19: after the first deploy, `aws cloudwatch set-alarm-state --alarm-name aurasenior-errors
+--state-value ALARM --state-reason test` must deliver the owner email, and the result is saved under
+`docs/evidence/`. If it does not, a topic policy with one Allow statement for the CloudWatch service principal
+(principal name taken from the CloudWatch SNS permissions page, recorded in D9) and `aws:SourceAccount` is added,
+with no Deny.
 
 In the template, beyond the functions, table, bucket, topics, rule and SES and SMS resources: budget
 `aurasenior-monthly` as `AWS::Budgets::Budget` (monthly cost budget, email alert at 80 percent to the owner address
@@ -314,7 +319,7 @@ Stack parameters: `OwnerEmail` (budget alerts and failed-event notices), `Sender
 `RcsAgentId` (default empty), `WhatsAppPhoneNumberId` (default empty until the owner links WhatsApp; the WhatsApp
 adapter stays on `sim` while it is empty), `GuardrailProfileId` (default `us.guardrail.v1:0`, the US guardrail
 profile listed for source Region us-east-1 on the guardrails-cross-region-support page, D11; empty selects the
-Classic tier).
+Classic tier), `AgentCoreMemory` (`on` or `off`, default `on`; section 8.7).
 
 Stack outputs: `SmsOriginationNumberArn` (the simulator number the stack creates), the three SNS topic ARNs, the
 table name, the guardrail ID and version.
@@ -326,6 +331,8 @@ Conditions (CloudFormation `Conditions` with `Fn::If` and `AWS::NoValue` to drop
 | `HasWhatsApp` | `WhatsAppPhoneNumberId` not empty | the `social-messaging:*` statement is in both function roles; false: the statement is left out, so no empty ARN is written |
 | `HasRcsAgent` | `RcsAgentId` not empty | the RCS agent ARN is in the `sms-voice:SendRcsMessage` statement; false: only the simulator number and configuration set are listed |
 | `HasGuardrailProfile` | `GuardrailProfileId` not empty | true: `TierName: STANDARD`, `CrossRegionConfig.GuardrailProfileIdentifier = GuardrailProfileId`, and the profile ARN is in the `bedrock:ApplyGuardrail` resources. False: `TierName: CLASSIC`, no `CrossRegionConfig`, profile ARN left out. In Classic mode the denied topics cover English only (D11), and the outbound guard with `config/wording.toml` is the only Hindi control |
+
+| `HasAgentCoreMemory` | `AgentCoreMemory` = `on` | the `AWS::BedrockAgentCore::Memory` resource `aurasenior_memory` exists, its ID is in the `AGENTCORE_MEMORY_ID` environment variable of both functions, and the `bedrock-agentcore` statement is in both roles. False: no resource, the variable is empty, and `MemoryStore` is DynamoDB only (section 8.7) |
 
 The function reads the guardrail mode from an environment variable set by the same condition, and every `TRACE#`
 item for a Converse call records `guardrail_mode` (`standard` or `classic`).
@@ -352,7 +359,8 @@ SES and follow the error table (section 16).
 ### 5.1 IAM per role (least privilege)
 
 Every action below was checked against the AWS Service Reference data (resource types each action supports,
-evidence `service-reference-actions-2026-10-10.txt`, D14). `*` is used only where the action supports no resource
+evidence `service-reference-actions-2026-10-10.txt`, D14). Every resource ARN format is copied from the same data
+(evidence `service-reference-arn-formats-2026-10-11.txt`). `*` is used only where the action supports no resource
 type, or only a type AuraSenior does not use.
 
 | Role | Actions | Resources |
@@ -360,18 +368,19 @@ type, or only a type AuraSenior does not use.
 | `aurasenior-inbound-role` and `aurasenior-scheduled-role` (same policy document, two roles so each function has its own) | `dynamodb:GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query` | table `aurasenior-household` |
 | | `s3:GetObject`, `s3:PutObject` | `arn:aws:s3:::aurasenior-media-<account>/*` |
 | | `transcribe:StartTranscriptionJob` | `*` (no resource type for this action) |
-| | `transcribe:GetTranscriptionJob` | `transcriptionjob` resources named `aurasenior-*` (ARN format taken from the Service Reference data when the template is written) |
+| | `transcribe:GetTranscriptionJob` | `arn:aws:transcribe:us-east-1:<account>:transcription-job/aurasenior-*` |
 | | `bedrock:InvokeModel` | the `us.amazon.nova-2-lite-v1:0` inference profile ARN and the foundation model ARNs it routes to, as listed for that profile in `bedrock-inference-profiles-2026-10-10.json` (D1) |
 | | `bedrock:ApplyGuardrail` | guardrail `aurasenior-safety` ARN; plus `arn:aws:bedrock:us-east-1:<account>:guardrail-profile/<GuardrailProfileId>` only under `HasGuardrailProfile` (any extra ARNs the cross-Region permissions page requires are A14) |
 | | `polly:SynthesizeSpeech` | `*` (its only resource type is a lexicon; no lexicons are used) |
-| | `social-messaging:SendWhatsAppMessage`, `PostWhatsAppMessageMedia`, `GetWhatsAppMessageMedia` | the WhatsApp phone number ID ARN from `WhatsAppPhoneNumberId`; statement present only under `HasWhatsApp` |
-| | `sms-voice:SendRcsMessage`, `sms-voice:SendTextMessage` | the simulator phone number and configuration set `aurasenior-sms`; RCS agent `RcsAgentId` only under `HasRcsAgent` |
+| | `social-messaging:SendWhatsAppMessage`, `PostWhatsAppMessageMedia`, `GetWhatsAppMessageMedia` | `arn:aws:social-messaging:us-east-1:<account>:phone-number-id/<WhatsAppPhoneNumberId>`; statement present only under `HasWhatsApp` |
+| | `sms-voice:SendRcsMessage`, `sms-voice:SendTextMessage` | `arn:aws:sms-voice:us-east-1:<account>:phone-number/<simulator PhoneNumberId>` (from the stack's `AWS::SMSVOICE::PhoneNumber`) and `arn:aws:sms-voice:us-east-1:<account>:configuration-set/aurasenior-sms`; `arn:aws:sms-voice:us-east-1:<account>:rcs-agent/<RcsAgentId>` only under `HasRcsAgent` (`SendRcsMessage` only; `SendTextMessage` has no `RcsAgent` resource type) |
 | | `sms-voice:DescribeVerifiedDestinationNumbers` | not in a function role; used only by the admin CLI with the developer's credentials (section 14) |
 | | `sns:Publish` | topic `aurasenior-failed-events` only (Lambda async on-failure destination, section 5) |
-| | `ses:SendEmail` | identity `SenderEmail`, configuration set `aurasenior-email`, the `aurasenior-*` templates; plus the recipient identities while in the sandbox |
+| | `ses:SendEmail` | while SES is in the sandbox: `arn:aws:ses:us-east-1:<account>:identity/*` (recipients come from household seed data, so their identity ARNs cannot be listed in the template), plus `arn:aws:ses:us-east-1:<account>:configuration-set/aurasenior-email` and `arn:aws:ses:us-east-1:<account>:template/aurasenior-*`. Template comment: narrow `identity/*` to `identity/<SenderEmail>` after production access |
+| | `bedrock-agentcore:CreateEvent`, `bedrock-agentcore:RetrieveMemoryRecords` | the `aurasenior_memory` ARN (`Ref` of the memory resource, format `arn:aws:bedrock-agentcore:us-east-1:<account>:memory/<MemoryId>`); statement present only under `HasAgentCoreMemory` (section 8.7) |
 | | `scheduler:CreateSchedule`, `scheduler:DeleteSchedule` | `arn:aws:scheduler:us-east-1:<account>:schedule/aurasenior/*` |
 | | `iam:PassRole` with condition `iam:PassedToService = scheduler.amazonaws.com` | role `aurasenior-scheduler` only |
-| | `logs:CreateLogStream`, `logs:PutLogEvents` | the function's own log group |
+| | `logs:CreateLogStream`, `logs:PutLogEvents` | the function's own log group, as log streams: `arn:aws:logs:us-east-1:<account>:log-group:/aws/lambda/aurasenior-inbound:log-stream:*` (and `-scheduled` for the other role). Both actions support only the `log-stream` resource type. No `logs:CreateLogGroup`: the stack creates the group (section 5) |
 | `aurasenior-scheduler` (trust `scheduler.amazonaws.com` with `aws:SourceAccount`) | `lambda:InvokeFunction` | function `aurasenior-scheduled` only |
 
 For Transcribe, the role gets `s3:GetObject` on the input audio and `s3:PutObject` on the output prefix, as in the
@@ -403,7 +412,7 @@ in two languages each (`_hi`, `_en`); the language comes from the person's `lang
 | Daily check-in (9:00 her time) | Window closed (usual): WA template `aurasenior_checkin_<lang>` with quick reply "सुनें" / "Listen". Her tap opens the window and the `checkin_voice` Polly voice note is sent at once (section 10). Window open: Polly voice note directly | none | none | none |
 | Voice reply understood | Voice note reply within the open window (she just wrote, so it is open) | none unless an action follows | none | none |
 | Follow-up (no reply 90 min after check-in) | Window closed: WA template `aurasenior_followup_<lang>` with the same "सुनें" / "Listen" button. Window open: `followup_voice` voice note | none | none | none |
-| Missed check-in (no reply 60 min after follow-up) | none | RCS text `missed_checkin`; SMS fallback `missed_checkin_sms` | WA template `aurasenior_family_missed_<lang>`; email fallback SES `aurasenior-missed-checkin` | none |
+| Missed check-in (no reply 60 min after follow-up) | none | RCS text `missed_checkin` with Reply suggestions I'm on it (`esc:ack:<id>`) and Send number (`info:number`); SMS fallback `missed_checkin_sms` (digits 4 and 3) | WA template `aurasenior_family_missed_<lang>` with static quick replies I'm on it (`esc:ack`, resolved through `context.id`) and Send number; email fallback SES `aurasenior-missed-checkin` | none |
 | Refill approval | none | RCS rich card `refill_approval` with Reply suggestions Order refill (`refill:approve:<id>`), I'll handle it (`refill:self:<id>`), Call {relation_label} (`refill:call:<id>`); SMS fallback `refill_sms` (digits 1, 2, 3, section 12) | WA template `aurasenior_family_refill_<lang>` with three static quick-reply buttons, resolved through `context.id` (section 12 step 2); email fallback SES `aurasenior-refill-request` that says to reply on WhatsApp or call (no approve by email) | none |
 | Pharmacy order (only after Order refill) | none | none | none | SES `aurasenior-refill-order` to the pharmacy, sent by code, not by the model (section 12) |
 | Refill confirmation | Window open: `refill_ordered_elder` voice note. Window closed: WA template `aurasenior_refill_update_<lang>` | RCS text `refill_ordered_family` | WA free-form `refill_ordered_family` if their window is open, else WA template `aurasenior_family_update_<lang>`; email fallback SES `aurasenior-update` | none |
@@ -438,7 +447,7 @@ reviewed by a Hindi speaker under A6, and is stored next to the English one):
 | `aurasenior_checkin_<lang>` | "Good morning {{1}}. {brand} here with your morning check-in. Tap Listen to hear it." | `{{1}}` elder `display_name` | "Listen" / "सुनें" (action `listen:checkin`) |
 | `aurasenior_followup_<lang>` | "{{1}}, {brand} again. Just checking you are okay this morning. Tap Listen." | `{{1}}` elder `display_name` | "Listen" / "सुनें" (action `listen:followup`) |
 | `aurasenior_refill_update_<lang>` | "{{1}}, your {{2}} have been ordered by {{3}}." | elder name, `display_label`, approver `display_name` | none |
-| `aurasenior_family_missed_<lang>` | "{brand}: no reply from {{1}} to this morning's check-in." | `relation_label` | "Send number" (action `info:number`) |
+| `aurasenior_family_missed_<lang>` | "{brand}: no reply from {{1}} to this morning's check-in." | `relation_label` | "I'm on it" (action `esc:ack`), "Send number" (action `info:number`); `MSG#.ref` = `{kind: escalation, id: <eid>}` |
 | `aurasenior_family_refill_<lang>` | "{brand}: {{1}} said the {{2}} have run out. Order a refill from the usual pharmacy?" | `relation_label`, `display_label` | "Order refill" (`refill:approve`), "I'll handle it" (`refill:self`), "Call" (`refill:call`); labels are static, no variables |
 | `aurasenior_family_update_<lang>` | "{brand} update about {{1}}: {{2}}" | `relation_label`, one fixed phrase from `config/phrases.toml` (max 300 characters, passes the guard) | none |
 | `aurasenior_urgent_alert_<lang>` | "URGENT from {brand}: {{1}} said \"{{2}}\" and may need help. Please check on {{1}} now." | `relation_label`, quote up to 100 characters (or `quote_withheld`, section 8.3) | "I'm on it" (action `esc:ack`) |
@@ -455,7 +464,9 @@ bodies are fixed once Meta approves them, so `post_deploy.py` replaces `{brand}`
 submits them; `{brand}` is not a Meta variable. A rename means deleting and re-submitting the WhatsApp templates
 (Meta review again, up to 24 hours, D5). Resource names and template names (`aurasenior-*`, `aurasenior_*`) stay
 as they are. A unit test fails if any file under `config/` other than the `[brand]` entry, or the SAM template's
-SES template text, contains the literal brand string.
+SES template text, contains the `[brand] name` value as a whole word, matched exactly and case-sensitively
+(`\bAuraSenior\b` for the current value). Identifiers matching `aurasenior[-_][a-z_-]+` (resource, template and
+phrase names) are ignored, so `aurasenior_checkin_hi` does not fail it.
 
 Neutral wording: fixed text never uses "her" or "him" for the elder. It uses `{relation_label}` (`{{1}}` in
 templates) or neutral words, so a household with a male elder needs no new templates.
@@ -466,7 +477,7 @@ RCS texts and card, and their SMS fallbacks (`config/phrases.toml`, English for 
 | --- | --- | --- |
 | `optin_ask` | "This is {brand}. {admin_name} set this up so you get updates about {relation_label}. Reply YES to start, or STOP to stop." | same text |
 | `optin_ask_admin` | "This is {brand}. Reply YES to get updates about {relation_label}, or STOP to stop." (sent when the recipient is the admin) | same text |
-| `missed_checkin` | text "No reply from {relation_label} to this morning's check-in." with suggestion "Send number" (`info:number`) | `missed_checkin_sms`: "{brand}: no reply from {relation_label} this morning. Reply 3 to get {relation_label}'s number." |
+| `missed_checkin` | text "No reply from {relation_label} to this morning's check-in." with Reply suggestions "I'm on it" (`esc:ack:<id>`) and "Send number" (`info:number`) | `missed_checkin_sms`: "{brand}: no reply from {relation_label} this morning. Reply 4 if you are on it, 3 for {relation_label}'s number." |
 | `checkin_late_family` | "{relation_label} has replied now." | same text |
 | `refill_approval` | rich card, `CardOrientation` VERTICAL, title "{relation_label}'s {display_label} ran out", description "Order a refill from the usual pharmacy?", 3 Reply suggestions as in 6.2 | `refill_sms`: "{brand}: {relation_label}'s {display_label} ran out. Reply 1 to order a refill, 2 if you will handle it, 3 for {relation_label}'s number." |
 | `refill_ordered_family` | "Order sent to {pharmacy_name} for {relation_label}'s {display_label}." | same text |
@@ -494,7 +505,7 @@ SES templates (`AWS::SES::Template`, subject and text part; HTML part is the sam
 | --- | --- | --- | --- |
 | `aurasenior-refill-order` | "Refill request for {{elder_name}}" | "Hello {{pharmacy_name}}. Please prepare a refill of {{medicine_name}} for {{elder_name}}, approved by {{approver_name}} at {{approved_at}}." No phone number or other personal data beyond names is included | pharmacy |
 | `aurasenior-weekly-summary` | "{{elder_name}}: week of {{week_start}}" | Medicines taken per day per medicine, refills, missed check-ins, escalations with time to acknowledgement, pain and low-mood mention counts, all from `WeekFacts` (section 8.6). Closes with "This is a summary of what {{elder_name}} told {{brand}}. It is not medical advice." | every person with `addresses.email` and `consent.email = opted_in` (section 10) |
-| `aurasenior-missed-checkin` | "No reply from {{relation_label}} this morning" | same wording as `missed_checkin` | family email fallback |
+| `aurasenior-missed-checkin` | "No reply from {{relation_label}} this morning" | "No reply from {{relation_label}} to this morning's check-in. Reply on WhatsApp or RCS with I'm on it." | family email fallback |
 | `aurasenior-refill-request` | "{{relation_label}}'s {{display_label}} ran out" | "Reply on WhatsApp to order a refill, or call {{relation_label}}." | family email fallback |
 | `aurasenior-update` | "Update about {{relation_label}}" | "{{update_text}}" (a fixed phrase) | family email fallback |
 | `aurasenior-urgent` | "URGENT: {{relation_label}} may need help" | "{{relation_label}} said \"{{quote}}\". Please check on {{relation_label}} now. Reply on WhatsApp or RCS with I'm on it." | family email fallback |
@@ -578,11 +589,12 @@ Simulated sends are labelled: the adapter sets `simulated=True`, the trace item 
 
 ### 8.1 Turn loop
 
-`AgentRunner.run_turn` builds the system prompt (rules, the person, today's facts, memory notes), adds the last 10
-turns, and calls `Converse` with `toolConfig` and `guardrailConfig` (guardrail `aurasenior-safety`, version from the
-stack). It runs tools for each `toolUse` block, returns `toolResult` blocks, and repeats until `stopReason` is
-`end_turn` or 6 iterations have run (then it stops and logs WARN). Max output tokens 800 per call. Pattern verified
-in D2.
+`AgentRunner.run_turn` builds the system prompt (rules, the person, today's facts, and memory from
+`MemoryStore.recall` for the person speaking, section 8.5), adds the last 10 turns, and calls `Converse` with
+`toolConfig` and `guardrailConfig` (guardrail `aurasenior-safety`, version from the stack). It runs tools for each
+`toolUse` block, returns `toolResult` blocks, and repeats until `stopReason` is `end_turn` or 6 iterations have run
+(then it stops and logs WARN). Max output tokens 800 per call. Pattern verified in D2. After the turn it calls
+`MemoryStore.record_turn` with the person's text and the final reply text.
 
 ### 8.2 Tools seen by the model
 
@@ -599,9 +611,7 @@ a free-form WhatsApp message outside the window.
 | `request_refill_approval` | `medicine_id`, `ask_person_id` (role family) | Creates `APPROVAL#` pending, sends the refill card or template |
 | `escalate` | `reason` (`fall_or_help` or `missed_checkin`), `quote` up to 200 chars | Idempotent per household and reason (section 13): returns the open `ESC#` if one exists, else creates it, alerts family and neighbour, schedules `escalation_recheck` |
 | `ack_escalation` | `escalation_id` | Marks acknowledged, cancels recheck, tells the elder who is coming |
-| `schedule_followup` | `kind` (`followup`, `missed_checkin`), `minutes` 5 to 240 | One-time `at()` schedule, `ActionAfterCompletion` `DELETE` |
-| `cancel_followup` | `kind` | `DeleteSchedule`; not found is treated as done |
-| `remember` | `note` 1 to 200 chars | Adds to memory notes (max 50, oldest dropped) |
+| `remember` | `note` 1 to 200 chars | `MemoryStore.remember` for the person speaking (section 8.5); DynamoDB keeps max 50 notes, oldest dropped |
 | `suggest_call` | none (reads computed signals) | Sends the worth a call message from section 15 if one is due; the model cannot write its text |
 
 Some steps never depend on the model: fall or help words in a transcript or text call `escalate(fall_or_help)`
@@ -628,6 +638,18 @@ lists (section 15).
 The pharmacy order is also never a model decision. `send_pharmacy_order(approval_id)` is a plain function in
 `src/aurasenior/refill.py`, not a model tool. It is called only by the inbound handler after a person's approval
 (section 12). The model can only ask for approval.
+
+Follow-up and missed check-in scheduling is deterministic only, and there is no scheduling tool for the model. The
+functions live in `src/aurasenior/schedules.py` as plain code: `create_followup(hid, local_date)`,
+`create_missed_checkin(hid, local_date)`, `delete_checkin_chain(hid, local_date)`, plus the recheck, delivery
+check and approval expiry helpers used by `escalate`, `ack_escalation` and the refill flow. The chain is fixed:
+
+- the check-in run creates `followup` 90 minutes later (`aurasenior-fu-<hid>-<yyyymmdd>`);
+- the follow-up run creates `missed_checkin` 60 minutes later (`aurasenior-mc-<hid>-<yyyymmdd>`);
+- any inbound message or button tap from the elder deletes both (not found is fine), before the agent turn.
+
+This keeps the one-per-household-per-day names and event IDs (sections 10 and 11.1) true by construction, and the
+model can never start a family escalation chain indirectly. Reminders at other times of day are roadmap.
 
 ### 8.3 Outbound guard (single choke point)
 
@@ -697,11 +719,29 @@ enforced by a conditional set of `USAGE#.agent_unavailable_sent`. The same appli
 
 ### 8.5 Memory
 
-Kept in DynamoDB per household: `MEMORY` item with up to 50 short notes (her routine, people she mentions,
-grandchildren's names), turns as `TURN#<person_id>#<ts>` items with a 7-day TTL, and medicines and log from their
-own items. A turn's prompt includes only the last 10 turns of the person who is speaking, so the elder's words never
-reach a family member's prompt. Family see the elder's situation only through `get_household` and `get_week`, which
-never include transcript text unless the elder's `share_transcripts` flag is true.
+Long-term memory sits behind one interface in `src/aurasenior/memory/base.py`. The `remember` tool and the prompt
+builder call only `MemoryStore`, never DynamoDB or AgentCore directly:
+
+```python
+class MemoryStore(Protocol):
+    def recall(self, household_id: str, person_id: str, query: str | None = None) -> list[str]: ...
+    def remember(self, household_id: str, person_id: str, note: str) -> None: ...
+    def record_turn(self, household_id: str, person_id: str, user_text: str, reply_text: str) -> None: ...
+```
+
+- `DynamoMemoryStore` (`memory/dynamo.py`) is the current behaviour and the fallback: a `MEMORY#<pid>` item per
+  person with up to 50 short notes (routine, people mentioned, grandchildren's names), oldest dropped.
+  `record_turn` is a no-op here, because turns are already `TURN#` items.
+- `AgentCoreMemoryStore` (`memory/agentcore.py`) adds Amazon Bedrock AgentCore Memory for the elder (section 8.7)
+  and wraps a `DynamoMemoryStore` it falls back to.
+- `memory.build_store()` returns `AgentCoreMemoryStore` when `AGENTCORE_MEMORY_ID` is set (stack condition
+  `HasAgentCoreMemory`, section 5), else `DynamoMemoryStore`.
+
+Short-term context stays in DynamoDB: turns as `TURN#<person_id>#<ts>` items with a 7-day TTL, and medicines and
+log from their own items. Privacy rule, kept by every implementation: memory is keyed per person. A turn's prompt
+includes only the last 10 turns and the recalled memory of the person who is speaking, so the elder's words and
+notes never reach a family member's prompt. Family see the elder's situation only through `get_household` and
+`get_week`, which never include transcript text unless the elder's `share_transcripts` flag is true.
 
 ### 8.6 Weekly facts
 
@@ -722,6 +762,79 @@ ending on `end_date` in the household timezone and returns:
 The model tool `get_week` returns this as JSON. The weekly SES summary (section 10) is rendered from `WeekFacts`
 straight into the SES template variables, with no model call.
 
+### 8.7 AgentCore Memory (Milestone 1)
+
+Owner decision (D11): the elder's long-term memory uses Amazon Bedrock AgentCore Memory, behind `MemoryStore`, with
+DynamoDB as the automatic fallback. Every API, IAM action and CloudFormation property below has its doc URL in D11.
+
+What is stored, for the elder only (family memory stays in `DynamoMemoryStore`):
+
+| What | How it gets in | Strategy and namespace |
+| --- | --- | --- |
+| Routine and people (wakes at 6, chai with tablets, granddaughter Priya, the neighbour's name) | her turns (`record_turn`: her transcript as `USER`, the reply as `ASSISTANT`) and `remember` notes (`ASSISTANT` text "Note: ...") | semantic, `/aurasenior/facts/{actorId}/` |
+| Past check-ins | the same turns, one session per household-local day, plus one deterministic `ASSISTANT` line per check-in built from `LOG#` ("Check-in 2026-10-12: replied 09:14, BP tablets taken") | summary, `/aurasenior/checkins/{actorId}/{sessionId}/` |
+
+Resource (in the SAM template, condition `HasAgentCoreMemory`): `AWS::BedrockAgentCore::Memory` with
+`Name: aurasenior_memory` (pattern `^[a-zA-Z][a-zA-Z0-9_]{0,47}$`, so no hyphen), `EventExpiryDuration: 30` (days,
+allowed 3 to 365, matching the 30-day trace retention), and `MemoryStrategies` with one `SemanticMemoryStrategy`
+(`Name: facts`, `Namespaces: ["/aurasenior/facts/{actorId}/"]`) and one `SummaryMemoryStrategy` (`Name: checkins`,
+`Namespaces: ["/aurasenior/checkins/{actorId}/{sessionId}/"]`). Built-in strategies only, so
+`MemoryExecutionRoleArn` is not set (it is optional in the schema; A18 confirms on the first deploy). `Ref` returns
+the memory ARN (used in IAM, section 5.1); `Fn::GetAtt MemoryId` goes into `AGENTCORE_MEMORY_ID`. Tags
+`project=aurasenior`.
+
+Identifiers: `actorId = <hid>-<pid>` and `sessionId = <hid>-<pid>-<yyyymmdd>` (household-local date). Both are
+built from `^[a-z0-9]{1,12}$` IDs (section 9.3), so they match the SDK patterns (`actorId` 1 to 255,
+`[a-zA-Z0-9][a-zA-Z0-9-_/]*...`; `sessionId` 1 to 100, `[a-zA-Z0-9][a-zA-Z0-9-_]*`). Namespaces end with `/`, as
+the memory organization page recommends, so `hid-a` never matches `hid-ab`.
+
+APIs (data plane client `bedrock-agentcore`, D4):
+
+- `CreateEvent(memoryId, actorId, sessionId, eventTimestamp, payload=[{conversational: {content: {text}, role}}])`
+  from `record_turn` and `remember`. Text is capped at 2,000 characters per event. Long-term extraction runs
+  asynchronously after the event is stored, so a new fact is not expected in the same turn.
+- `RetrieveMemoryRecords(memoryId, namespace, searchCriteria={searchQuery, topK})` from `recall`: once for
+  `/aurasenior/facts/<actorId>/` (`topK` 5) and once for `/aurasenior/checkins/<actorId>/` (`topK` 3, the prefix
+  covers every day). `searchQuery` is the `query` argument, or the fixed text "routine, people and recent
+  check-ins" when none is given. Only `content.text` of each `memoryRecordSummaries` item is used; summary
+  records are XML with `<topic>` tags (D11), which are stripped to plain text before the prompt.
+- Control plane `GetMemory(memoryId)` only in `post_deploy.py` (developer credentials), which prints the status and
+  fails loudly if it is not `ACTIVE`. Not in any function role.
+
+Recall, as the prompt builder sees it: DynamoDB notes for the person (always read, they are the fallback and cost
+one `GetItem`), then AgentCore records for the elder, de-duplicated by exact text, records over 300 characters
+dropped, and the whole memory block capped at 1,500 characters. Recall is never called with the elder's actor for a
+family member's turn.
+
+Fallback (owned by `AgentCoreMemoryStore`, so no caller handles AgentCore errors):
+
+| Operation | Failure | Kind | What happens | Log |
+| --- | --- | --- | --- | --- |
+| `remember` | DynamoDB write of the note fails | Recoverable | Raised like any DynamoDB error (section 16); `CreateEvent` is not attempted, because the DynamoDB note is always written first | WARN |
+| `CreateEvent` | throttling, 5xx, timeout | Recoverable, not retried by us | SDK standard retries (max 2 attempts, connect 2 s, read 3 s); then skipped, the DynamoDB note already exists; trace `memory_source = dynamodb` | WARN with error code, never text |
+| `CreateEvent` / `RetrieveMemoryRecords` | access denied, validation, resource not found | Fatal for AgentCore in this invocation | AgentCore skipped for the rest of the invocation (in-memory flag), DynamoDB only | ERROR once per invocation (counted by `ErrorLogs`, so the owner hears of it) |
+| `RetrieveMemoryRecords` | throttling, 5xx, timeout | Recoverable | DynamoDB notes only for this turn | WARN |
+| `AGENTCORE_MEMORY_ID` empty | stack deployed with `AgentCoreMemory = off` | Expected | `DynamoMemoryStore` only | INFO once at cold start |
+
+A memory failure never fails a turn or an event, so it never causes a Lambda retry.
+
+Cost and limits: per elder turn, one `CreateEvent` and two `RetrieveMemoryRecords`, bounded by the 150 Converse calls
+per household per day (section 8.4). AgentCore Memory pricing is not read yet; the `aurasenior-monthly` budget alert
+covers it.
+
+Data and wording: events and records stay in this account and us-east-1. Extracted records can contain what she
+said (for example knee pain); they are only used in her own prompt, and every reply still passes the outbound guard
+(section 8.3). Long-term records have no expiry property in the template; deleting one household's records is
+roadmap, and deleting the stack deletes the memory resource. The README and the demo claim AgentCore Memory only
+after the live check in A18 is saved under `docs/evidence/` (BUILD_BRIEF.md "never claim").
+
+Tests: unit tests with a stub `bedrock-agentcore` client: a `ClientError` or timeout on either call falls back to
+DynamoDB and the turn completes; an access-denied error disables AgentCore for the invocation and logs ERROR once;
+`remember` writes DynamoDB before `CreateEvent`; a family turn never calls `RetrieveMemoryRecords` with the elder's
+actor; `actorId`, `sessionId` and namespaces built from 12-character IDs match the SDK patterns; the memory block cap
+holds. Live test (`-m live`, after deploy): three Hindi turns via `CreateEvent`, then `RetrieveMemoryRecords`
+polled for up to 5 minutes; output saved as `docs/evidence/agentcore-memory-live-<date>.json`.
+
 ## 9. Household data model
 
 ### 9.1 Table `aurasenior-household`
@@ -734,7 +847,7 @@ On-demand billing, partition key `PK` (S), sort key `SK` (S), TTL attribute `ttl
 | `HH#<hid>` | `PERSON#<pid>` | `role` (elder, family, neighbour, doctor, pharmacy), `display_name`, `relation_label` (family and neighbour only: how this person names the elder, e.g. "Mom", "Maa", "Kamala ji"), `country` (ISO 3166-1 alpha-2), `language` (row key in section 9.2), `preferred_channel`, `fallback_channel`, `addresses` {whatsapp, rcs, sms: E.164; email}, `consent` {channel: {status, at, source}}, `wa_last_inbound_at`, `simulated` (true only for the SMS simulator record, section 14) |
 | `HH#<hid>` | `MED#<mid>` | `name` (as on the pack, used only in the pharmacy email), `display_label` (plain name the family uses, e.g. "BP tablets", used in every family and elder message), time of day, `stock` (`ok`, `low`, `out`, `ordered`), pharmacy person ID |
 | `HH#<hid>` | `LOG#<yyyy-mm-dd>#<mid>` | taken, source message ID, `ttl` 90 days |
-| `HH#<hid>` | `MEMORY` | notes list |
+| `HH#<hid>` | `MEMORY#<pid>` | notes list for that person (max 50, section 8.5); the DynamoDB memory and the AgentCore fallback |
 | `HH#<hid>` | `TURN#<pid>#<ts>` | role, text, `ttl` 7 days |
 | `HH#<hid>` | `APPROVAL#<aid>` | kind, medicine, status (`pending`, `approved`, `self`, `declined`, `ordered`, `expired`), asked person, times, `ttl` 90 days |
 | `HH#<hid>` | `ESC#<eid>` | reason (`fall_or_help`, `missed_checkin`), quote, status (`open`, `acknowledged`, `resolved_by_elder`, `unacknowledged`), who acknowledged, `recheck_run`, `ttl` 90 days |
@@ -749,7 +862,8 @@ On-demand billing, partition key `PK` (S), sort key `SK` (S), TTL attribute `ttl
 
 Retention (minimal data): `MSG#`, `SIGNAL#`, `USAGE#` and `TRACE#` expire after 30 days (the signal baseline needs
 14); `LOG#`, `APPROVAL#` and `ESC#` after 90 days; `TURN#`, `TJOB#` and `DEDUP#` after 7 days. `PROFILE`,
-`PERSON#`, `MED#`, `MEMORY` and `ADDR#` are household configuration and have no TTL. `SEND#` items get `ttl`
+`PERSON#`, `MED#`, `MEMORY#` and `ADDR#` are household configuration and have no TTL. AgentCore Memory events
+expire after 30 days (`EventExpiryDuration`, section 8.7). `SEND#` items get `ttl`
 7 days. S3 media expires after 30 days (section 3).
 
 Stock lifecycle: `log_medicine(out_of_stock=true)` sets `out`; `send_pharmacy_order` sets `ordered`; the next
@@ -782,7 +896,8 @@ no address; a phone number is not E.164 (`^\+[1-9]\d{6,14}$`); `sms` is set for 
 a valid IANA name; there is not exactly one elder; `admin_person_id` is missing or not a family member;
 `relation_label` is missing for a family member or neighbour (1 to 30 characters); `display_label` is missing for a
 medicine (1 to 40 characters); `household_id` does not match `^[a-z0-9]{1,12}$` (it is part of schedule and
-Transcribe job names, sections 10 and 11.2); a `display_label`, `relation_label` or `display_name` fails the
+Transcribe job names, sections 10 and 11.2); a person ID does not match `^[a-z0-9]{1,12}$` (it is part of the
+AgentCore `actorId` and `sessionId`, section 8.7); a `display_label`, `relation_label` or `display_name` fails the
 wording rule (section 8.3 rule 3) for the language of every person who will see it (a label such as "diabetes
 tablets" would make the guard replace every family message); an address under `addresses.sms` or `addresses.rcs`
 is a simulator destination but the person is not marked `simulated = true`, or the reverse. Consent always starts
@@ -795,8 +910,9 @@ section 14.
 Schedule names. `CreateSchedule` `Name` is at most 64 characters and matches `[0-9a-zA-Z-_.]+` (D8). Every
 schedule is in group `aurasenior` and named from IDs whose format is fixed (`hid` `^[a-z0-9]{1,12}$`, section 9.3;
 `eid` and `aid` 12 hex characters, section 9.1), so names are unique per logical event. That is what makes a
-`CreateSchedule` name conflict safe to treat as "already scheduled" (section 16), and lets `cancel_followup` and
-`ack_escalation` delete by name:
+`CreateSchedule` name conflict safe to treat as "already scheduled" (section 16), and lets the inbound path
+(`schedules.delete_checkin_chain`) and `ack_escalation` delete by name. Only `schedules.py` creates schedules, and
+only on the fixed chain in section 8.2; the model has no scheduling tool:
 
 | kind | name | longest length |
 | --- | --- | --- |
@@ -820,7 +936,8 @@ checks the length and pattern.
 Check-in run: skip if the elder is not `opted_in` on WhatsApp. If the window is open, the agent composes a voice
 note. If closed (the usual case at 9:00, because her last message was about 24 hours ago), send
 `aurasenior_checkin_<lang>` (section 6.3) with her name as `{{1}}`. That template carries one quick-reply button,
-"सुनें" in Hindi and "Listen" in English. Then `schedule_followup(followup, 90)`.
+"सुनें" in Hindi and "Listen" in English. Then `schedules.create_followup(hid, local_date)` (90 minutes, plain code,
+section 8.2).
 
 How the voice note reaches her when the window is closed: a tap on "सुनें" / "Listen" is an inbound WhatsApp
 message, so it opens the 24-hour window (D5). The inbound handler recognises the button payload `listen:checkin`
@@ -828,8 +945,8 @@ message, so it opens the 24-hour window (D5). The inbound handler recognises the
 `checkin_voice` from `config/phrases.toml` in her language (for Hindi: "सुप्रभात। आप कैसी हैं? क्या आपने चाय के साथ
 अपनी BP की गोली ले ली?"). Her voice reply then runs the normal agent turn. Header media types on templates: Meta's
 template docs list the allowed header formats (D5); an audio header is not used, so this button rule is the
-design. When she replies by voice or taps the button, the inbound path cancels the follow-up and missed check-in
-schedules.
+design. When she replies by voice or taps the button, the inbound path calls `schedules.delete_checkin_chain`,
+which deletes the follow-up and missed check-in schedules (not found is fine).
 
 Weekly summary run (`{"kind":"weekly_summary"}`): `summary.build_week(household_id, today)` (section 8.6), then
 one SES `SendEmail` per recipient. Recipient rule (the same in 6.2 and 6.3): every person in the household,
@@ -950,20 +1067,26 @@ Agent turns are not replayed token for token, so on a retry the model may word a
 
 ## 13. Missed check-in, fall and help
 
-- Missed check-in: the `followup` schedule sends `aurasenior_followup`; it schedules `missed_checkin` for 60 minutes
-  later, which runs `escalate(missed_checkin)` to the escalation order list.
+- Missed check-in: the `followup` run sends `aurasenior_followup` and calls `schedules.create_missed_checkin`
+  (60 minutes later, plain code, section 8.2); that run calls `escalate(missed_checkin)` in code for the escalation
+  order list. The model cannot create or cancel these schedules.
 - Fall or help: keyword match (section 8.2) or the model calling `escalate(fall_or_help)`. Family and neighbour are
   alerted at once as urgent, and the elder gets the `esc_told_elder` voice note at once ("I have told
-  {family_name}. Someone will call you soon. Stay where you are, I am here.").
+  {family_name}. Someone will call you soon. I am here with you."; the Hindi row is translated the same way, with
+  no instruction about what to do physically).
 - Recheck: `escalate` creates a one-time `escalation_recheck` schedule 5 minutes later with `run = 1`; each run
   that finds the escalation still `open` creates the next one 5 minutes later, up to `run = 12` (60 minutes).
   What each run sends to the elder and, on even-numbered runs (every 10 minutes), to family (alerts plus the email
-  fallback to family who have email consent) depends on the reason, per the table below. After run 12 the escalation status becomes `unacknowledged`, the trace
-  records it and an ERROR is logged (which fires the `aurasenior-errors` alarm).
-- Acknowledge: RCS `esc:ack:<id>`, WhatsApp "I'm on it" button (resolved through `context.id`, section 12), or SMS
-  `4`. `ack_escalation` sets `acknowledged`, deletes the pending recheck schedule `aurasenior-er-<eid>-<run>` (not
+  fallback to family who have email consent) depends on the reason, per the table below. After run 12 the
+  escalation status becomes `unacknowledged`, the trace records it and an ERROR log line is written, counted by the
+  `ErrorLogs` metric filter, so the `aurasenior-errors` alarm emails the owner through `aurasenior-failed-events`
+  (section 5).
+- Acknowledge, for both reasons: RCS `esc:ack:<id>` (on `urgent_alert` and `missed_checkin`), the WhatsApp
+  "I'm on it" button on `aurasenior_urgent_alert_<lang>` and `aurasenior_family_missed_<lang>` (resolved through
+  `context.id` and `MSG#.ref`, section 12), or SMS `4` (offered in `urgent_sms` and `missed_checkin_sms`). `ack_escalation` sets `acknowledged`, deletes the pending recheck schedule `aurasenior-er-<eid>-<run>` (not
   found is fine), sends `esc_ack_family` to the other family members, and for `fall_or_help` the elder hears
-  `esc_ack_elder` ("{name} is on the way to help you." with the acknowledger's `display_name`).
+  `esc_ack_elder` ("{name} is on the way to help you." with the acknowledger's `display_name`). For
+  `missed_checkin` the elder gets nothing on ack. The ack tap is a deterministic path: no model call.
 - One escalation per household and reason. `escalate(reason, quote)` is idempotent. The keyword path (section
   8.2) runs before the agent turn, so when the model then calls `escalate` for the same note it gets the existing
   ID back and nothing new is sent. Rules, applied with a conditional write on the `ESC#` item:
@@ -1112,14 +1235,18 @@ the plain mentions.
 | `CreateSchedule` | Conflict (same name) | Expected | Treated as already scheduled | DEBUG |
 | `DeleteSchedule` | Not found | Expected | Treated as done | DEBUG |
 | Cost cap reached | Counter over limit | Expected | Section 8.4 | ERROR once per day |
-| Escalation never acknowledged | 12 rechecks (60 min) | Fatal for automation | Status and trace `unacknowledged` | ERROR, and the CloudWatch alarm on ERROR count fires |
+| Escalation never acknowledged | 12 rechecks (60 min) | Fatal for automation | Status and trace `unacknowledged` | ERROR log line, counted by the `ErrorLogs` metric filter; `aurasenior-errors` alarm emails the owner |
+| AgentCore Memory call | Any (section 8.7 table) | Recoverable by fallback | DynamoDB memory used; the turn continues | WARN, or ERROR once per invocation for access denied or not found |
 | Lambda async invocation | 2 retries exhausted | Fatal for that event | Invocation record published to `aurasenior-failed-events`; the owner gets the email; the event is not replayed automatically | ERROR on each failed attempt |
 | `sim-inbound` demo command | Target person is not a simulator record | Fatal | Exit 1, nothing published | stderr only |
 | `rcs-ask` admin command | Number not a verified test device for the agent, or `optin_ask` already sent today | Fatal | Exit 1 with the reason, nothing sent | stderr only |
 
-Every handler catches what it can name; anything else propagates so Lambda retries and the CloudWatch alarm
-`aurasenior-errors` (Errors metric over 0 in 5 minutes) fires. Logs are JSON lines with household ID and correlation
-ID; phone numbers and emails are masked, transcripts are never logged.
+Every handler catches what it can name; anything else propagates so Lambda retries. The CloudWatch alarm
+`aurasenior-errors` (section 5) fires when the sum of ERROR log lines (counted by the `ErrorLogs` metric filter on
+both log groups) and the Lambda `Errors` metric of both functions is over 0 in a 5-minute period; its alarm action
+publishes to `aurasenior-failed-events`, which emails the owner. Logs are JSON lines with a top-level `"level"`
+field (`DEBUG`, `INFO`, `WARN`, `ERROR`), household ID and correlation ID; phone numbers and emails are masked,
+transcripts are never logged.
 
 ## 17. Testing plan
 
@@ -1167,7 +1294,8 @@ Tests added for the revision 3 findings:
   message does not close a fall.
 - Agent outage: a capped day, or a fatal `Converse` error, sends exactly one `agent_unavailable_family` per day.
 - Brand: no file under `config/` except the `[brand]` entry, and no SES template text in the SAM template,
-  contains the literal brand string; rendering replaces every `{brand}`.
+  contains the exact, case-sensitive `[brand] name` value as a whole word (identifiers matching
+  `aurasenior[-_][a-z_-]+` are ignored, section 6.3); rendering replaces every `{brand}`.
 - Pronouns: no phrase or template body contains "her", "him", "she" or "he" as a word for the elder (English rows).
 - Seed labels: a `display_label` that fails the wording rule is rejected.
 - Urgent quote: a quote that fails the wording rule is replaced by `quote_withheld` and the template still goes out.
@@ -1178,6 +1306,24 @@ Tests added for the revision 3 findings:
   `context.id` it falls back to the digit rule.
 - Weekly recipients: Rohan with `addresses.email` and email consent gets the summary even though his preferred
   channel is RCS.
+
+Tests added for the third review findings:
+
+- Missed check-in ack: an "I'm on it" tap on the RCS `missed_checkin` card (`esc:ack:<id>`), on the
+  `aurasenior_family_missed_<lang>` template (`context.id` to `MSG#.ref`), or SMS `4` after `missed_checkin_sms`
+  sets the escalation `acknowledged`, deletes the pending recheck schedule, sends `esc_ack_family` to the others
+  and sends nothing to the elder.
+- Model tools: the tool list passed to `Converse` contains no scheduling tool (no tool whose name contains
+  `schedule` or `followup`), and `schedules.py` is not imported by `agent/tools.py`.
+- Check-in chain: check-in run creates `followup`; follow-up run creates `missed_checkin`; an elder message deletes
+  both.
+- Logger: every log line is one JSON object with `"level"` as a top-level field, and `ERROR` lines match the
+  metric filter pattern `{ $.level = "ERROR" }` (checked with a small matcher for that one pattern).
+- Brand: an identifier such as `aurasenior_checkin_hi` does not fail the brand test; the exact value in a phrase
+  does.
+- Elder fall phrases: `esc_told_elder` contains no physical instruction (no "stay", "do not move", "रुक" or similar
+  from a list in the test).
+- Memory: the `MemoryStore` tests in section 8.7.
 
 Agent tests: the agent loop with a stub Converse client that returns recorded `toolUse` responses (shape from the
 D2 evidence), so tool order and validation are tested without model calls. One opt-in live test (`-m live`) runs
@@ -1225,6 +1371,17 @@ Each also appears in `docs/decisions.md` D13 with how it will be checked.
   `preferred_channel` becomes `sms` and the fallback is shown with a send to Rohan's device while RCS is switched
   off on that phone.
 - A16. The `v25.0` Meta API version is accepted by `SendWhatsAppMessage` (first live send).
+- A17. A registered test device's free-form text and Reply postbacks reach `aurasenior-sms-rcs-events`. Checked
+  with the first YES from Rohan's phone; the event is saved under `docs/evidence/`. If only keywords arrive, Rohan's
+  record switches to `preferred_channel = whatsapp` (data only, section 1 table) and the README says so.
+- A18. AgentCore Memory: the stack creates `aurasenior_memory` with the two built-in strategies and no
+  `MemoryExecutionRoleArn` (first deploy); `post_deploy.py` sees status `ACTIVE`; the built-in strategies extract
+  useful records from Hindi (Devanagari) turns (live test in section 8.7, evidence saved). If creation fails, deploy
+  with `AgentCoreMemory = off` (DynamoDB only) and record why in D11. If Hindi extraction is poor, DynamoDB notes
+  still cover recall and the README says what AgentCore Memory does and does not do.
+- A19. The `aurasenior-errors` alarm action reaches `aurasenior-failed-events` with the default topic policy.
+  Checked after the first deploy with `set-alarm-state` (section 5); if the owner email does not arrive, add the
+  CloudWatch Allow statement and record the principal and doc in D9.
 
 ## 19. Responses to the design review (2026-10-10)
 
@@ -1287,3 +1444,23 @@ All 22 findings are addressed. None are backlogged. One (21) needs the owner and
 | 20 | Data kept forever | Addressed. TTL 30 days on `MSG#`, `SIGNAL#`, `USAGE#`, `TRACE#`; 90 days on `LOG#`, `APPROVAL#`, `ESC#` | 9.1 |
 | 21 | AgentCore deviation not confirmed | Passed to the orchestrator: the owner must answer before implementation; D11 keeps "pending" until then | D11 |
 | 22 | `optin_ask` to the admin, `USAGE#` date | Addressed. `optin_ask_admin`; household-local date | 6.3, 8.3, 8.4, 9.1 |
+
+Update 2026-10-11: finding 21 is resolved. The owner confirmed D11 (Lambda and Converse core, AgentCore Memory in
+Milestone 1, AgentCore Runtime in Milestone 2).
+
+## 21. Responses to the third design review (2026-10-11)
+
+All 10 findings are addressed with the fix the review gave. None are backlogged or ignored.
+
+| # | Finding | Response | Where |
+| --- | --- | --- | --- |
+| 1 | Missed check-in alerts cannot be acknowledged | Addressed before template submission. "I'm on it" (`esc:ack`, `MSG#.ref` escalation) on `aurasenior_family_missed_<lang>`; `esc:ack:<id>` suggestion on RCS `missed_checkin`; "Reply 4 if you are on it" in `missed_checkin_sms`; ack line in SES `aurasenior-missed-checkin`; ack test | 6.2, 6.3, 13, 17 |
+| 2 | `schedule_followup` collides with fixed names and event IDs | Addressed. `schedule_followup` and `cancel_followup` removed from the model tools; the fixed chain lives in `src/aurasenior/schedules.py` as plain code; test that no scheduling tool is exposed | 2 (mermaid), 8.2, 10, 13, 17 |
+| 3 | `aurasenior-errors` cannot fire on ERROR lines and notifies nobody | Addressed. `AWS::Logs::MetricFilter` per log group on `{ $.level = "ERROR" }` to `AuraSenior/ErrorLogs`; alarm on the metric math sum with Lambda `Errors`; `AlarmActions` to `aurasenior-failed-events`; the pages read do not say whether a same-account alarm needs a topic policy statement, so the default policy is kept and A19 checks it with `set-alarm-state` after deploy; wording in 13 and 16; logger test; doc URLs in D9 | 3, 5, 13, 16, 17, 18, D9 |
+| 4 | Invoke permissions, subscriptions and log groups unspecified | Addressed. SAM `SNS` and `EventBridgeRule` event sources on `aurasenior-inbound` (SAM generates subscriptions, rule and permissions); `aurasenior-scheduled` has no event source; two `AWS::Logs::LogGroup` with `RetentionInDays: 14` and `DependsOn`. Types confirmed now with `describe-type` (`cfn-types-2026-10-11.json`), doc URLs in D9 and D12; `sam validate` runs on the first build | 3, 5, 5.1, D9, D12 |
+| 5 | No memory interface; AgentCore still described as out of Milestone 1 | Addressed. `MemoryStore` Protocol with `DynamoMemoryStore` fallback; AgentCore Memory design in 8.7; section 4, D11 and the roadmap updated to the owner decision; every AgentCore Memory API, IAM action and CloudFormation property has a doc URL in D11 | 4, 8.5, 8.7, D11, roadmap |
+| 6 | RCS test device free-form inbound not listed | Addressed. A17 with the check on Rohan's first YES and the WhatsApp fallback by data | 18, D13 |
+| 7 | IAM resources not writable as stated | Addressed. `ses:SendEmail` on `identity/*` while sandboxed, with a narrowing comment; every ARN format copied from the Service Reference data (`service-reference-arn-formats-2026-10-11.txt`) | 5.1 |
+| 8 | "Stay where you are" after a fall | Addressed. "I have told {family_name}. Someone will call you soon. I am here with you."; Hindi row the same; test | 13, 17 |
+| 9 | Topic policy wording reads as a Deny | Addressed. One Allow per service principal with `aws:SourceAccount`, no Deny; same-account principals use identity policy | 2.3 |
+| 10 | Brand test fails on identifiers | Addressed. Exact, case-sensitive whole-word match of the `[brand] name` value; `aurasenior[-_][a-z_-]+` ignored | 6.3, 17 |
