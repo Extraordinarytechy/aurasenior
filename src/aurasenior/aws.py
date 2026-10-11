@@ -33,6 +33,10 @@ def resource_dynamodb():
     return _clients["dynamodb-resource"]
 
 
+def has_override(name: str) -> bool:
+    return name in _overrides
+
+
 def override(name: str, obj: Any) -> None:
     _overrides[name] = obj
 
