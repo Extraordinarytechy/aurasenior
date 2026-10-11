@@ -8,7 +8,7 @@ body = "Good morning {{1}}. {brand} here with your morning check-in. Tap Listen 
 buttons = ["Listen"]
 example = ["Asha"]
 [aurasenior_checkin.hi]
-body = "सुप्रभात {{1}}। {brand} आपका सुबह का हालचाल लेकर आया है। सुनने के लिए सुनें दबाएँ।"
+body = "सुप्रभात {{1}}। {brand} आपका सुबह का हालचाल लेने आई है। सुनने के लिए सुनें दबाएँ।"
 buttons = ["सुनें"]
 example = ["Asha"]
 
@@ -17,7 +17,7 @@ body = "{{1}}, {brand} again. Just checking you are okay this morning. Tap Liste
 buttons = ["Listen"]
 example = ["Asha"]
 [aurasenior_followup.hi]
-body = "{{1}}, फिर से {brand}। बस पूछ रहे हैं कि आप ठीक हैं। सुनें दबाएँ।"
+body = "{{1}}, फिर से {brand}। बस पूछ रही हूँ कि आप ठीक हैं। सुनें दबाएँ।"
 buttons = ["सुनें"]
 example = ["Asha"]
 
@@ -36,7 +36,7 @@ buttons = ["I'm on it", "Send number"]
 example = ["Mom"]
 [aurasenior_family_missed.hi]
 body = "{brand}: {{1}} ने आज सुबह के हालचाल का जवाब नहीं दिया।"
-buttons = ["मैं देख रहा हूँ", "नंबर भेजें"]
+buttons = ["मेरे ज़िम्मे", "नंबर भेजें"]
 example = ["माँ"]
 
 [aurasenior_family_refill.en]
@@ -45,7 +45,7 @@ buttons = ["Order refill", "I'll handle it", "Call"]
 example = ["Mom", "BP tablets"]
 [aurasenior_family_refill.hi]
 body = "{brand}: {{1}} ने बताया कि {{2}} खत्म हो गई है। हमेशा वाली दुकान से मँगवाएँ?"
-buttons = ["मँगवाएँ", "मैं देख लूँगा", "फ़ोन करें"]
+buttons = ["मँगवाएँ", "मैं खुद देख लूँ", "फ़ोन करें"]
 example = ["माँ", "BP tablets"]
 
 [aurasenior_family_update.en]
@@ -63,7 +63,7 @@ buttons = ["I'm on it"]
 example = ["Mom", "I slipped near the chair"]
 [aurasenior_urgent_alert.hi]
 body = "{brand} से ज़रूरी: {{1}} ने कहा \"{{2}}\" और मदद चाहिए हो सकती है। कृपया अभी {{1}} का हाल लें।"
-buttons = ["मैं देख रहा हूँ"]
+buttons = ["मेरे ज़िम्मे"]
 example = ["माँ", "मैं कुर्सी के पास फिसल गई"]
 
 # Tapped label (button.payload) to action, per phrase language.
@@ -77,8 +77,8 @@ example = ["माँ", "मैं कुर्सी के पास फिस
 
 [actions.hi]
 "सुनें" = "listen"
-"मैं देख रहा हूँ" = "esc:ack"
+"मेरे ज़िम्मे" = "esc:ack"
 "नंबर भेजें" = "info:number"
 "मँगवाएँ" = "refill:approve"
-"मैं देख लूँगा" = "refill:self"
+"मैं खुद देख लूँ" = "refill:self"
 "फ़ोन करें" = "refill:call"

@@ -69,15 +69,15 @@ urgent_alert = "ज़रूरी: {relation_label} ने कहा \"{quote}\
 urgent_sms = "ज़रूरी {brand}: {relation_label} ने कहा \"{quote}\"। आप देख रहे हैं तो 4 भेजें।"
 esc_ack_family = "{ack_name} देख रहे हैं।"
 elder_number = "{relation_label} का WhatsApp नंबर {number} है।"
-agent_unavailable_family = "{brand} अभी {relation_label} के संदेश का जवाब नहीं दे सका। कृपया {relation_label} को फ़ोन करें।"
+agent_unavailable_family = "{brand} अभी {relation_label} के संदेश का जवाब नहीं दे सकी। कृपया {relation_label} को फ़ोन करें।"
 sms_help = "{brand}: मँगवाने के लिए 1, आप देखेंगे तो 2, नंबर के लिए 3, आप देख रहे हैं तो 4। रोकने के लिए STOP।"
 quote_withheld = "मदद के शब्द"
 guard_replacement = "कृपया {elder_name} को फ़ोन करें।"
 guardrail_blocked = "मैं इसमें मदद नहीं कर सकती।"
 label_order_refill = "मँगवाएँ"
-label_self = "मैं देख लूँगा"
+label_self = "मैं खुद देख लूँ"
 label_call = "फ़ोन करें"
-label_on_it = "मैं देख रहा हूँ"
+label_on_it = "मेरे ज़िम्मे"
 label_send_number = "नंबर भेजें"
 
 [hi.elder]

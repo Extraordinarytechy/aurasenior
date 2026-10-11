@@ -29,7 +29,7 @@ def test_button_with_context_resolves_through_msg_ref(sample):
     eid = escalation.escalate(sample, "missed_checkin")
     msg = next(m for m in store.query_prefix(sample, "MSG#") if m["person_id"] == "nbr")
     tap = InboundMessage(channel="whatsapp", event_id="w1", sender="+910000000002", kind="button",
-                         button_payload="मैं देख रहा हूँ", context_id=msg["SK"][4:])
+                         button_payload="मेरे ज़िम्मे", context_id=msg["SK"][4:])
     assert postback.whatsapp_button(nbr, tap) == ("esc:ack", eid)
 
 

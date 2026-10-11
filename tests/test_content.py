@@ -97,6 +97,16 @@ def test_english_rows_use_neutral_words():
     assert [t for t in texts if bad.search(t)] == []
 
 
+def test_hindi_agent_lines_are_feminine_and_family_labels_neutral():
+    _, hi = _tables()
+    masculine = re.compile(r"रहा हूँ|रहा था|लूँगा|करूँगा|दे सका|आया है|पूछ रहे हैं")
+    texts = list(_flat(hi).values()) + list(hi["elder"].values())
+    for base in phrases.template_names():
+        t = config.load("whatsapp_templates")[base]["hi"]
+        texts += [t["body"], *t["buttons"]]
+    assert [t for t in texts if masculine.search(t)] == []
+
+
 def test_told_elder_has_no_physical_instruction():
     for lang in ("en-IN", "hi-IN"):
         out = phrases.render("esc_told_elder", lang, "elder", family_name="Rohan").lower()
