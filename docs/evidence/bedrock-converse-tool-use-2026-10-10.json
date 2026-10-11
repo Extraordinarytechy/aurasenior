@@ -174,7 +174,7 @@
       "role": "assistant",
       "content": [
        {
-        "text": "I'll log both medicines simultaneously right away — metformin was taken, and amlodipine is out of stock!"
+        "text": "I'll log both medicines simultaneously right away, metformin was taken, and amlodipine is out of stock!"
        },
        {
         "toolUse": {
@@ -221,7 +221,7 @@
      "role": "assistant",
      "content": [
       {
-       "text": "I'll log both medicines simultaneously right away — metformin was taken, and amlodipine is out of stock!"
+       "text": "I'll log both medicines simultaneously right away, metformin was taken, and amlodipine is out of stock!"
       },
       {
        "toolUse": {
