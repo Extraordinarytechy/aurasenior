@@ -41,7 +41,7 @@ REQUIRED = {"optin_ask", "optin_ask_admin", "missed_checkin", "missed_checkin_sm
             "quote_withheld", "guard_replacement"}
 REQUIRED_ELDER = {"optin_ask", "checkin_voice", "followup_voice", "refill_ordered_elder", "refill_self_elder",
                   "esc_told_elder", "esc_reassure_elder", "esc_ack_elder", "stop_confirm", "cost_cap",
-                  "send_voice_note", "not_heard", "guard_replacement"}
+                  "send_voice_note", "not_heard", "guard_replacement", "esc_trying_elder"}
 
 
 def test_required_keys_present():
@@ -109,9 +109,10 @@ def test_hindi_agent_lines_are_feminine_and_family_labels_neutral():
 
 def test_told_elder_has_no_physical_instruction():
     for lang in ("en-IN", "hi-IN"):
-        out = phrases.render("esc_told_elder", lang, "elder", family_name="Rohan").lower()
-        for word in ("stand", "get up", "move", "lie", "sit", "उठ", "लेट", "बैठ"):
-            assert word not in out
+        for key in ("esc_told_elder", "esc_trying_elder"):
+            out = phrases.render(key, lang, "elder", family_name="Rohan").lower()
+            for word in ("stand", "get up", "move", "lie", "sit", "उठ", "लेट", "बैठ"):
+                assert word not in out
 
 
 def test_signals_phrases_have_no_score_or_risk_words():

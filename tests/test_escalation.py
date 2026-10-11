@@ -160,6 +160,31 @@ def test_retried_late_reply_finishes_the_notices(sample, monkeypatch):
     assert not escalation.resolve_by_elder(sample, "whatsapp#wamid.L2")
 
 
+def test_elder_hears_the_name_of_who_was_reached(sample):
+    open_window(sample, "kamala")
+    for channel in store.get_person(sample, "rohan").addresses:
+        store.set_consent(sample, "rohan", channel, "opted_out", "test")
+    eid = escalation.escalate(sample, "fall_or_help", "I fell")
+    assert _to("rohan") == [] and len(_to("nbr")) == 1
+    told = _to("kamala", "esc_told_elder")
+    assert len(told) == 1 and "Sunita" in told[0]["text"] and "Rohan" not in told[0]["text"]
+    escalation.recheck_run(sample, eid, 1)
+    reassure = _to("kamala", "esc_reassure_elder")
+    assert len(reassure) == 1 and "Sunita" in reassure[0]["text"]
+
+
+def test_elder_gets_no_told_claim_when_nobody_was_reached(sample, capsys):
+    open_window(sample, "kamala")
+    for pid in ("rohan", "nbr"):
+        for channel in store.get_person(sample, pid).addresses:
+            store.set_consent(sample, pid, channel, "opted_out", "test")
+    eid = escalation.escalate(sample, "fall_or_help", "I fell")
+    escalation.recheck_run(sample, eid, 1)
+    assert [x.get("phrase_key") for x in _elder_sends()] == ["esc_trying_elder", "esc_trying_elder"]
+    errors = [json.loads(x) for x in capsys.readouterr().out.splitlines() if '"ERROR"' in x]
+    assert any(e["msg"] == "no family alert went out" for e in errors)
+
+
 def test_an_hour_of_urgent_sends_is_not_capped(sample):
     open_window(sample, "kamala")
     eid = escalation.escalate(sample, "fall_or_help", "help")

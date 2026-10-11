@@ -84,3 +84,4 @@ class Escalation:
     acknowledged_at: str | None = None
     resolved_cid: str | None = None  # inbound event that closed it, so a retry of that event can finish
     fall_cid: str | None = None  # event that raised the fall alert, so a retry of it knows the elder was told
+    reached_pid: str | None = None  # first family member the fall alert reached, named to the elder

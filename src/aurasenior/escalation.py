@@ -58,8 +58,10 @@ def family_content(e: Escalation, person: Person) -> Content:
                    email_template="aurasenior-missed-checkin", ref=ref)
 
 
-def _alert_family(hid: str, e: Escalation, run: int, *, email_too: bool = False) -> None:
+def _alert_family(hid: str, e: Escalation, run: int, *, email_too: bool = False) -> list[str]:
+    """Returns the person IDs reached in this run, in escalation order (already reached on a retry counts)."""
     h = store.get_household(hid)
+    reached = []
     for pid in h.escalation_order:
         p = store.get_person(hid, pid)
         if not p:
@@ -67,8 +69,12 @@ def _alert_family(hid: str, e: Escalation, run: int, *, email_too: bool = False)
         c = family_content(e, p)
         cid = f"esc#{e.escalation_id}#{e.reason}#{run}#{pid}"
         r = router.send(p, c, urgency="urgent", correlation_id=cid)
+        ok = r.ok
         if email_too and r.channel != "email" and p.addresses.get("email") and p.consent_status("email") == "opted_in":
-            router.send(p, c, urgency="urgent", correlation_id=f"{cid}#email", only_channel="email")
+            ok = router.send(p, c, urgency="urgent", correlation_id=f"{cid}#email", only_channel="email").ok or ok
+        if ok:
+            reached.append(pid)
+    return reached
 
 
 def _tell_elder(hid: str, phrase: str, eid: str, run: int, **vars) -> None:
@@ -77,12 +83,24 @@ def _tell_elder(hid: str, phrase: str, eid: str, run: int, **vars) -> None:
                 correlation_id=f"elder#{phrase}#{eid}#{run}")
 
 
+def _tell_elder_reached(hid: str, e: Escalation, phrase: str, run: int, reached: list[str]) -> None:
+    """Name only a family member the fall alert actually reached; with nobody reached, make no such claim."""
+    if reached and not e.reached_pid:
+        e.reached_pid = reached[0]
+        store.update(store.hh(hid), f"ESC#{e.escalation_id}", reached_pid=e.reached_pid)
+    p = store.get_person(hid, e.reached_pid) if e.reached_pid else None
+    if not p:
+        log.get().error("no family alert went out", extra={"household_id": hid, "escalation_id": e.escalation_id})
+        _tell_elder(hid, "esc_trying_elder", e.escalation_id, run)
+        return
+    _tell_elder(hid, phrase, e.escalation_id, run, family_name=p.display_name)
+
+
 def _first_alerts(hid: str, e: Escalation) -> None:
     """Run-0 sends and the first recheck. Safe to repeat: SEND# skips anyone already reached."""
-    _alert_family(hid, e, 0)
+    reached = _alert_family(hid, e, 0)
     if e.reason == "fall_or_help":
-        _tell_elder(hid, "esc_told_elder", e.escalation_id, 0,
-                    family_name=router.names_for(hid).get("family_name", ""))
+        _tell_elder_reached(hid, e, "esc_told_elder", 0, reached)
     if e.recheck_run == 0:
         schedules.create_recheck(hid, e.escalation_id, 1, store.get_household(hid).timezone)
 
@@ -121,11 +139,9 @@ def recheck_run(hid: str, eid: str, run: int) -> None:
     if not e or e.status != "open":
         return
     store.update(store.hh(hid), f"ESC#{eid}", recheck_run=run)
-    names = router.names_for(hid)
+    reached = _alert_family(hid, e, run, email_too=True) if run % 2 == 0 else []
     if e.reason == "fall_or_help":
-        _tell_elder(hid, "esc_reassure_elder", eid, run, family_name=names.get("family_name", ""))
-    if run % 2 == 0:
-        _alert_family(hid, e, run, email_too=True)
+        _tell_elder_reached(hid, e, "esc_reassure_elder", run, reached)
     if run >= MAX_RUNS:
         store.transition(store.hh(hid), f"ESC#{eid}", "status", "open", "unacknowledged")
         _release(hid, e.reason, eid)
