@@ -215,6 +215,13 @@ def put_msg(hid: str, provider_id: str, *, channel: str, person_id: str, correla
     put({"PK": hh(hid), "SK": f"MSG#{provider_id}", "channel": channel, "person_id": person_id,
          "correlation_id": correlation_id, "direction": direction, "ref": ref, "at": clock.iso(),
          "statuses": [], "ttl": ttl("MSG"), **extra})
+    # Status events carry only the provider id, so keep a reverse lookup to the household.
+    put({"PK": f"MSGID#{provider_id}", "SK": "MSGID", "household_id": hid, "ttl": ttl("MSG")})
+
+
+def msg_household(provider_id: str) -> str | None:
+    item = get(f"MSGID#{provider_id}", "MSGID")
+    return item["household_id"] if item else None
 
 
 def get_msg(hid: str, provider_id: str) -> dict | None:
