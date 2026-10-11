@@ -505,8 +505,9 @@ RCS texts and card, and their SMS fallbacks (`config/phrases.toml`, English for 
 Elder voice phrases (`config/phrases.toml`, Hindi and English rows; spoken with Polly and also sent as short text):
 `optin_ask`, `checkin_voice` ("Good morning. Did you sleep well? Have you taken your {display_label} with your
 chai?"), `followup_voice`, `refill_ordered_elder` ("{family_name} has ordered your {display_label}."),
-`refill_self_elder`, `esc_told_elder`, `esc_reassure_elder` ("{family_name} knows. Help is coming. I am here with
-you."), `esc_ack_elder`, `stop_confirm`, `cost_cap`, `send_voice_note`, `not_heard`. The elder `optin_ask` says
+`refill_self_elder`, `esc_told_elder`, `esc_reassure_elder` ("I have told {family_name}. I am here with you."),
+`esc_trying_elder` ("I am trying to reach your family. I am here with you."), `esc_ack_elder` ("{name} knows and is
+on it. I am here with you."), `stop_confirm`, `cost_cap`, `send_voice_note`, `not_heard`. The elder `optin_ask` says
 "This is {brand}. {family_name} set this up for you." There is no `optin_ask_admin` for the elder, because the
 elder is never the admin (section 9.3).
 
@@ -1137,7 +1138,10 @@ Agent turns are not replayed token for token, so on a retry the model may word a
 - Fall or help: keyword match (section 8.2) or the model calling `escalate(fall_or_help)`. Family and neighbour are
   alerted at once as urgent, and the elder gets the `esc_told_elder` voice note at once ("I have told
   {family_name}. Someone will call you soon. I am here with you."; the Hindi row is translated the same way, with
-  no instruction about what to do physically).
+  no instruction about what to do physically). `{family_name}` is the first family member the alert actually
+  reached (kept on `ESC#.reached_pid`, also used by `esc_reassure_elder`); when nobody was reached she hears
+  `esc_trying_elder` instead and an ERROR log line is written. `ESC#.fall_cid` keeps the event that raised the
+  alert, so a retry of that event still knows she was told and skips the model reply.
 - Recheck: `escalate` creates a one-time `escalation_recheck` schedule 5 minutes later with `run = 1`; each run
   that finds the escalation still `open` creates the next one 5 minutes later, up to `run = 12` (60 minutes).
   What each run sends to the elder and, on even-numbered runs (every 10 minutes), to family (alerts plus the email
@@ -1149,12 +1153,14 @@ Agent turns are not replayed token for token, so on a retry the model may word a
   "I'm on it" button on `aurasenior_urgent_alert_<lang>` and `aurasenior_family_missed_<lang>` (resolved through
   `context.id` and `MSG#.ref`, section 12), or SMS `4` (offered in `urgent_sms` and `missed_checkin_sms`). `ack_escalation` sets `acknowledged`, deletes the pending recheck schedule `aurasenior-er-<eid>-<run>` (not
   found is fine), sends `esc_ack_family` to the other family members, and for `fall_or_help` the elder hears
-  `esc_ack_elder` ("{name} is on the way to help you." with the acknowledger's `display_name`). For
+  `esc_ack_elder` ("{name} knows and is on it. I am here with you." with the acknowledger's `display_name`). For
   `missed_checkin` the elder gets nothing on ack. The ack tap is a deterministic path: no model call.
 - One escalation per household and reason. `escalate(reason, quote)` is idempotent. The keyword path (section
   8.2) runs before the agent turn, so when the model then calls `escalate` for the same note it gets the existing
   ID back and nothing new is sent. Rules, applied with a conditional write on the `ESC#` item:
-  - an `open` `ESC#` with the same reason exists: return its ID, send nothing;
+  - an `open` `ESC#` with the same reason exists: return its ID and re-run its first alerts (run-0 family alerts,
+    `esc_told_elder`, the run-1 recheck while none has run). Every send is `SEND#` deduplicated, so this sends
+    nothing to anyone already reached and only completes a fan-out that an earlier attempt left unfinished;
   - `fall_or_help` while a `missed_checkin` is `open`: upgrade that item (reason becomes `fall_or_help`, quote
     set), send the `fall_or_help` alerts and `esc_told_elder` now, and the recheck chain carries on with the
     `fall_or_help` content from its next run;
