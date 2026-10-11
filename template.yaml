@@ -559,8 +559,9 @@ Resources:
     Properties:
       Name: aurasenior-safety
       Description: Denies diagnosis and medication dose advice.
-      BlockedInputMessaging: I can not help with that. I will let the family know.
-      BlockedOutputsMessaging: I can not help with that. I will let the family know.
+      # The runner replaces this text with guardrail_blocked in the speaker's language.
+      BlockedInputMessaging: I cannot help with that.
+      BlockedOutputsMessaging: I cannot help with that.
       TopicPolicyConfig:
         TopicsConfig:
           - Name: Medical diagnosis

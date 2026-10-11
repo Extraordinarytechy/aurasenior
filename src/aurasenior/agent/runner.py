@@ -81,6 +81,10 @@ class AgentRunner:
             store.trace(hid, "converse", model=label, stop_reason=stop, iteration=i + 1,
                         guardrail_mode=os.environ.get("GUARDRAIL_MODE", "none") if guardrail else "none",
                         memory_items=len(memory), simulated=label == "scripted")
+            if stop == "guardrail_intervened":
+                self._guardrail_blocked(hid, speaker, ctx, event)
+                result.outcome = "guardrail_blocked"
+                return result
             if stop == "tool_use":
                 results = []
                 for block in msg["content"]:
@@ -110,6 +114,13 @@ class AgentRunner:
             store.put_turn(hid, speaker.person_id, "assistant", result.reply)
         build_store(speaker).record_turn(hid, speaker.person_id, text, result.reply)
         return result
+
+    def _guardrail_blocked(self, hid: str, speaker, ctx, event: dict) -> None:
+        """Fixed reply in the speaker's language that promises nothing. No family notice. The question stays only
+        in the inbound TRACE item: it is not kept in turn history or memory."""
+        store.trace(hid, "guardrail", outcome="blocked", person_id=speaker.person_id)
+        router.send(speaker, Content(phrase="guardrail_blocked", voice=speaker.is_elder and ctx.voice_reply),
+                    correlation_id=f"{event['event_id']}#guardrail", inbound_text=event.get("text"))
 
     def _unavailable(self, hid: str, speaker, today: str, why: str, event: dict, code: str | None = None) -> None:
         """Cost cap or a fatal model error: keep the cost_cap promise, tell family once a day."""

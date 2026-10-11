@@ -64,6 +64,43 @@ def test_capped_turns_after_a_blocked_notice_promise_nothing(sample):
     assert [x["phrase_key"] for x in sim.read("whatsapp")] == ["not_heard", "not_heard"]
 
 
+def _blocked():
+    return {"output": {"message": {"role": "assistant", "content": [{"text": "I cannot help with that."}]}},
+            "stopReason": "guardrail_intervened"}
+
+
+def _sends_to(*pids):
+    return [x for x in sim.read("whatsapp") + sim.read("rcs") + sim.read("sms") + sim.read("email")
+            if x["person_id"] in pids]
+
+
+def test_guardrail_block_answers_the_elder_in_hindi_and_tells_nobody(sample):
+    open_window(sample, "kamala")
+    _scripted([_blocked()])
+    r = AgentRunner().run_turn(sample, "kamala", {"event_id": "ev8", "text": "क्या मुझे कोई बीमारी है?", "voice": True})
+    assert r.outcome == "guardrail_blocked"
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "guardrail_blocked" and reply["kind"] == "voice"
+    assert reply["text"] == "मैं इसमें मदद नहीं कर सकती। कृपया अपने डॉक्टर से पूछिए।"
+    assert _sends_to("rohan", "simfam", "nbr", "doctor", "pharmacy") == []
+    assert store.last_turns(sample, "kamala", 10) == []
+
+
+def test_guardrail_block_answers_family_in_english(sample):
+    _scripted([_blocked()])
+    AgentRunner().run_turn(sample, "rohan", {"event_id": "ev9", "text": "What illness does Mom have?"})
+    reply = sim.read("rcs")[-1]
+    assert reply["phrase_key"] == "guardrail_blocked" and reply["text"] == "I cannot help with that."
+    assert _sends_to("kamala", "nbr", "simfam") == []
+
+
+def test_guardrail_phrases_promise_nothing():
+    from aurasenior import phrases
+
+    assert phrases.render("guardrail_blocked", "en-IN", "elder") == "I cannot help with that. Please ask your doctor."
+    assert phrases.render("guardrail_blocked", "hi-IN", "family") == "मैं इसमें मदद नहीं कर सकती।"
+
+
 class Fatal:
     label = "bedrock"
 

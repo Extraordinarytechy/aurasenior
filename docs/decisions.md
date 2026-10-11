@@ -595,6 +595,7 @@ Guardrail: `AWS::Bedrock::Guardrail` `aurasenior-safety` (required `Name`, `Bloc
 `guardrailConfig` does not evaluate tool results, tool definitions or tool call arguments; it evaluates input
 prompts, system prompts and model response text (table on guardrails-use-converse-api). So the outbound guard in
 code is the main wording control. SDK model: `Converse` input includes `toolConfig` and `guardrailConfig`.
+Blocked turn (2026-10-11): on `stopReason` `guardrail_intervened` the runner sends the fixed phrase `guardrail_blocked` in the speaker's language ("I cannot help with that. Please ask your doctor." to the elder), promises nothing, notifies no one, and keeps the question only in TRACE.
 
 Guardrail tier and Hindi (read 2026-10-10):
 - Denied topics support safeguard tiers. Classic tier supports English, French and Spanish for denied topics.

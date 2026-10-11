@@ -94,6 +94,11 @@ def test_event_invoke_config_on_latest_with_failure_topic():
         assert p["DestinationConfig"]["OnFailure"]["Destination"] == {"Ref": "FailedEventsTopic"}
 
 
+def test_guardrail_messaging_promises_nothing():
+    g = R["Guardrail"]["Properties"]
+    assert g["BlockedInputMessaging"] == g["BlockedOutputsMessaging"] == "I cannot help with that."
+
+
 def test_topic_policies_have_one_allow_and_no_deny():
     for pol in _of("AWS::SNS::TopicPolicy").values():
         st = pol["Properties"]["PolicyDocument"]["Statement"]
