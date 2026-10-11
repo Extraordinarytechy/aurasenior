@@ -12,6 +12,12 @@ from .base import InboundMessage, OutboundMessage, SendResult, StatusEvent
 class _Sim:
     channel = ""
     simulated = True
+    # A simulator has no provider to send status events, so it reports delivery right after the send.
+    # Set deliver = False to simulate a phone that never receives the message.
+    deliver = True
+
+    def receipt(self) -> str | None:
+        return "delivered" if self.deliver else None
 
     def send(self, msg: OutboundMessage) -> SendResult:
         pid = f"sim-{uuid.uuid4().hex[:16]}"

@@ -133,6 +133,10 @@ def _deliver(person: Person, channel: str, msg: OutboundMessage, c: Content, urg
     store.trace(person.household_id, "send", channel=channel, person_id=person.person_id, outcome="sent",
                 kind=msg.kind, phrase=c.phrase or (None if msg.template else "model_text"), template=msg.template,
                 text=msg.text[:300], urgency=urgency, simulated=adapter.simulated)
+    receipt = getattr(adapter, "receipt", None) if adapter.simulated else None
+    status = receipt() if receipt else None
+    if status:
+        on_status(person.household_id, r.provider_id, status)  # simulator receipt; real ones arrive by SNS
     return RouteResult("sent", channel, r.provider_id, adapter.simulated)
 
 

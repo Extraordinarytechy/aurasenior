@@ -8,6 +8,15 @@ def _checkin():
                    wa_template="aurasenior_checkin", wa_params=["Kamala"], ref={"kind": "listen", "id": "checkin"})
 
 
+def test_simulator_receipt_marks_delivered_and_skips_fallback(sample):
+    p = store.get_person(sample, "rohan")
+    c = Content(phrase="urgent_alert", quote="I fell", vars={"relation_label": "Mom"}, sms_phrase="urgent_sms")
+    r = router.send(p, c, urgency="urgent", correlation_id="e9#1")
+    assert store.get_msg(sample, r.provider_id)["last_status"] == "delivered"
+    router.delivery_check_run(sample, "e9#1")
+    assert sim.read("sms") == []
+
+
 def test_elder_window_closed_gets_template(sample):
     r = router.send(store.get_person(sample, "kamala"), _checkin(), correlation_id="e1#1")
     assert r.outcome == "sent" and r.simulated
@@ -65,7 +74,10 @@ def test_retried_send_goes_out_once(sample):
     assert len(sim.read("rcs")) == 1
 
 
-def test_urgent_send_gets_delivery_check_and_falls_back(sample):
+def test_urgent_send_gets_delivery_check_and_falls_back(sample, monkeypatch):
+    from aurasenior import channels
+
+    monkeypatch.setattr(channels.get("rcs"), "deliver", False)  # the phone never gets the RCS message
     p = store.get_person(sample, "rohan")
     c = Content(phrase="urgent_alert", quote="I fell", vars={"relation_label": "Mom"}, sms_phrase="urgent_sms")
     r = router.send(p, c, urgency="urgent", correlation_id="e8#1")
