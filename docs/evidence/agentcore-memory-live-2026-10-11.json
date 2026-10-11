@@ -1,0 +1,26 @@
+{
+ "memory_name": "aurasenior_livetest_202610111210",
+ "steps": [
+  {
+   "create_memory": "CREATING"
+  },
+  {
+   "status_after_wait": "ACTIVE",
+   "seconds": 154
+  },
+  {
+   "events_written": 5,
+   "agentcore_disabled": false
+  },
+  {
+   "recall_items": 1,
+   "recall_seconds": 94,
+   "recalled": [
+    "उपयोगकर्ता की पोती का नाम प्रिया है, जो हर रविवार को फ़ोन करती है।"
+   ]
+  },
+  {
+   "delete_memory": "requested"
+  }
+ ]
+}

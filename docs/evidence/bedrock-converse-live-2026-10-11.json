@@ -1,0 +1,56 @@
+{
+ "model_id": "us.amazon.nova-2-lite-v1:0",
+ "guardrail": "none (the guardrail is a stack resource, not deployed)",
+ "calls": [
+  {
+   "stopReason": "tool_use",
+   "content": [
+    {
+     "toolUse": {
+      "toolUseId": "tooluse_90qY4vzTbz0GljvnelLrLT",
+      "name": "log_medicine",
+      "input": {
+       "medicine_id": "sugar",
+       "taken": true,
+       "out_of_stock": false
+      }
+     }
+    },
+    {
+     "toolUse": {
+      "toolUseId": "tooluse_JVJuJL1Vhd1zlPVYoVli8a",
+      "name": "log_medicine",
+      "input": {
+       "medicine_id": "bp",
+       "taken": false,
+       "out_of_stock": true
+      }
+     }
+    }
+   ],
+   "usage": {
+    "inputTokens": 1448,
+    "outputTokens": 92,
+    "totalTokens": 1540
+   }
+  },
+  {
+   "stopReason": "end_turn",
+   "content": [
+    {
+     "text": "आपने शुगर की गोली ले ली है और BP की गोलियां खत्म हो गई हैं। घुटने में दर्द होने पर डॉक्टर से सलाह लेना अच्छा रहेगा। \n\nक्या आप चाहेंगे कि मैं परिवार के किसी सदस्य को BP की गोलियों का रिफिल मंजूर करने के लिए संदेश भेजूं? या फिर आप चाहें तो मैं एक याददाश्त नोट भी जोड़ सकता हूँ।"
+    }
+   ],
+   "usage": {
+    "inputTokens": 1586,
+    "outputTokens": 90,
+    "totalTokens": 1676
+   }
+  }
+ ],
+ "tools_used": [
+  "log_medicine",
+  "log_medicine"
+ ],
+ "final_stop_reason": "end_turn"
+}

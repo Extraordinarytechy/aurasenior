@@ -31,6 +31,11 @@ voice-note transcript, then a second turn that returns a `toolResult` and asks f
 Evidence: `bedrock-converse-tool-use-2026-10-10.json` (full request and responses),
 `bedrock-converse-tool-use-summary-2026-10-10.txt`.
 
+Live check with the product code, 2026-10-11 (`tests/live/test_live_aws.py`, no guardrail because the stack is not
+deployed): the nine real `toolSpec`s and the Hindi transcript gave `tool_use` with two `log_medicine` calls, then
+`end_turn` after the `toolResult`s. The reply suggested seeing a doctor about knee pain, which the outbound guard
+does not block; prompt wording is reviewed with A6. Evidence `bedrock-converse-live-2026-10-11.json`.
+
 | Inference profile | Result |
 | --- | --- |
 | `us.amazon.nova-2-lite-v1:0` | Works end to end. Turn 1 `stopReason=tool_use` with two correct calls (metformin taken, amlodipine not taken and out of stock). Turn 2 `stopReason=end_turn` with a Hindi reply |
@@ -644,6 +649,13 @@ Docs:
 - https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Transaction-Search.html
 - https://docs.aws.amazon.com/bedrock-agentcore/latest/APIReference/API_InvokeAgentRuntime.html
 
+Live round trip, 2026-10-11 (`tests/live/test_live_aws.py`): a temporary memory with the same two built-in
+strategies and no execution role reached `ACTIVE` in 154 s. `AgentCoreMemoryStore` wrote 3 Hindi turns and the
+check-in line twice with the same `clientToken` (no error). `RetrieveMemoryRecords` on the facts namespace returned
+one extracted Hindi fact after 94 s. The memory was deleted and `list-memories` shows none left. Evidence
+`agentcore-memory-live-2026-10-11.json`. Template note: `AWS::Bedrock::Guardrail` `CrossRegionConfig` takes
+`GuardrailProfileArn` (schema read with `describe-type`), so the template builds the profile ARN from the parameter.
+
 ## D12. IaC: AWS SAM (decided 2026-10-10)
 
 Decision: one SAM template, deployed with `sam build` and `sam deploy --stack-name aurasenior --region us-east-1
@@ -779,3 +791,8 @@ call:
    simulation runs; the output is saved as `docs/evidence/deploy-permissions-simulate-<date>.json`. Function roles
    additionally get `bedrock-agentcore:CreateEvent` and `RetrieveMemoryRecords` on the memory ARN only (design
    5.1).
+8. Simulation result 2026-10-11 (`scripts/check_permissions.py`, name-scoped actions on their `aurasenior` ARN):
+   every deploy and live-test action is allowed except `kms:CreateGrant`, `Decrypt`, `GenerateDataKey`,
+   `GenerateDataKeyWithoutPlaintext`, `ReEncryptTo`, `ReEncryptFrom`, which are unused because the memory sets no
+   `EncryptionKeyArn`. No new grant is needed for the first deploy. Evidence
+   `deploy-permissions-simulate-2026-10-11.json`.

@@ -1,0 +1,27 @@
+{
+ "call": "iam.simulate_principal_policy for the deploy user (scripts/check_permissions.py), name-scoped actions simulated on their aurasenior resource ARN",
+ "region": "us-east-1",
+ "allowed": [
+  "cloudformation:CreateChangeSet", "cloudformation:ExecuteChangeSet", "cloudformation:DescribeStacks",
+  "lambda:CreateFunction", "lambda:PutFunctionEventInvokeConfig", "lambda:AddPermission",
+  "iam:CreateRole", "iam:CreatePolicy", "iam:AttachRolePolicy", "iam:PutRolePolicy",
+  "dynamodb:CreateTable", "s3:CreateBucket", "sns:CreateTopic", "sns:Subscribe", "sns:SetTopicAttributes",
+  "scheduler:CreateScheduleGroup", "ses:CreateConfigurationSet", "ses:CreateConfigurationSetEventDestination",
+  "ses:CreateContactList", "ses:CreateEmailTemplate", "ses:GetEmailIdentity",
+  "sms-voice:RequestPhoneNumber", "sms-voice:CreateOptOutList", "sms-voice:CreateConfigurationSet",
+  "sms-voice:CreateEventDestination", "sms-voice:UpdateRcsAgent", "sms-voice:DescribeVerifiedDestinationNumbers",
+  "social-messaging:PutWhatsAppBusinessAccountEventDestinations", "social-messaging:CreateWhatsAppMessageTemplate",
+  "social-messaging:ListWhatsAppMessageTemplates", "bedrock:CreateGuardrail", "bedrock:CreateGuardrailVersion",
+  "cloudwatch:PutMetricAlarm", "bedrock-agentcore:CreateMemory", "bedrock-agentcore:GetMemory",
+  "bedrock-agentcore:UpdateMemory", "bedrock-agentcore:DeleteMemory", "bedrock-agentcore:TagResource",
+  "bedrock-agentcore:UntagResource", "bedrock-agentcore:ListTagsForResource", "bedrock-agentcore:ListMemories",
+  "iam:PassRole", "kms:DescribeKey", "bedrock:InvokeModel", "bedrock-agentcore:CreateEvent",
+  "bedrock-agentcore:RetrieveMemoryRecords", "events:PutRule", "events:PutTargets", "logs:CreateLogGroup",
+  "logs:PutRetentionPolicy", "logs:PutMetricFilter", "budgets:ModifyBudget"
+ ],
+ "denied": [
+  "kms:CreateGrant", "kms:Decrypt", "kms:GenerateDataKey", "kms:GenerateDataKeyWithoutPlaintext",
+  "kms:ReEncryptTo", "kms:ReEncryptFrom"
+ ],
+ "note": "The template sets no EncryptionKeyArn on the memory, so the denied KMS actions are not expected to be used."
+}
