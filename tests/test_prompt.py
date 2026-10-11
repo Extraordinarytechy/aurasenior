@@ -30,3 +30,10 @@ def test_query_is_none_on_scheduled_turns():
 def test_reply_language_follows_language_row(sample):
     system, _ = prompt.system_prompt(sample, store.get_person(sample, "kamala"), {"text": "hi"})
     assert "Hindi, Devanagari script" in system
+
+
+def test_hindi_prompt_sets_feminine_first_person(sample):
+    hindi, _ = prompt.system_prompt(sample, store.get_person(sample, "kamala"), {"text": "hi"})
+    english, _ = prompt.system_prompt(sample, store.get_person(sample, "rohan"), {"text": "hi"})
+    assert "speak as a woman" in hindi and "सकती हूँ" in hindi
+    assert "speak as a woman" not in english

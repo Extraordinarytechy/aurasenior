@@ -37,7 +37,7 @@ normal_per_hour = 30
 # One row per language. A new language is one row plus a verification test.
 [languages."hi-IN"]
 transcribe_code = "hi-IN"
-reply_language = "Hindi, Devanagari script"
+reply_language = "Hindi, Devanagari script. You speak as a woman, so use feminine first-person forms such as रही हूँ, सकती हूँ, दूँगी, never गया, सकता, दूँगा"
 polly_voice = "Kajal"
 polly_engine = "neural"
 polly_language_code = "hi-IN"
