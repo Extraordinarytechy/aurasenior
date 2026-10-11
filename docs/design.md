@@ -1137,7 +1137,7 @@ Agent turns are not replayed token for token, so on a retry the model may word a
   create or cancel these schedules.
 - Fall or help: keyword match (section 8.2) or the model calling `escalate(fall_or_help)`. Family and neighbour are
   alerted at once as urgent, and the elder gets the `esc_told_elder` voice note at once ("I have told
-  {family_name}. Someone will call you soon. I am here with you."; the Hindi row is translated the same way, with
+  {family_name}. I am here with you."; the Hindi row is translated the same way, with no promise of a call and
   no instruction about what to do physically). `{family_name}` is the first family member the alert actually
   reached (kept on `ESC#.reached_pid`, also used by `esc_reassure_elder`); when nobody was reached she hears
   `esc_trying_elder` instead and an ERROR log line is written. `ESC#.fall_cid` keeps the event that raised the
@@ -1552,7 +1552,7 @@ All 10 findings are addressed with the fix the review gave. None are backlogged 
 | 5 | No memory interface; AgentCore still described as out of Milestone 1 | Addressed. `MemoryStore` Protocol with `DynamoMemoryStore` fallback; AgentCore Memory design in 8.7; section 4, D11 and the roadmap updated to the owner decision; every AgentCore Memory API, IAM action and CloudFormation property has a doc URL in D11 | 4, 8.5, 8.7, D11, roadmap |
 | 6 | RCS test device free-form inbound not listed | Addressed. A17 with the check on Rohan's first YES and the WhatsApp fallback by data | 18, D13 |
 | 7 | IAM resources not writable as stated | Addressed. `ses:SendEmail` on `identity/*` while sandboxed, with a narrowing comment; every ARN format copied from the Service Reference data (`service-reference-arn-formats-2026-10-11.txt`) | 5.1 |
-| 8 | "Stay where you are" after a fall | Addressed. "I have told {family_name}. Someone will call you soon. I am here with you."; Hindi row the same; test | 13, 17 |
+| 8 | "Stay where you are" after a fall | Addressed. "I have told {family_name}. I am here with you."; Hindi row the same; test | 13, 17 |
 | 9 | Topic policy wording reads as a Deny | Addressed. One Allow per service principal with `aws:SourceAccount`, no Deny; same-account principals use identity policy | 2.3 |
 | 10 | Brand test fails on identifiers | Addressed. Exact, case-sensitive whole-word match of the `[brand] name` value; `aurasenior[-_][a-z_-]+` ignored | 6.3, 17 |
 
