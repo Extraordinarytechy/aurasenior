@@ -144,6 +144,7 @@ class AgentRunner:
         if first_today or "agent_unavailable_ok" not in usage:
             # Also reached when an earlier attempt claimed the flag but its send raised: the send is SEND# deduped.
             family_ok = False
+            known = True
             first = store.get_person(hid, h.escalation_order[0]) if h.escalation_order else None
             if first:
                 rl = first.relation_label or ""
@@ -152,9 +153,12 @@ class AgentRunner:
                                                wa_template="aurasenior_family_update", wa_params=[rl, note],
                                                email_template="aurasenior-update", email_data={"update_text": note}),
                                 correlation_id=f"unavailable#{today}")
-                family_ok = r.ok
+                family_ok = r.went_out
+                # Skipped with no provider id: failed before or still in flight elsewhere, so leave the flag unset.
+                known = r.outcome != "skipped" or family_ok
             # Later turns today read this, so the elder is only promised what was actually sent.
-            store.update(store.hh(hid), f"USAGE#{today}", agent_unavailable_ok=family_ok)
+            if known:
+                store.update(store.hh(hid), f"USAGE#{today}", agent_unavailable_ok=family_ok)
         else:
             family_ok = bool(usage["agent_unavailable_ok"])
         phrase = "cost_cap" if family_ok else "not_heard"

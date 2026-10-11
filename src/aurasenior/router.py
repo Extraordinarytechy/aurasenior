@@ -44,6 +44,11 @@ class RouteResult:
     def ok(self) -> bool:
         return self.outcome in ("sent", "skipped")
 
+    @property
+    def went_out(self) -> bool:
+        """Sent now or by an earlier attempt. A skipped send without a provider id failed before or is in flight."""
+        return self.outcome == "sent" or (self.outcome == "skipped" and bool(self.provider_id))
+
 
 def names_for(hid: str) -> dict:
     h = store.get_household(hid)

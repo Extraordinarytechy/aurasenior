@@ -173,6 +173,22 @@ def test_elder_hears_the_name_of_who_was_reached(sample):
     assert len(reassure) == 1 and "Sunita" in reassure[0]["text"]
 
 
+def test_retry_does_not_name_a_contact_whose_alert_failed(sample, monkeypatch):
+    open_window(sample, "kamala")
+    store.set_consent(sample, "rohan", "sms", "opted_out", "test")
+    rcs = channels.get("rcs")
+    real = rcs.send
+    monkeypatch.setattr(rcs, "send", lambda msg: SendResult.failed("ValidationException", False, simulated=True)
+                        if msg.person_id == "rohan" else real(msg))
+    throttle_once(monkeypatch, "whatsapp", "nbr")
+    with pytest.raises(RetryableSendError):
+        escalation.escalate(sample, "fall_or_help", "I fell")
+    eid = escalation.escalate(sample, "fall_or_help", "I fell")
+    told = _to("kamala", "esc_told_elder")
+    assert len(told) == 1 and "Sunita" in told[0]["text"] and "Rohan" not in told[0]["text"]
+    assert store.get_escalation(sample, eid).reached_pid == "nbr"
+
+
 def test_elder_gets_no_told_claim_when_nobody_was_reached(sample, capsys):
     open_window(sample, "kamala")
     for pid in ("rohan", "nbr"):

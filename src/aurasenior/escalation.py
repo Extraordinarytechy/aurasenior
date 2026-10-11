@@ -59,7 +59,8 @@ def family_content(e: Escalation, person: Person) -> Content:
 
 
 def _alert_family(hid: str, e: Escalation, run: int, *, email_too: bool = False) -> list[str]:
-    """Returns the person IDs reached in this run, in escalation order (already reached on a retry counts)."""
+    """Returns the person IDs reached in this run, in escalation order. On a retry, a send counts only if it
+    really went out on the earlier attempt."""
     h = store.get_household(hid)
     reached = []
     for pid in h.escalation_order:
@@ -69,9 +70,9 @@ def _alert_family(hid: str, e: Escalation, run: int, *, email_too: bool = False)
         c = family_content(e, p)
         cid = f"esc#{e.escalation_id}#{e.reason}#{run}#{pid}"
         r = router.send(p, c, urgency="urgent", correlation_id=cid)
-        ok = r.ok
+        ok = r.went_out
         if email_too and r.channel != "email" and p.addresses.get("email") and p.consent_status("email") == "opted_in":
-            ok = router.send(p, c, urgency="urgent", correlation_id=f"{cid}#email", only_channel="email").ok or ok
+            ok = router.send(p, c, urgency="urgent", correlation_id=f"{cid}#email", only_channel="email").went_out or ok
         if ok:
             reached.append(pid)
     return reached

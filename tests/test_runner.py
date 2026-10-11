@@ -3,7 +3,7 @@ import json
 import pytest
 from botocore.exceptions import ClientError
 
-from aurasenior import aws, channels, sim, store
+from aurasenior import aws, channels, clock, sim, store
 from aurasenior.agent.runner import AgentRunner
 from aurasenior.channels.base import SendResult
 from aurasenior.sim.converse import ScriptedConverse, end_turn, tool_use
@@ -87,6 +87,17 @@ def test_retry_after_a_throttled_notice_sends_it(sample, monkeypatch):
     AgentRunner().run_turn(sample, "kamala", {"event_id": "ev4", "text": "hello again"})
     assert len([x for x in sim.read("rcs") if x.get("phrase_key") == "agent_unavailable_family"]) == 1
     assert [x["phrase_key"] for x in sim.read("whatsapp")] == ["cost_cap", "cost_cap"]
+
+
+def test_a_notice_still_in_flight_promises_nothing(sample):
+    open_window(sample, "kamala")
+    store.put({"PK": store.hh(sample), "SK": "USAGE#2026-10-12", "converse_calls": 150})
+    store.put({"PK": store.hh(sample), "SK": "SEND#unavailable#2026-10-12", "status": "sending",
+               "at": clock.iso()})
+    _scripted([])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev3", "text": "hello"})
+    assert [x["phrase_key"] for x in sim.read("whatsapp")] == ["not_heard"]
+    assert "agent_unavailable_ok" not in store.get(store.hh(sample), "USAGE#2026-10-12")
 
 
 def _blocked():
