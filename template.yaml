@@ -68,6 +68,8 @@ Globals:
         AURASENIOR_MODE_SCHEDULER: aws
         AURASENIOR_MODE_CONVERSE: aws
         AURASENIOR_MODE_MEMORY: aws
+        # Channels left on the simulator record there; /var/task is read-only.
+        AURASENIOR_SIM_DIR: /tmp/aurasenior-sim
 
 Resources:
   # Data

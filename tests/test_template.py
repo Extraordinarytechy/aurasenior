@@ -98,3 +98,8 @@ def test_topic_policies_have_one_allow_and_no_deny():
     for pol in _of("AWS::SNS::TopicPolicy").values():
         st = pol["Properties"]["PolicyDocument"]["Statement"]
         assert len(st) == 1 and st[0]["Effect"] == "Allow"
+
+
+def test_simulator_output_goes_to_writable_tmp():
+    env = T["Globals"]["Function"]["Environment"]["Variables"]
+    assert env["AURASENIOR_SIM_DIR"].startswith("/tmp/")
