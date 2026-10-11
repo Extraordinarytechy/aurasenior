@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from botocore.exceptions import ClientError
 
-from .. import aws, clock, config, log, router, store
+from .. import aws, clock, config, log, phrases, router, store
 from ..memory import build_store
 from ..router import Content
 from . import prompt, tools
@@ -125,7 +125,7 @@ class AgentRunner:
             first = store.get_person(hid, h.escalation_order[0]) if h.escalation_order else None
             if first:
                 rl = first.relation_label or ""
-                note = f"{config.brand()} could not answer {rl}'s message just now. Please call {rl}."
+                note = phrases.render("agent_unavailable_family", first.language, relation_label=rl)
                 r = router.send(first, Content(phrase="agent_unavailable_family", vars={"relation_label": rl},
                                                wa_template="aurasenior_family_update", wa_params=[rl, note],
                                                email_template="aurasenior-update", email_data={"update_text": note}),

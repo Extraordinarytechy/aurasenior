@@ -119,7 +119,7 @@ def _process(m: InboundMessage, eid: str) -> None:
     if m.channel in ("sms", "rcs") and m.simulated and m.sender not in config.simulator_destinations():
         log.get().warning("simulated inbound refused for a non-simulator number", extra={"household_id": hid})
         return
-    simulated = m.simulated or person.simulated
+    simulated = m.simulated or person.simulated or config.mode(m.channel) == "sim"
     if m.channel == "whatsapp":
         store.set_wa_inbound(hid, pid)
         person = store.get_person(hid, pid)

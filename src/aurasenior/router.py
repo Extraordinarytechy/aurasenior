@@ -131,7 +131,7 @@ def _deliver(person: Person, channel: str, msg: OutboundMessage, c: Content, urg
                   correlation_id=correlation_id, ref=c.ref, kind=msg.kind, urgency=urgency,
                   content=_content_record(c), simulated=adapter.simulated)
     store.trace(person.household_id, "send", channel=channel, person_id=person.person_id, outcome="sent",
-                kind=msg.kind, phrase=c.phrase or ("agent_text" if c.text else None), template=msg.template,
+                kind=msg.kind, phrase=c.phrase or (None if msg.template else "model_text"), template=msg.template,
                 text=msg.text[:300], urgency=urgency, simulated=adapter.simulated)
     return RouteResult("sent", channel, r.provider_id, adapter.simulated)
 

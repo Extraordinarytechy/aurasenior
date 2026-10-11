@@ -25,7 +25,7 @@ def labels(item: dict) -> list[str]:
 
 
 def format_line(item: dict) -> str:
-    when = item.get("at", "")[11:19]
+    when = item.get("at", "")[5:16].replace("T", " ") + "Z"  # UTC, month-day hour:minute
     parts = [when, f"{item.get('step', ''):<14}"]
     for f in FIELDS:
         v = item.get(f)

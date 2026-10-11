@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from botocore.exceptions import ClientError
 
-from . import clock, log, router, schedules, store
+from . import clock, log, phrases, router, schedules, store
 from .models import Escalation, Person
 from .router import Content
 
@@ -140,11 +140,10 @@ def ack_escalation(hid: str, eid: str, by_pid: str) -> bool:
             continue
         p = store.get_person(hid, pid)
         if p:
+            note = phrases.render("esc_ack_family", p.language, ack_name=by.display_name)
             router.send(p, Content(phrase="esc_ack_family", vars={"ack_name": by.display_name},
-                                   wa_template="aurasenior_family_update",
-                                   wa_params=[p.relation_label or "", f"{by.display_name} is on it."],
-                                   email_template="aurasenior-update",
-                                   email_data={"update_text": f"{by.display_name} is on it."}),
+                                   wa_template="aurasenior_family_update", wa_params=[p.relation_label or "", note],
+                                   email_template="aurasenior-update", email_data={"update_text": note}),
                         urgency="urgent", correlation_id=f"ack#{eid}#{pid}")
     if e.reason == "fall_or_help":
         _tell_elder(hid, "esc_ack_elder", name=by.display_name)
@@ -164,7 +163,7 @@ def resolve_by_elder(hid: str) -> bool:
         p = store.get_person(hid, pid)
         if p:
             rl = p.relation_label or ""
-            late = f"{rl} has replied now."
+            late = phrases.render("checkin_late_family", p.language, relation_label=rl)
             router.send(p, Content(phrase="checkin_late_family", vars={"relation_label": rl},
                                    wa_template="aurasenior_family_update", wa_params=[rl, late],
                                    email_template="aurasenior-update", email_data={"update_text": late}),
