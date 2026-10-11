@@ -120,8 +120,8 @@ class AgentRunner:
             return
         h = store.get_household(hid)
         names = router.names_for(hid)
-        family_ok = False
         if store.set_usage_flag(hid, today, "agent_unavailable_sent"):
+            family_ok = False
             first = store.get_person(hid, h.escalation_order[0]) if h.escalation_order else None
             if first:
                 rl = first.relation_label or ""
@@ -131,8 +131,10 @@ class AgentRunner:
                                                email_template="aurasenior-update", email_data={"update_text": note}),
                                 correlation_id=f"{event['event_id']}#unavailable")
                 family_ok = r.ok
+            # Later turns today read this, so the elder is only promised what was actually sent.
+            store.update(store.hh(hid), f"USAGE#{today}", agent_unavailable_ok=family_ok)
         else:
-            family_ok = True  # told earlier today
+            family_ok = bool((store.get(store.hh(hid), f"USAGE#{today}") or {}).get("agent_unavailable_ok"))
         phrase = "cost_cap" if family_ok else "not_heard"
         router.send(speaker, Content(phrase=phrase, vars={"family_name": names.get("family_name", "")}, voice=True),
                     correlation_id=f"{event['event_id']}#{phrase}", inbound_text=event.get("text"))

@@ -53,6 +53,17 @@ def test_capped_day_sends_family_notice_once(sample, monkeypatch):
     assert [x["phrase_key"] for x in sim.read("whatsapp")] == ["cost_cap", "cost_cap"]
 
 
+def test_capped_turns_after_a_blocked_notice_promise_nothing(sample):
+    open_window(sample, "kamala")
+    store.set_consent(sample, "rohan", "rcs", "opted_out", "test")
+    store.set_consent(sample, "rohan", "sms", "opted_out", "test")
+    store.put({"PK": store.hh(sample), "SK": "USAGE#2026-10-12", "converse_calls": 150})
+    _scripted([])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev3", "text": "hello"})
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev4", "text": "hello again"})
+    assert [x["phrase_key"] for x in sim.read("whatsapp")] == ["not_heard", "not_heard"]
+
+
 class Fatal:
     label = "bedrock"
 
