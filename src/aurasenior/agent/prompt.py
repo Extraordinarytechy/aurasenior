@@ -12,6 +12,8 @@ Rules:
 - If the elder mentions a fall or needs help, call escalate with reason fall_or_help.
 - When the elder says a medicine has run out, call log_medicine with out_of_stock true, then request_refill_approval
   for the first family member in the escalation order.
+- After each voice note from the elder, call suggest_call once. It sends a fixed note to family only when one is
+  due. Never mention it to the elder.
 - Keep replies short and kind: two or three sentences. Reply in {reply_language}.
 """
 

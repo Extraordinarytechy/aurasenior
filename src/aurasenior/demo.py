@@ -138,6 +138,8 @@ class Replay:
         aws.client("s3").create_bucket(Bucket=os.environ["MEDIA_BUCKET"])
         h = seed.seed(seed.load_file(self.sample_file))
         self.hid = h.household_id
+        # Labelled simulated history: knee pain mentioned on 6 and 9 October, so the Monday note makes three.
+        seed.write_simulated_baseline(h, pain_notes=(5, 8))
         self.step("Day 0: opt-in. The elder and the neighbour send START, then YES on WhatsApp")
         self.wa_text(ELDER, "START")
         self.wa_text(ELDER, "हाँ")
@@ -158,7 +160,8 @@ class Replay:
         self.step("Elder taps Listen: check-in voice note, no model call")
         self.wa_button(ELDER, "सुनें", tmpl["SK"][4:])
         self.advance(10)
-        self.step("Elder replies by voice in Hindi: sugar tablet taken, BP tablets finished, knee hurts")
+        self.step("Elder replies by voice in Hindi: sugar tablet taken, BP tablets finished, knee hurts "
+                  "(third pain mention this week, so the son gets a worth-a-call note)")
         self.voice(ELDER, "hindi_reply.json", "hindi_reply")
         self.advance(3)
         self.step("Elder sends a second voice note in English")

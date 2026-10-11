@@ -3,7 +3,8 @@
   "hindi_reply": [
     {"output": {"message": {"role": "assistant", "content": [
       {"toolUse": {"toolUseId": "h1", "name": "log_medicine", "input": {"medicine_id": "sugar", "taken": true, "out_of_stock": false}}},
-      {"toolUse": {"toolUseId": "h2", "name": "log_medicine", "input": {"medicine_id": "bp", "taken": false, "out_of_stock": true}}}]}},
+      {"toolUse": {"toolUseId": "h2", "name": "log_medicine", "input": {"medicine_id": "bp", "taken": false, "out_of_stock": true}}},
+      {"toolUse": {"toolUseId": "h5", "name": "suggest_call", "input": {}}}]}},
      "stopReason": "tool_use"},
     {"output": {"message": {"role": "assistant", "content": [
       {"toolUse": {"toolUseId": "h3", "name": "request_refill_approval", "input": {"medicine_id": "bp", "ask_person_id": "rohan"}}},
@@ -15,7 +16,8 @@
   ],
   "english_reply": [
     {"output": {"message": {"role": "assistant", "content": [
-      {"toolUse": {"toolUseId": "e1", "name": "remember", "input": {"note": "Granddaughter Priya is visiting on Sunday"}}}]}},
+      {"toolUse": {"toolUseId": "e1", "name": "remember", "input": {"note": "Granddaughter Priya is visiting on Sunday"}}},
+      {"toolUse": {"toolUseId": "e2", "name": "suggest_call", "input": {}}}]}},
      "stopReason": "tool_use"},
     {"output": {"message": {"role": "assistant", "content": [
       {"text": "That sounds lovely. Enjoy your Sunday with Priya."}]}},
@@ -23,7 +25,8 @@
   ],
   "fall_note": [
     {"output": {"message": {"role": "assistant", "content": [
-      {"toolUse": {"toolUseId": "f1", "name": "escalate", "input": {"reason": "fall_or_help", "quote": "मैं कुर्सी के पास फिसल गई"}}}]}},
+      {"toolUse": {"toolUseId": "f1", "name": "escalate", "input": {"reason": "fall_or_help", "quote": "मैं कुर्सी के पास फिसल गई"}}},
+      {"toolUse": {"toolUseId": "f2", "name": "suggest_call", "input": {}}}]}},
      "stopReason": "tool_use"},
     {"output": {"message": {"role": "assistant", "content": [
       {"text": "मैंने रोहन को बता दिया है। मैं आपके साथ हूँ।"}]}},

@@ -137,8 +137,9 @@ def seed(data: dict, *, simulated_baseline: bool = False, create_schedules: bool
     return h
 
 
-def write_simulated_baseline(h: Household, notes: int = 10) -> None:
-    """Labelled baseline SIGNAL# items for a demo without real history. Every one is simulated=true."""
+def write_simulated_baseline(h: Household, notes: int = 10, pain_notes: tuple[int, ...] = ()) -> None:
+    """Labelled baseline SIGNAL# items for a demo without real history. Every one is simulated=true.
+    pain_notes lists the note indexes (0 is the oldest) that carry one pain mention."""
     for i in range(notes):
         day = clock.local_now(h.timezone) - timedelta(days=notes - i)
         d = day.strftime("%Y-%m-%d")
@@ -147,4 +148,4 @@ def write_simulated_baseline(h: Household, notes: int = 10) -> None:
                    "features": {"words_per_minute": 110.0 + (i % 3), "pause_count": 2.0 + (i % 2),
                                 "pause_mean": 1.3, "reply_delay": 600.0 + 10 * (i % 4), "word_count": 30.0 + i % 5,
                                 "speaking_time": 16.0 + (i % 3)},
-                   "mentions": {"pain": 0, "low_mood": 0}, "ttl": store.ttl("SIGNAL")})
+                   "mentions": {"pain": 1 if i in pain_notes else 0, "low_mood": 0}, "ttl": store.ttl("SIGNAL")})

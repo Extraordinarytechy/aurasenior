@@ -23,6 +23,12 @@ def test_sample_household_story(capsys):
     # weekly summary to every recipient with email consent
     weekly = sorted(e["to"] for e in emails if e.get("template") == "aurasenior-weekly-summary")
     assert weekly == ["doctor@example.com", "rohan@example.com"]
+    # the model calls suggest_call after each voice note; one fixed worth-a-call note goes to the son
+    assert len([t for t in items if t["step"] == "tool" and t["tool"] == "suggest_call"]) == 3
+    calls = [m for m in rcs if m["text"].startswith("Worth a call today")]
+    assert [m["text"] for m in calls] == ["Worth a call today: Mom mentioned pain a few times this week."]
+    assert "[SIMULATED BASELINE]" in result["trace"]
+    assert not any(m["text"].startswith("Worth a call") for m in wa if m["person_id"] == "kamala")
     # STOP opts out
     assert [t for t in items if t["step"] == "consent"][-1]["outcome"] == "opted_out"
     # the model ran only on the four conversational turns; deterministic paths made no call

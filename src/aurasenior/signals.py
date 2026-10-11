@@ -103,7 +103,8 @@ def worth_a_call(hid: str, *, correlation_id: str):
     log.get().info("worth a call suggested", extra={"household_id": hid, "simulated_baseline": simulated})
     store.trace(hid, "signal", outcome="worth_a_call", features=changed, simulated_baseline=simulated,
                 simulated=simulated)
-    return router.send(family, router.Content(text=text, wa_template="aurasenior_family_update",
+    # phrase labels the trace only; the text is the fixed signals.toml sentence built above.
+    return router.send(family, router.Content(phrase="worth_a_call", text=text, wa_template="aurasenior_family_update",
                                               wa_params=[family.relation_label or "", text],
                                               email_template="aurasenior-update", email_data={"update_text": text}),
                        correlation_id=correlation_id)
