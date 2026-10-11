@@ -1,0 +1,11 @@
+[project]
+name = "aurasenior"
+version = "0.1.0"
+requires-python = ">=3.13"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = ["live: calls real AWS services (needs AURASENIOR_LIVE=1)"]
+# The logging plugin attaches capture handlers to loggers; the logger tests check the real handler set.
+addopts = "-m 'not live' -p no:logging"

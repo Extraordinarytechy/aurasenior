@@ -1,0 +1,69 @@
+# Application settings. The product name lives only in [brand] name.
+
+[brand]
+name = "AuraSenior"
+
+[agent]
+# Bedrock inference profile for the Converse API. Change only this value to switch models.
+model_id = "us.amazon.nova-2-lite-v1:0"
+max_tokens = 800
+max_iterations = 6
+daily_converse_cap = 150
+
+[whatsapp]
+meta_api_version = "v25.0"
+
+# "aws" uses the real service, "sim" the local simulator. AURASENIOR_MODE_<NAME> overrides a value.
+[channels]
+whatsapp = "sim"
+rcs = "sim"
+sms = "sim"
+email = "sim"
+
+[services]
+polly = "sim"
+transcribe = "sim"
+scheduler = "sim"
+converse = "sim"
+memory = "sim"
+
+[sms]
+# US success simulator destination. Only these numbers may be used by the sim-inbound command.
+simulator_destinations = ["+14254147755"]
+
+[limits]
+normal_per_hour = 30
+
+# One row per language. A new language is one row plus a verification test.
+[languages."hi-IN"]
+transcribe_code = "hi-IN"
+reply_language = "Hindi, Devanagari script"
+polly_voice = "Kajal"
+polly_engine = "neural"
+polly_language_code = "hi-IN"
+polly_fallback_voice = "Aditi"
+template_suffix = "_hi"
+meta_language = "hi"
+phrases = "hi"
+
+[languages."en-IN"]
+transcribe_code = "en-IN"
+reply_language = "English"
+polly_voice = "Kajal"
+polly_engine = "neural"
+polly_language_code = "en-IN"
+polly_fallback_voice = "Aditi"
+template_suffix = "_en"
+meta_language = "en_US"
+phrases = "en"
+
+[languages."en-US"]
+transcribe_code = "en-US"
+reply_language = "English"
+polly_voice = "Joanna"
+polly_engine = "neural"
+polly_language_code = "en-US"
+polly_fallback_voice = ""
+template_suffix = "_en"
+meta_language = "en_US"
+phrases = "en"
