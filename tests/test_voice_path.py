@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from aurasenior import aws, sim, store, transcribe
+from aurasenior import aws, clock, router, sim, store, transcribe
 from aurasenior.handlers import inbound
 from aurasenior.sim.converse import ScriptedConverse, end_turn, tool_use
 from events import transcribe_done, wa_audio
@@ -66,6 +66,32 @@ def test_failed_job_sends_not_heard(bucket, sample, capsys):
     inbound.handler(transcribe_done("evb-3", job, status="FAILED"))
     assert sim.read("whatsapp")[-1]["phrase_key"] == "not_heard"
     assert '"ERROR"' in capsys.readouterr().out
+
+
+def test_silent_note_gets_not_heard_without_a_model_turn(bucket, sample, capsys):
+    inbound.handler(wa_audio(ELDER, "wamid.V6"))
+    job = transcribe.job_name(sample, "wamid.V6")
+    _put_transcript(bucket, job, text="")
+    aws.override("bedrock-runtime", ScriptedConverse([]))
+    inbound.handler(transcribe_done("evb-6", job))
+    assert sim.read("whatsapp")[-1]["phrase_key"] == "not_heard"
+    assert not store.query_prefix(sample, "SIGNAL#")
+    assert '"ERROR"' not in capsys.readouterr().out
+
+
+def test_signal_uses_arrival_time_and_is_labelled_simulated(bucket, sample):
+    store.set_wa_inbound(sample, "kamala")
+    router.send(store.elder(sample), router.Content(phrase="send_voice_note"), correlation_id="out#1")
+    clock.advance(10)
+    inbound.handler(wa_audio(ELDER, "wamid.V7"))
+    job = transcribe.job_name(sample, "wamid.V7")
+    clock.advance(30)  # transcription time must not count as reply delay
+    _put_transcript(bucket, job)
+    aws.override("bedrock-runtime", ScriptedConverse([end_turn("ठीक है।")]))
+    inbound.handler(transcribe_done("evb-7", job))
+    sig = store.query_prefix(sample, "SIGNAL#")[0]
+    assert float(sig["features"]["reply_delay"]) == 600.0
+    assert sig["simulated"] is True
 
 
 def test_unknown_job_is_ignored(bucket, sample):

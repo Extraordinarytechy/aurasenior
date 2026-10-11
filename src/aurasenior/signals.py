@@ -37,10 +37,11 @@ def extract(transcribe_json: dict, reply_delay: float | None) -> dict:
     return {"included": included, "features": features if included else {}, "mentions": mentions, "text": text}
 
 
-def store_signal(hid: str, pid: str, msg_id: str, local_date: str, sig: dict) -> None:
+def store_signal(hid: str, pid: str, msg_id: str, local_date: str, sig: dict, *, simulated: bool) -> None:
+    """simulated is required so a note from the Transcribe simulator is never stored as real."""
     store.put({"PK": store.hh(hid), "SK": f"SIGNAL#{local_date}#{msg_id}", "date": local_date, "person_id": pid,
                "included": sig["included"], "features": sig["features"], "mentions": sig["mentions"],
-               "simulated": False, "ttl": store.ttl("SIGNAL")})
+               "simulated": simulated, "ttl": store.ttl("SIGNAL")})
 
 
 def _floor(feature: str, median: float) -> float:

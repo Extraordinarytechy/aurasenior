@@ -186,12 +186,18 @@ def handle_text(person: Person, channel: str, text: str, eid: str, *, voice: boo
     AgentRunner().run_turn(person.household_id, person.person_id, {"event_id": eid, "text": text, "voice": voice})
 
 
-def _reply_delay(hid: str, pid: str) -> float | None:
-    outs = [x for x in store.query_prefix(hid, "MSG#") if x.get("person_id") == pid and x.get("direction") == "out"]
+def _reply_delay(hid: str, pid: str, wamid: str) -> float | None:
+    """From our last message to the voice note's arrival, not to transcription end (job time would add noise)."""
+    note = store.get_msg(hid, wamid)
+    if not note or not note.get("at"):
+        return None
+    arrived = note["at"]
+    outs = [x for x in store.query_prefix(hid, "MSG#")
+            if x.get("person_id") == pid and x.get("direction") == "out" and x["at"] <= arrived]
     if not outs:
         return None
     last = max(outs, key=lambda x: x["at"])
-    return (clock.now() - clock.parse(last["at"])).total_seconds()
+    return (clock.parse(arrived) - clock.parse(last["at"])).total_seconds()
 
 
 def on_transcribe_event(event: dict) -> None:
@@ -216,13 +222,17 @@ def on_transcribe_event(event: dict) -> None:
         text = transcribe.text_of(data)
         simulated = config.mode("transcribe") == "sim"
         store.trace(hid, "transcript", person_id=pid, text=text[:200], simulated=simulated)
-        if not consent.handle(person, "whatsapp", text, correlation_id=f"{eid}#consent", simulated=simulated):
+        if not text:
+            # Silence or noise: nothing to answer, and an empty turn would be rejected by memory.
+            router.send(person, Content(phrase="not_heard", voice=True), correlation_id=f"{eid}#nh")
+        elif not consent.handle(person, "whatsapp", text, correlation_id=f"{eid}#consent", simulated=simulated):
             if person.is_elder and keywords.fall_or_help(text):
                 escalation.escalate(hid, "fall_or_help", text[:200])
             if person.is_elder:
-                sig = signals.extract(data, _reply_delay(hid, pid))
+                sig = signals.extract(data, _reply_delay(hid, pid, tjob["wamid"]))
                 h = store.get_household(hid)
-                signals.store_signal(hid, pid, tjob["wamid"][-16:], clock.local_date(h.timezone), sig)
+                signals.store_signal(hid, pid, tjob["wamid"][-16:], clock.local_date(h.timezone), sig,
+                                     simulated=simulated)
             AgentRunner().run_turn(hid, pid, {"event_id": eid, "text": text, "voice": True})
         dedupe.done(eid)
     except Exception:
