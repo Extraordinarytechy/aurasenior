@@ -87,7 +87,7 @@ def _first_alerts(hid: str, e: Escalation) -> None:
         schedules.create_recheck(hid, e.escalation_id, 1, store.get_household(hid).timezone)
 
 
-def escalate(hid: str, reason: str, quote: str = "") -> str:
+def escalate(hid: str, reason: str, quote: str = "", event_id: str = "") -> str:
     """Idempotent: an open escalation for the same reason is returned. Its first alerts are re-run, which sends
     nothing new to people already reached, so a retry after a failed send completes the fan-out."""
     existing = _open(hid, reason)
@@ -97,7 +97,7 @@ def escalate(hid: str, reason: str, quote: str = "") -> str:
     if reason == "fall_or_help":
         missed = _open(hid, "missed_checkin")
         if missed and store.transition(store.hh(hid), f"ESC#{missed.escalation_id}", "reason", "missed_checkin",
-                                       "fall_or_help", quote=quote[:200]):
+                                       "fall_or_help", quote=quote[:200], fall_cid=event_id or None):
             store.table().delete_item(Key={"PK": store.hh(hid), "SK": _marker("missed_checkin")})
             if _claim(hid, "fall_or_help", missed.escalation_id):
                 e = store.get_escalation(hid, missed.escalation_id)
@@ -108,7 +108,8 @@ def escalate(hid: str, reason: str, quote: str = "") -> str:
     if not _claim(hid, reason, eid):
         e = _open(hid, reason)
         return e.escalation_id if e else eid
-    e = Escalation(hid, eid, reason, quote[:200], "open", clock.iso())
+    e = Escalation(hid, eid, reason, quote[:200], "open", clock.iso(),
+                   fall_cid=(event_id or None) if reason == "fall_or_help" else None)
     store.put_escalation(e)
     store.trace(hid, "escalate", reason=reason, outcome="created", escalation_id=eid)
     _first_alerts(hid, e)
@@ -199,6 +200,12 @@ def resolve_by_elder(hid: str, correlation_id: str = "") -> bool:
 
 def is_open(hid: str, reason: str) -> bool:
     return _open(hid, reason) is not None
+
+
+def fall_raised_by(hid: str, event_id: str) -> bool:
+    """True when this event raised the open fall alert, including on a retry of that event."""
+    e = _open(hid, "fall_or_help")
+    return bool(event_id and e and e.fall_cid == event_id)
 
 
 def open_escalations(hid: str) -> list[Escalation]:

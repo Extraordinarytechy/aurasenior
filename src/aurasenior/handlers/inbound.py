@@ -178,7 +178,7 @@ def _tap(person: Person, res, eid: str) -> None:
 def handle_text(person: Person, channel: str, text: str, eid: str, *, voice: bool, simulated: bool = False) -> None:
     if consent.handle(person, channel, text, correlation_id=f"{eid}#consent", simulated=simulated):
         return
-    told = _fall_words(person, text)
+    told = _fall_words(person, text, eid)
     if channel in ("sms", "rcs") and not person.is_elder:
         res = postback.digit(person, text)
         if res is not None:
@@ -188,14 +188,13 @@ def handle_text(person: Person, channel: str, text: str, eid: str, *, voice: boo
                            {"event_id": eid, "text": text, "voice": voice, "elder_told": told})
 
 
-def _fall_words(person: Person, text: str) -> bool:
-    """Escalate on fall or help words. True when this message started the fall alert, so the elder has just
-    heard esc_told_elder and the model reply must not repeat it."""
+def _fall_words(person: Person, text: str, eid: str) -> bool:
+    """Escalate on fall or help words. True when this message raised the fall alert (also on a retry of it), so
+    the elder has heard esc_told_elder and the model reply must not repeat it."""
     if not (person.is_elder and keywords.fall_or_help(text)):
         return False
-    new = not escalation.is_open(person.household_id, "fall_or_help")
-    escalation.escalate(person.household_id, "fall_or_help", text[:200])
-    return new
+    escalation.escalate(person.household_id, "fall_or_help", text[:200], event_id=eid)
+    return escalation.fall_raised_by(person.household_id, eid)
 
 
 def _reply_delay(hid: str, pid: str, wamid: str) -> float | None:
@@ -238,7 +237,7 @@ def on_transcribe_event(event: dict) -> None:
             # Silence or noise: nothing to answer, and an empty turn would be rejected by memory.
             router.send(person, Content(phrase="not_heard", voice=True), correlation_id=f"{eid}#nh")
         elif not consent.handle(person, "whatsapp", text, correlation_id=f"{eid}#consent", simulated=simulated):
-            told = _fall_words(person, text)
+            told = _fall_words(person, text, eid)
             if person.is_elder:
                 sig = signals.extract(data, _reply_delay(hid, pid, tjob["wamid"]))
                 h = store.get_household(hid)

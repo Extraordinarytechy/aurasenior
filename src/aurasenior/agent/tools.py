@@ -132,9 +132,8 @@ def request_refill_approval_tool(ctx: ToolContext, args: dict) -> dict:
 
 def escalate_tool(ctx: ToolContext, args: dict) -> dict:
     hid = ctx.household_id
-    new_fall = args["reason"] == "fall_or_help" and not escalation.is_open(hid, "fall_or_help")
-    eid = escalation.escalate(hid, args["reason"], args.get("quote", ""))
-    if new_fall:
+    eid = escalation.escalate(hid, args["reason"], args.get("quote", ""), event_id=ctx.event_id)
+    if args["reason"] == "fall_or_help" and escalation.fall_raised_by(hid, ctx.event_id):
         # escalate() already sent the elder esc_told_elder; a model reply would only repeat it.
         ctx.messaged.add(store.get_household(hid).elder_person_id)
         return {"status": "ok", "escalation_id": eid, "elder_already_told": True}

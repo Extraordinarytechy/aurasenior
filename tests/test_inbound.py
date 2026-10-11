@@ -57,6 +57,28 @@ def test_fall_words_give_one_told_message_not_two(sample):
     assert any(t["step"] == "reply" and t["outcome"] == "skipped_already_messaged" for t in store.traces(sample))
 
 
+def test_retried_fall_message_still_gives_one_told_message(sample, monkeypatch):
+    aws.override("bedrock-runtime", ScriptedConverse([end_turn("मैंने रोहन को बता दिया है। मैं आपके साथ हूँ।")]))
+    wa = channels.get("whatsapp")
+    real = wa.send
+    state = {"done": False}
+
+    def throttle_nbr_once(msg):
+        if msg.person_id == "nbr" and not state["done"]:
+            state["done"] = True
+            return SendResult.failed("ThrottlingException", True, simulated=True)
+        return real(msg)
+
+    monkeypatch.setattr(wa, "send", throttle_nbr_once)
+    ev = wa_text(ELDER, "wamid.F2", "I fell near the chair")
+    with pytest.raises(Exception):
+        inbound.handler(ev)
+    inbound.handler(ev)
+    to_elder = [x for x in sim.read("whatsapp") if x["person_id"] == "kamala"]
+    assert [x.get("phrase_key") for x in to_elder] == ["esc_told_elder"]
+    assert any(t["step"] == "reply" and t["outcome"] == "skipped_already_messaged" for t in store.traces(sample))
+
+
 def test_model_escalate_tool_does_not_repeat_the_told_message(sample):
     from aurasenior.sim.converse import tool_use
 
