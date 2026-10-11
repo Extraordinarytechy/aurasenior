@@ -1,0 +1,47 @@
+# Config-only US household (fictional data): English-speaking elder in Ohio, daughter on RCS.
+# Same code as the India household; only this file differs.
+
+household_id = "sampleus"
+name = "Sample US household"
+timezone = "America/New_York"
+checkin_time = "08:30"
+admin_person_id = "dana"
+escalation_order = ["dana"]
+
+[[people]]
+person_id = "ruth"
+role = "elder"
+display_name = "Ruth"
+country = "US"
+language = "en-US"
+preferred_channel = "whatsapp"
+fallback_channel = "none"
+addresses = { whatsapp = "+12025550111" }
+
+[[people]]
+person_id = "dana"
+role = "family"
+display_name = "Dana"
+relation_label = "Mom"
+country = "US"
+language = "en-US"
+preferred_channel = "rcs"
+fallback_channel = "sms"
+addresses = { rcs = "+12025550112", sms = "+12025550112", email = "dana@example.com" }
+
+[[people]]
+person_id = "pharmacy"
+role = "pharmacy"
+display_name = "Main Street Pharmacy"
+country = "US"
+language = "en-US"
+preferred_channel = "email"
+fallback_channel = "none"
+addresses = { email = "pharmacy@example.com" }
+
+[[medicines]]
+medicine_id = "bp"
+name = "Lisinopril 10"
+display_label = "blood pressure pills"
+time_of_day = "morning"
+pharmacy_person_id = "pharmacy"

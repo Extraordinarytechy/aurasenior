@@ -13,6 +13,7 @@ credentials
 cdk.out/
 .aws-sam/
 .sim/
+households/*.local.toml
 
 # Internal working notes (reviews, plans, verification logs). Never published.
 .internal/

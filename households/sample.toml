@@ -1,0 +1,90 @@
+# Sample household (fictional data). Elder in India on WhatsApp, son in the US on RCS with SMS fallback,
+# a simulator record to show the SMS fallback, a neighbour, a doctor and a pharmacy.
+# Numbers are fictional: +91000000000x cannot be Indian mobiles, +1202555010x are US 555-01xx numbers,
+# +14254147755 is the documented SMS simulator destination. Real numbers go in households/*.local.toml.
+
+household_id = "sample01"
+name = "Sample household"
+timezone = "Asia/Kolkata"
+checkin_time = "09:00"
+admin_person_id = "rohan"
+escalation_order = ["rohan", "nbr"]
+share_transcripts = false
+
+[[people]]
+person_id = "kamala"
+role = "elder"
+display_name = "Kamala"
+country = "IN"
+language = "hi-IN"
+preferred_channel = "whatsapp"
+fallback_channel = "none"
+addresses = { whatsapp = "+910000000001" }
+
+[[people]]
+person_id = "rohan"
+role = "family"
+display_name = "Rohan"
+relation_label = "Mom"
+country = "US"
+language = "en-US"
+preferred_channel = "rcs"
+fallback_channel = "sms"
+addresses = { rcs = "+12025550101", sms = "+12025550101", email = "rohan@example.com" }
+
+[[people]]
+person_id = "simfam"
+role = "family"
+display_name = "Simulator family"
+relation_label = "Mom"
+country = "US"
+language = "en-US"
+preferred_channel = "rcs"
+fallback_channel = "none"
+simulated = true
+addresses = { rcs = "+14254147755", sms = "+14254147755" }
+
+[[people]]
+person_id = "nbr"
+role = "neighbour"
+display_name = "Sunita"
+relation_label = "Kamala ji"
+country = "IN"
+language = "hi-IN"
+preferred_channel = "whatsapp"
+fallback_channel = "email"
+addresses = { whatsapp = "+910000000002", email = "neighbour@example.com" }
+
+[[people]]
+person_id = "doctor"
+role = "doctor"
+display_name = "Clinic"
+country = "IN"
+language = "en-IN"
+preferred_channel = "email"
+fallback_channel = "none"
+addresses = { email = "doctor@example.com" }
+
+[[people]]
+person_id = "pharmacy"
+role = "pharmacy"
+display_name = "City Pharmacy"
+country = "IN"
+language = "en-IN"
+preferred_channel = "email"
+fallback_channel = "none"
+addresses = { email = "pharmacy@example.com" }
+
+[[medicines]]
+medicine_id = "bp"
+name = "Amlodipine 5"
+display_label = "BP tablets"
+time_of_day = "morning"
+pharmacy_person_id = "pharmacy"
+
+[[medicines]]
+medicine_id = "sugar"
+name = "Metformin 500"
+display_label = "sugar tablet"
+time_of_day = "morning"
+pharmacy_person_id = "pharmacy"
