@@ -26,7 +26,7 @@ def test_address_lookup_and_consent(table, frozen):
     store.put_person(_elder())
     store.put_addr("whatsapp", "+910000000001", "hh1", "p1")
     assert store.lookup_addr("whatsapp", "+910000000001") == ("hh1", "p1")
-    assert store.lookup_addr("whatsapp", "+919999999999") is None
+    assert store.lookup_addr("whatsapp", "+910000000099") is None
     store.set_consent("hh1", "p1", "whatsapp", "opted_in", "wa_inbound_yes")
     assert store.get_person("hh1", "p1").consent["whatsapp"]["source"] == "wa_inbound_yes"
 

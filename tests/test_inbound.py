@@ -95,7 +95,7 @@ def test_listen_tap_sends_voice_note_without_model(sample):
 
 
 def test_unknown_sender_gets_nothing(sample):
-    inbound.handler(wa_text("+919999999999", "wamid.T7", "hello"))
+    inbound.handler(wa_text("+910000000099", "wamid.T7", "hello"))
     assert sim.read("whatsapp") == []
 
 
