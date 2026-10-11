@@ -11,3 +11,18 @@ node_modules/
 credentials
 *.pem
 cdk.out/
+.aws-sam/
+.sim/
+
+# Internal working notes (reviews, plans, verification logs). Never published.
+.internal/
+docs/design-review.md
+docs/design-review.json
+docs/plan.md
+docs/plan/
+docs/review.md
+docs/review.json
+docs/review-*.md
+docs/review-*.json
+docs/verification.md
+docs/verification-*.md
