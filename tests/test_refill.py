@@ -1,6 +1,8 @@
 import pytest
 
-from aurasenior import aws, refill, schedules, sim, store
+from aurasenior import aws, channels, refill, schedules, sim, store
+from aurasenior.channels.base import SendResult
+from aurasenior.router import RetryableSendError
 
 
 class NoModel:
@@ -44,6 +46,28 @@ def test_missing_pharmacy_consent_gives_order_failed(sample, approval, capsys):
     assert sim.read("rcs")[-1]["text"] == "The order email could not be sent. Please call the pharmacy."
     assert store.get_approval(sample, approval).status == "approved"
     assert '"ERROR"' in capsys.readouterr().out
+
+
+def test_retried_approve_tap_sends_the_order_once(sample, approval, monkeypatch):
+    email = channels.get("email")
+    real = email.send
+    state = {"n": 0}
+
+    def flaky(msg):
+        state["n"] += 1
+        if state["n"] == 1:
+            return SendResult.failed("TooManyRequestsException", True, simulated=True)
+        return real(msg)
+
+    monkeypatch.setattr(email, "send", flaky)
+    with pytest.raises(RetryableSendError):
+        refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1")
+    assert store.get_approval(sample, approval).status == "approved"
+    assert refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1") == "ordered"
+    assert refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1") == "ordered"
+    assert len([x for x in sim.read("email") if x.get("template") == "aurasenior-refill-order"]) == 1
+    assert len([x for x in sim.read("whatsapp") if x["person_id"] == "kamala"]) == 1
+    assert store.get_approval(sample, approval).status == "ordered"
 
 
 def test_wrong_person_tap_is_ignored(sample, approval):

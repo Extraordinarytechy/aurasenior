@@ -61,12 +61,17 @@ def handle_action(hid: str, sender_pid: str, action: str, target: str | None, *,
         _elder_number(hid, sender_pid, correlation_id)
         return "number_sent"
     new = {"refill:approve": "approved", "refill:self": "self"}.get(action)
-    if not new or not store.transition(store.hh(hid), f"APPROVAL#{a.approval_id}", "status", "pending", new,
-                                       handled_at=clock.iso()):
+    if not new:
         _help(hid, sender_pid, correlation_id)
         return "already_handled"
+    if store.transition(store.hh(hid), f"APPROVAL#{a.approval_id}", "status", "pending", new,
+                        handled_at=clock.iso(), handled_cid=correlation_id):
+        store.trace(hid, "refill", outcome=new, approval_id=a.approval_id, person_id=sender_pid)
+    elif not (a.handled_cid == correlation_id and _done_states(new, a.status)):
+        _help(hid, sender_pid, correlation_id)
+        return "already_handled"
+    # Also reached on a retry of the same tap: the sends below are SEND# deduped.
     schedules.delete_approval_expiry(a.approval_id)
-    store.trace(hid, "refill", outcome=new, approval_id=a.approval_id, person_id=sender_pid)
     if new == "approved":
         return send_pharmacy_order(hid, a.approval_id, correlation_id=correlation_id)
     med = store.get_medicine(hid, a.medicine_id)
@@ -77,10 +82,14 @@ def handle_action(hid: str, sender_pid: str, action: str, target: str | None, *,
     return "self"
 
 
+def _done_states(new: str, status: str) -> bool:
+    return status in (("approved", "ordered") if new == "approved" else ("self",))
+
+
 def send_pharmacy_order(hid: str, aid: str, *, correlation_id: str) -> str:
-    """Plain code, never a model tool. Only runs after a person approved."""
+    """Plain code, never a model tool. Only runs after a person approved; "ordered" means a retry finishing."""
     a = store.get_approval(hid, aid)
-    if not a or a.status != "approved":
+    if not a or a.status not in ("approved", "ordered"):
         log.get().warning("pharmacy order skipped", extra={"household_id": hid})
         return "not_approved"
     med = store.get_medicine(hid, a.medicine_id)
@@ -95,9 +104,9 @@ def send_pharmacy_order(hid: str, aid: str, *, correlation_id: str) -> str:
         log.get().error("pharmacy order email not sent", extra={"household_id": hid, "outcome": r.outcome})
         router.send(approver, Content(phrase="refill_order_failed"), correlation_id=f"{correlation_id}#failed")
         return "order_failed"
-    store.transition(store.hh(hid), f"APPROVAL#{aid}", "status", "approved", "ordered", ordered_at=clock.iso())
-    store.set_stock(hid, med.medicine_id, "ordered")
-    store.trace(hid, "refill", outcome="ordered", approval_id=aid, channel="email", simulated=r.simulated)
+    if store.transition(store.hh(hid), f"APPROVAL#{aid}", "status", "approved", "ordered", ordered_at=clock.iso()):
+        store.set_stock(hid, med.medicine_id, "ordered")
+        store.trace(hid, "refill", outcome="ordered", approval_id=aid, channel="email", simulated=r.simulated)
     router.send(elder, Content(phrase="refill_ordered_elder", voice=True,
                                vars={"family_name": approver.display_name, "display_label": med.display_label},
                                wa_template="aurasenior_refill_update",
