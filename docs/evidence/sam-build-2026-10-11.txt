@@ -1,0 +1,12 @@
+$ sam build   (SAM CLI 1.165.0, python3.13, arm64)
+Building codeuri: src runtime: python3.13 architecture: arm64 functions: InboundFunction, ScheduledFunction
+ Running PythonPipBuilder:ResolveDependencies
+ Running PythonPipBuilder:CopySource
+
+Build Succeeded
+
+Built Artifacts  : .aws-sam/build
+Built Template   : .aws-sam/build/template.yaml
+exit=0
+
+.aws-sam/build/InboundFunction/ contains: aurasenior/, config/, boto3-1.43.111.dist-info, botocore-1.43.111.dist-info

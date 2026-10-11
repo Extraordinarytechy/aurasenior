@@ -1,0 +1,634 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: AuraSenior - WhatsApp voice companion for older people, with family updates on RCS, SMS and email.
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Description: Receives budget alerts, the error alarm and failed-event notices.
+  SenderEmail:
+    Type: String
+    Description: Verified SES identity used as the From address.
+  RcsAgentId:
+    Type: String
+    Default: ""
+    Description: RCS testing agent ID. Empty keeps RCS on the simulator adapter.
+  WhatsAppPhoneNumberId:
+    Type: String
+    Default: ""
+    Description: End User Messaging Social phone number ID. Empty keeps WhatsApp on the simulator adapter.
+  GuardrailProfileId:
+    Type: String
+    Default: us.guardrail.v1:0
+    Description: Guardrail profile for the Standard tier. Empty selects the Classic tier.
+  AgentCoreMemory:
+    Type: String
+    Default: "on"
+    AllowedValues: ["on", "off"]
+    Description: Long-term memory for the elder in Amazon Bedrock AgentCore Memory, with DynamoDB fallback.
+
+Conditions:
+  HasWhatsApp: !Not [!Equals [!Ref WhatsAppPhoneNumberId, ""]]
+  HasRcsAgent: !Not [!Equals [!Ref RcsAgentId, ""]]
+  HasGuardrailProfile: !Not [!Equals [!Ref GuardrailProfileId, ""]]
+  HasAgentCoreMemory: !Equals [!Ref AgentCoreMemory, "on"]
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures: [arm64]
+    Timeout: 120
+    MemorySize: 512
+    CodeUri: src/
+    Tags:
+      project: aurasenior
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref HouseholdTable
+        MEDIA_BUCKET: !Ref MediaBucket
+        SENDER_EMAIL: !Ref SenderEmail
+        RCS_AGENT_ID: !Ref RcsAgentId
+        WHATSAPP_PHONE_NUMBER_ID: !Ref WhatsAppPhoneNumberId
+        SMS_ORIGINATION_NUMBER_ARN: !GetAtt SimulatorNumber.Arn
+        WHATSAPP_TOPIC_ARN: !Ref WhatsAppEventsTopic
+        SMS_RCS_TOPIC_ARN: !Ref SmsRcsEventsTopic
+        EMAIL_TOPIC_ARN: !Ref EmailEventsTopic
+        SCHEDULED_FUNCTION_ARN: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:aurasenior-scheduled
+        SCHEDULER_ROLE_ARN: !GetAtt SchedulerRole.Arn
+        GUARDRAIL_ID: !GetAtt Guardrail.GuardrailId
+        GUARDRAIL_VERSION: !GetAtt GuardrailVersion.Version
+        GUARDRAIL_MODE: !If [HasGuardrailProfile, standard, classic]
+        AGENTCORE_MEMORY_ID: !If [HasAgentCoreMemory, !GetAtt AuraSeniorMemory.MemoryId, ""]
+        AURASENIOR_MODE_WHATSAPP: !If [HasWhatsApp, aws, sim]
+        AURASENIOR_MODE_RCS: !If [HasRcsAgent, aws, sim]
+        AURASENIOR_MODE_SMS: aws
+        AURASENIOR_MODE_EMAIL: aws
+        AURASENIOR_MODE_POLLY: aws
+        AURASENIOR_MODE_TRANSCRIBE: aws
+        AURASENIOR_MODE_SCHEDULER: aws
+        AURASENIOR_MODE_CONVERSE: aws
+        AURASENIOR_MODE_MEMORY: aws
+
+Resources:
+  # Data
+
+  HouseholdTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: aurasenior-household
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: PK, AttributeType: S}
+        - {AttributeName: SK, AttributeType: S}
+      KeySchema:
+        - {AttributeName: PK, KeyType: HASH}
+        - {AttributeName: SK, KeyType: RANGE}
+      TimeToLiveSpecification: {AttributeName: ttl, Enabled: true}
+      Tags: [{Key: project, Value: aurasenior}]
+
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub aurasenior-media-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - {Id: expire-media, Status: Enabled, ExpirationInDays: 30}
+      Tags: [{Key: project, Value: aurasenior}]
+
+  # Event fan-in: one Allow statement per topic for its publishing service, no public endpoint.
+
+  WhatsAppEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: aurasenior-whatsapp-events
+      Tags: [{Key: project, Value: aurasenior}]
+
+  SmsRcsEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: aurasenior-sms-rcs-events
+      Tags: [{Key: project, Value: aurasenior}]
+
+  EmailEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: aurasenior-email-events
+      Tags: [{Key: project, Value: aurasenior}]
+
+  FailedEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: aurasenior-failed-events
+      Tags: [{Key: project, Value: aurasenior}]
+
+  FailedEventsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref FailedEventsTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  WhatsAppEventsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref WhatsAppEventsTopic]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: social-messaging.amazonaws.com}
+            Action: sns:Publish
+            Resource: !Ref WhatsAppEventsTopic
+            Condition: {StringEquals: {aws:SourceAccount: !Ref AWS::AccountId}}
+
+  SmsRcsEventsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref SmsRcsEventsTopic]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: sms-voice.amazonaws.com}
+            Action: sns:Publish
+            Resource: !Ref SmsRcsEventsTopic
+            Condition: {StringEquals: {aws:SourceAccount: !Ref AWS::AccountId}}
+
+  EmailEventsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref EmailEventsTopic]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ses.amazonaws.com}
+            Action: sns:Publish
+            Resource: !Ref EmailEventsTopic
+            Condition: {StringEquals: {aws:SourceAccount: !Ref AWS::AccountId}}
+
+  # Compute
+
+  InboundLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/aurasenior-inbound
+      RetentionInDays: 14
+
+  ScheduledLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/aurasenior-scheduled
+      RetentionInDays: 14
+
+  InboundFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: InboundLogGroup
+    Properties:
+      FunctionName: aurasenior-inbound
+      Handler: aurasenior.handlers.inbound.handler
+      Role: !GetAtt InboundRole.Arn
+      Events:
+        WhatsAppEvents:
+          Type: SNS
+          Properties: {Topic: !Ref WhatsAppEventsTopic}
+        SmsRcsEvents:
+          Type: SNS
+          Properties: {Topic: !Ref SmsRcsEventsTopic}
+        EmailEvents:
+          Type: SNS
+          Properties: {Topic: !Ref EmailEventsTopic}
+        TranscribeDone:
+          Type: EventBridgeRule
+          Properties:
+            RuleName: aurasenior-transcribe-done
+            Pattern:
+              source: [aws.transcribe]
+              detail-type: [Transcribe Job State Change]
+              detail:
+                TranscriptionJobStatus: [COMPLETED, FAILED]
+                TranscriptionJobName: [{prefix: aurasenior-}]
+
+  ScheduledFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: ScheduledLogGroup
+    Properties:
+      FunctionName: aurasenior-scheduled
+      Handler: aurasenior.handlers.scheduled.handler
+      Role: !GetAtt ScheduledRole.Arn
+
+  InboundEventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref InboundFunction
+      Qualifier: $LATEST
+      MaximumRetryAttempts: 2
+      DestinationConfig:
+        OnFailure: {Destination: !Ref FailedEventsTopic}
+
+  ScheduledEventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref ScheduledFunction
+      Qualifier: $LATEST
+      MaximumRetryAttempts: 2
+      DestinationConfig:
+        OnFailure: {Destination: !Ref FailedEventsTopic}
+
+  SchedulerGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Properties:
+      Name: aurasenior
+      Tags: [{Key: project, Value: aurasenior}]
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: aurasenior-scheduler
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: scheduler.amazonaws.com}
+            Action: sts:AssumeRole
+            Condition: {StringEquals: {aws:SourceAccount: !Ref AWS::AccountId}}
+      Policies:
+        - PolicyName: invoke-scheduled
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:aurasenior-scheduled
+      Tags: [{Key: project, Value: aurasenior}]
+
+  # One shared least-privilege policy for both function roles; each role adds only its own log group.
+  FunctionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: aurasenior-functions
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:DeleteItem, dynamodb:Query]
+            Resource: !GetAtt HouseholdTable.Arn
+          - Effect: Allow
+            Action: [s3:GetObject, s3:PutObject]
+            Resource: !Sub arn:aws:s3:::aurasenior-media-${AWS::AccountId}/*
+          - Effect: Allow
+            Action: transcribe:StartTranscriptionJob
+            Resource: "*"   # this action supports no resource type
+          - Effect: Allow
+            Action: transcribe:GetTranscriptionJob
+            Resource: !Sub arn:aws:transcribe:${AWS::Region}:${AWS::AccountId}:transcription-job/aurasenior-*
+          - Effect: Allow
+            Action: bedrock:InvokeModel
+            Resource:
+              - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-2-lite-v1:0
+              - arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0
+              - arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0
+              - arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0
+          - Effect: Allow
+            Action: bedrock:ApplyGuardrail
+            Resource:
+              - !GetAtt Guardrail.GuardrailArn
+              - !If
+                - HasGuardrailProfile
+                - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail-profile/${GuardrailProfileId}
+                - !Ref AWS::NoValue
+          - Effect: Allow
+            Action: polly:SynthesizeSpeech
+            Resource: "*"   # the only resource type is a lexicon; no lexicons are used
+          - !If
+            - HasWhatsApp
+            - Effect: Allow
+              Action: [social-messaging:SendWhatsAppMessage, social-messaging:PostWhatsAppMessageMedia,
+                       social-messaging:GetWhatsAppMessageMedia]
+              Resource: !Sub arn:aws:social-messaging:${AWS::Region}:${AWS::AccountId}:phone-number-id/${WhatsAppPhoneNumberId}
+            - !Ref AWS::NoValue
+          - Effect: Allow
+            Action: sms-voice:SendRcsMessage
+            Resource:
+              - !GetAtt SimulatorNumber.Arn
+              - !Sub arn:aws:sms-voice:${AWS::Region}:${AWS::AccountId}:configuration-set/aurasenior-sms
+              - !If
+                - HasRcsAgent
+                - !Sub arn:aws:sms-voice:${AWS::Region}:${AWS::AccountId}:rcs-agent/${RcsAgentId}
+                - !Ref AWS::NoValue
+          - Effect: Allow
+            Action: sms-voice:SendTextMessage
+            Resource:
+              - !GetAtt SimulatorNumber.Arn
+              - !Sub arn:aws:sms-voice:${AWS::Region}:${AWS::AccountId}:configuration-set/aurasenior-sms
+          - Effect: Allow
+            Action: sns:Publish
+            Resource: !Ref FailedEventsTopic
+          - Effect: Allow
+            Action: ses:SendEmail
+            Resource:
+              # Sandbox: recipients come from household data. Narrow to identity/<SenderEmail> after production access.
+              - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*
+              - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/aurasenior-email
+              - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:template/aurasenior-*
+          - !If
+            - HasAgentCoreMemory
+            - Effect: Allow
+              Action: [bedrock-agentcore:CreateEvent, bedrock-agentcore:RetrieveMemoryRecords]
+              Resource: !GetAtt AuraSeniorMemory.MemoryArn
+            - !Ref AWS::NoValue
+          - Effect: Allow
+            Action: [scheduler:CreateSchedule, scheduler:DeleteSchedule]
+            Resource: !Sub arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/aurasenior/*
+          - Effect: Allow
+            Action: iam:PassRole
+            Resource: !GetAtt SchedulerRole.Arn
+            Condition: {StringEquals: {iam:PassedToService: scheduler.amazonaws.com}}
+
+  InboundRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: aurasenior-inbound-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - {Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: sts:AssumeRole}
+      ManagedPolicyArns: [!Ref FunctionPolicy]
+      Policies:
+        - PolicyName: logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/aurasenior-inbound:log-stream:*
+      Tags: [{Key: project, Value: aurasenior}]
+
+  ScheduledRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: aurasenior-scheduled-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - {Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: sts:AssumeRole}
+      ManagedPolicyArns: [!Ref FunctionPolicy]
+      Policies:
+        - PolicyName: logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/aurasenior-scheduled:log-stream:*
+      Tags: [{Key: project, Value: aurasenior}]
+
+  # Errors: count JSON ERROR log lines and function errors in one alarm.
+
+  ErrorLogMetricFilterInbound:
+    Type: AWS::Logs::MetricFilter
+    DependsOn: InboundLogGroup
+    Properties:
+      LogGroupName: /aws/lambda/aurasenior-inbound
+      FilterPattern: '{ $.level = "ERROR" }'
+      MetricTransformations:
+        - {MetricNamespace: AuraSenior, MetricName: ErrorLogs, MetricValue: "1"}
+
+  ErrorLogMetricFilterScheduled:
+    Type: AWS::Logs::MetricFilter
+    DependsOn: ScheduledLogGroup
+    Properties:
+      LogGroupName: /aws/lambda/aurasenior-scheduled
+      FilterPattern: '{ $.level = "ERROR" }'
+      MetricTransformations:
+        - {MetricNamespace: AuraSenior, MetricName: ErrorLogs, MetricValue: "1"}
+
+  ErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: aurasenior-errors
+      Metrics:
+        - Id: logs
+          MetricStat: {Metric: {Namespace: AuraSenior, MetricName: ErrorLogs}, Period: 300, Stat: Sum}
+          ReturnData: false
+        - Id: fin
+          MetricStat:
+            Metric: {Namespace: AWS/Lambda, MetricName: Errors, Dimensions: [{Name: FunctionName, Value: aurasenior-inbound}]}
+            Period: 300
+            Stat: Sum
+          ReturnData: false
+        - Id: fsc
+          MetricStat:
+            Metric: {Namespace: AWS/Lambda, MetricName: Errors, Dimensions: [{Name: FunctionName, Value: aurasenior-scheduled}]}
+            Period: 300
+            Stat: Sum
+          ReturnData: false
+        - Id: total
+          Expression: FILL(logs,0) + FILL(fin,0) + FILL(fsc,0)
+          Label: aurasenior error count
+          ReturnData: true
+      EvaluationPeriods: 1
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref FailedEventsTopic]
+
+  # Email (SES): configuration set with events to SNS, contact list for unsubscribe, templates.
+
+  EmailConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: aurasenior-email
+
+  EmailEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref EmailConfigurationSet
+      EventDestination:
+        Name: aurasenior-email-events
+        Enabled: true
+        MatchingEventTypes: [send, delivery, bounce, complaint, reject, renderingFailure]
+        SnsDestination: {TopicARN: !Ref EmailEventsTopic}
+
+  EmailContactList:
+    Type: AWS::SES::ContactList
+    Properties:
+      ContactListName: aurasenior-contacts
+      Topics:
+        - {TopicName: updates, DisplayName: Updates, DefaultSubscriptionStatus: OPT_IN}
+
+  RefillOrderTemplate:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: aurasenior-refill-order
+        SubjectPart: "{{brand}}: Refill request for {{elder_name}}"
+        TextPart: "Hello {{pharmacy_name}}. Please prepare a refill of {{medicine_name}} for {{elder_name}}, approved by {{approver_name}} at {{approved_at}}."
+        HtmlPart: "<p>Hello {{pharmacy_name}}.</p><p>Please prepare a refill of {{medicine_name}} for {{elder_name}}, approved by {{approver_name}} at {{approved_at}}.</p>"
+
+  WeeklySummaryTemplate:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: aurasenior-weekly-summary
+        SubjectPart: "{{brand}}: {{elder_name}}, week of {{week_start}}"
+        TextPart: "Medicines: {{medicines}}\nRefills: {{refills}}\nMissed check-ins: {{missed_checkins}}\nAlerts: {{escalations}}\nPain mentioned: {{pain_mentions}} times. Low mood mentioned: {{low_mood_mentions}} times.\n\nThis is a summary of what {{elder_name}} told {{brand}}. It is not medical advice."
+        HtmlPart: "<p>Medicines: {{medicines}}</p><p>Refills: {{refills}}</p><p>Missed check-ins: {{missed_checkins}}</p><p>Alerts: {{escalations}}</p><p>Pain mentioned: {{pain_mentions}} times. Low mood mentioned: {{low_mood_mentions}} times.</p><p>This is a summary of what {{elder_name}} told {{brand}}. It is not medical advice.</p>"
+
+  MissedCheckinTemplate:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: aurasenior-missed-checkin
+        SubjectPart: "{{brand}}: No reply from {{relation_label}} this morning"
+        TextPart: "No reply from {{relation_label}} to this morning's check-in. Reply on WhatsApp or RCS with I'm on it."
+        HtmlPart: "<p>No reply from {{relation_label}} to this morning's check-in. Reply on WhatsApp or RCS with I'm on it.</p>"
+
+  RefillRequestTemplate:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: aurasenior-refill-request
+        SubjectPart: "{{brand}}: {{relation_label}}'s {{display_label}} ran out"
+        TextPart: "Reply on WhatsApp to order a refill, or call {{relation_label}}."
+        HtmlPart: "<p>Reply on WhatsApp to order a refill, or call {{relation_label}}.</p>"
+
+  UpdateTemplate:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: aurasenior-update
+        SubjectPart: "{{brand}}: Update about {{relation_label}}"
+        TextPart: "{{update_text}}"
+        HtmlPart: "<p>{{update_text}}</p>"
+
+  UrgentTemplate:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: aurasenior-urgent
+        SubjectPart: "{{brand}}: URGENT: {{relation_label}} may need help"
+        TextPart: "{{relation_label}} said \"{{quote}}\". Please check on {{relation_label}} now. Reply on WhatsApp or RCS with I'm on it."
+        HtmlPart: "<p>{{relation_label}} said \"{{quote}}\". Please check on {{relation_label}} now. Reply on WhatsApp or RCS with I'm on it.</p>"
+
+  # SMS and RCS: simulator origination number, opt-out list and configuration set with events to SNS.
+
+  OptOutList:
+    Type: AWS::SMSVOICE::OptOutList
+    Properties:
+      OptOutListName: aurasenior-optout
+      Tags: [{Key: project, Value: aurasenior}]
+
+  SmsConfigurationSet:
+    Type: AWS::SMSVOICE::ConfigurationSet
+    Properties:
+      ConfigurationSetName: aurasenior-sms
+      EventDestinations:
+        - EventDestinationName: aurasenior-sms-rcs-events
+          Enabled: true
+          MatchingEventTypes: [ALL]
+          SnsDestination: {TopicArn: !Ref SmsRcsEventsTopic}
+      Tags: [{Key: project, Value: aurasenior}]
+
+  SimulatorNumber:
+    Type: AWS::SMSVOICE::PhoneNumber
+    Properties:
+      IsoCountryCode: US
+      NumberType: SIMULATOR
+      NumberCapabilities: [SMS]
+      OptOutListName: !Ref OptOutList
+      MandatoryKeywords:
+        HELP: {Message: "Reply 1 to order, 2 if you will handle it, 3 for the number, 4 if you are on it. STOP to stop."}
+        STOP: {Message: "You will not get more messages. Reply START to begin again."}
+      TwoWay:
+        Enabled: true
+        ChannelArn: !Ref SmsRcsEventsTopic
+      Tags: [{Key: project, Value: aurasenior}]
+
+  # Model safety: denied topics on model input and output; the outbound guard covers every send.
+
+  Guardrail:
+    Type: AWS::Bedrock::Guardrail
+    Properties:
+      Name: aurasenior-safety
+      Description: Denies diagnosis and medication dose advice.
+      BlockedInputMessaging: I can not help with that. I will let the family know.
+      BlockedOutputsMessaging: I can not help with that. I will let the family know.
+      TopicPolicyConfig:
+        TopicsConfig:
+          - Name: Medical diagnosis
+            Definition: Naming an illness or condition a person may have, or judging how serious their health is.
+            Type: DENY
+            Examples: ["Do I have diabetes?", "Is this a stroke?"]
+          - Name: Medication dose advice
+            Definition: Telling a person to start, stop, skip or change the amount of a medicine.
+            Type: DENY
+            Examples: ["Should I take two tablets today?", "Can I skip my BP tablet?"]
+        TopicsTierConfig:
+          TierName: !If [HasGuardrailProfile, STANDARD, CLASSIC]
+      CrossRegionConfig: !If
+        - HasGuardrailProfile
+        - GuardrailProfileArn: !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail-profile/${GuardrailProfileId}
+        - !Ref AWS::NoValue
+      Tags: [{Key: project, Value: aurasenior}]
+
+  GuardrailVersion:
+    Type: AWS::Bedrock::GuardrailVersion
+    Properties:
+      GuardrailIdentifier: !GetAtt Guardrail.GuardrailId
+      Description: Version used by the functions.
+
+  # Elder long-term memory. Built-in strategies only, so no execution role is set.
+
+  AuraSeniorMemory:
+    Type: AWS::BedrockAgentCore::Memory
+    Condition: HasAgentCoreMemory
+    Properties:
+      Name: aurasenior_memory
+      Description: Elder routine, people and past check-ins.
+      EventExpiryDuration: 30
+      MemoryStrategies:
+        - SemanticMemoryStrategy:
+            Name: facts
+            Namespaces: ["/aurasenior/facts/{actorId}/"]
+        - SummaryMemoryStrategy:
+            Name: checkins
+            Namespaces: ["/aurasenior/checkins/{actorId}/{sessionId}/"]
+      Tags:
+        project: aurasenior
+
+  MonthlyBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: aurasenior-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: 25, Unit: USD}
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+
+Outputs:
+  TableName:
+    Value: !Ref HouseholdTable
+  WhatsAppEventsTopicArn:
+    Value: !Ref WhatsAppEventsTopic
+  SmsRcsEventsTopicArn:
+    Value: !Ref SmsRcsEventsTopic
+  EmailEventsTopicArn:
+    Value: !Ref EmailEventsTopic
+  SmsOriginationNumberArn:
+    Value: !GetAtt SimulatorNumber.Arn
+  GuardrailId:
+    Value: !GetAtt Guardrail.GuardrailId
+  GuardrailVersion:
+    Value: !GetAtt GuardrailVersion.Version
+  AgentCoreMemoryId:
+    Condition: HasAgentCoreMemory
+    Value: !GetAtt AuraSeniorMemory.MemoryId
