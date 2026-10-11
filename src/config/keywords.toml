@@ -1,0 +1,70 @@
+# Keyword sets per phrase language ("hi" for Hindi rows, "en" for English rows).
+# STOP / START / YES match only when the whole normalised message equals an entry.
+
+[stop]
+hi = ["stop", "बंद", "band", "बन्द", "रुको"]
+en = ["stop", "stopall", "unsubscribe", "cancel", "end", "quit"]
+
+[start]
+hi = ["start", "शुरू", "shuru"]
+en = ["start", "unstop"]
+
+[yes]
+hi = ["yes", "हाँ", "हां", "haan", "ha", "han", "जी हाँ", "ji haan"]
+en = ["yes", "y", "yes please", "ok yes"]
+
+# Fall and help words, checked for every language. match: token, prefix or phrase.
+[[fall_help]]
+text = "help"
+match = "token"
+[[fall_help]]
+text = "fell"
+match = "token"
+[[fall_help]]
+text = "fallen"
+match = "token"
+[[fall_help]]
+text = "slipped"
+match = "token"
+[[fall_help]]
+text = "can t get up"
+match = "phrase"
+[[fall_help]]
+text = "cannot get up"
+match = "phrase"
+[[fall_help]]
+text = "i fell"
+match = "phrase"
+[[fall_help]]
+text = "मदद"
+match = "token"
+[[fall_help]]
+text = "बचाओ"
+match = "token"
+[[fall_help]]
+text = "गिर"
+match = "prefix"
+[[fall_help]]
+text = "fisal"
+match = "prefix"
+[[fall_help]]
+text = "फिसल"
+match = "prefix"
+[[fall_help]]
+text = "madad"
+match = "token"
+[[fall_help]]
+text = "gir gayi"
+match = "phrase"
+[[fall_help]]
+text = "gir gai"
+match = "phrase"
+
+# Mention lists for voice change signals (counted, never quoted in alerts).
+[mentions.pain]
+token = ["pain", "hurts", "hurt", "ache", "aching", "दर्द", "dard"]
+phrase = ["dukh raha", "दुख रहा"]
+
+[mentions.low_mood]
+token = ["lonely", "sad", "tired", "akeli", "udaas", "उदास", "अकेली", "थकी", "थकान"]
+phrase = ["mann nahi", "मन नहीं", "not feeling good"]
