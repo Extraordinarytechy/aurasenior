@@ -108,8 +108,9 @@ def get_week(ctx: ToolContext, _args: dict) -> dict:
 def log_medicine(ctx: ToolContext, args: dict) -> dict:
     if not store.get_medicine(ctx.household_id, args["medicine_id"]):
         return {"status": "error", "reason": "unknown medicine_id"}
-    store.log_medicine(ctx.household_id, args["medicine_id"], ctx.local_date, taken=args["taken"],
-                       out_of_stock=args["out_of_stock"], source_msg=ctx.event_id)
+    if not store.log_medicine(ctx.household_id, args["medicine_id"], ctx.local_date, taken=args["taken"],
+                              out_of_stock=args["out_of_stock"], source_msg=ctx.event_id):
+        return {"status": "ok", "note": "already logged today"}
     return {"status": "ok"}
 
 

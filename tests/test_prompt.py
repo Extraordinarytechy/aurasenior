@@ -15,6 +15,17 @@ def test_family_prompt_excludes_elder_turns(sample):
     assert "Mom" in system
 
 
+def test_family_prompt_speaks_to_the_family_member_not_the_elder(sample):
+    family, _ = prompt.system_prompt(sample, store.get_person(sample, "rohan"), {"text": "YES please"})
+    elder, _ = prompt.system_prompt(sample, store.get_person(sample, "kamala"), {"text": "हाँ"})
+    assert "You are talking with Rohan, not with the elder" in family
+    assert 'Never address Rohan as Mom' in family
+    assert "talking with the elder herself" not in family and "call suggest_call once" not in family
+    assert "talking with the elder herself" in elder and "Rohan, not with the elder" not in elder
+    for system in (family, elder):
+        assert "never repeat their tool calls" in system
+
+
 def test_memory_block_present_for_elder(sample):
     DynamoMemoryStore("hi-IN").remember(sample, "kamala", "Granddaughter Priya calls on Sundays")
     system, mem = prompt.system_prompt(sample, store.get_person(sample, "kamala"), {"text": "hello"})

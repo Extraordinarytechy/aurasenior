@@ -1,9 +1,25 @@
 """Refill approval: the model can only ask; ordering is plain code after a person taps Order refill."""
 from __future__ import annotations
 
+from datetime import timedelta
+
 from . import clock, log, router, schedules, store
 from .models import Approval
 from .router import Content
+
+
+RECENT_HOURS = 24
+
+
+def open_request(hid: str, medicine_id: str) -> Approval | None:
+    """A pending request, or one family approved or ordered in the last day (its order may still be on the way)."""
+    since = clock.iso(clock.now() - timedelta(hours=RECENT_HOURS))
+    for a in sorted(store.approvals(hid), key=lambda x: x.created_at, reverse=True):
+        if a.medicine_id != medicine_id:
+            continue
+        if a.status == "pending" or (a.status in ("approved", "ordered") and (a.handled_at or "") >= since):
+            return a
+    return None
 
 
 def request_refill_approval(hid: str, medicine_id: str, ask_person_id: str, *, correlation_id: str) -> dict:
@@ -11,9 +27,11 @@ def request_refill_approval(hid: str, medicine_id: str, ask_person_id: str, *, c
     asked = store.get_person(hid, ask_person_id)
     if not med or not asked or asked.role != "family":
         return {"status": "error", "reason": "unknown medicine or person is not family"}
-    pending = [a for a in store.approvals(hid) if a.medicine_id == medicine_id and a.status == "pending"]
-    if pending:
-        return {"status": "ok", "approval_id": pending[0].approval_id, "note": "already asked"}
+    existing = open_request(hid, medicine_id)
+    if existing:
+        # Same medicine already asked about: no second card and no second expiry schedule.
+        return {"status": "ok", "approval_id": existing.approval_id, "note": "already asked",
+                "approval_status": existing.status}
     aid = store.new_id()
     now = clock.iso()
     store.put_approval(Approval(hid, aid, "refill", medicine_id, "pending", ask_person_id, now, ran_out_at=now))

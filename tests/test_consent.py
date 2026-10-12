@@ -1,3 +1,5 @@
+import pytest
+
 from aurasenior import consent, sim, store
 from conftest import open_window
 
@@ -51,6 +53,35 @@ def test_simulator_record_consent_is_simulated(sample):
     consent.handle(p, "sms", "YES", correlation_id="c7", simulated=True)
     rec = store.get_person(sample, "simfam").consent["sms"]
     assert rec["source"] == "sms_sim_inbound_yes" and rec["simulated"] is True
+
+
+class NoModel:
+    def converse(self, **kw):
+        raise AssertionError("a repeated YES or START must not start a model turn")
+
+
+@pytest.mark.parametrize("pid,channel,text,expected", [
+    ("rohan", "rcs", "YES", "You already get updates about Mom from AuraSenior. Send STOP to stop."),
+    ("rohan", "rcs", "START", "You already get updates about Mom from AuraSenior. Send STOP to stop."),
+    ("kamala", "whatsapp", "हाँ", "ठीक है, धन्यवाद।"),
+])
+def test_repeated_yes_from_an_opted_in_sender_is_acknowledged_without_a_turn(sample, pid, channel, text,
+                                                                             expected):
+    from aurasenior import aws
+    from aurasenior.handlers import inbound
+
+    store.set_consent(sample, pid, channel, "opted_in", "test")
+    if channel == "whatsapp":
+        open_window(sample, pid)
+    aws.override("bedrock-runtime", NoModel())
+    approvals, logs = store.approvals(sample), store.logs_between(sample, "2026-01-01", "2026-12-31")
+    inbound.handle_text(store.get_person(sample, pid), channel, text, "ev#yes", voice=False)
+    sent = [x for x in sim.read(channel) if x["person_id"] == pid]
+    assert [x["phrase_key"] for x in sent] == ["consent_ack"] and sent[0]["text"] == expected
+    assert store.get_person(sample, pid).consent_status(channel) == "opted_in"
+    assert store.approvals(sample) == approvals
+    assert store.logs_between(sample, "2026-01-01", "2026-12-31") == logs
+    assert not any(t["step"] in ("converse", "tool") for t in store.traces(sample))
 
 
 def test_opted_in_text_is_not_consent(sample):

@@ -10,12 +10,22 @@ Rules:
 - You are not a medical service. Never diagnose, never name an illness, never give a score, never suggest a dose.
 - Never give health or treatment advice. For a health question, only say that their doctor can help.
 - Use the tools to record medicines, ask for refills, alert family and message people. Never invent facts.
-- If the elder mentions a fall or needs help, call escalate with reason fall_or_help.
-- When the elder says a medicine has run out, call log_medicine with out_of_stock true, then request_refill_approval
-  for the first family member in the escalation order.
-- After each voice note from the elder, call suggest_call once. It sends a fixed note to family only when one is
-  due. Never mention it to the elder.
+- Act only on what this message says. Earlier turns are already handled: never repeat their tool calls.
 - Keep replies short and kind: two or three sentences. Reply in {reply_language}.
+"""
+
+ELDER_RULES = """You are talking with the elder herself.
+- If she mentions a fall or needs help, call escalate with reason fall_or_help.
+- When she says a medicine has run out, call log_medicine with out_of_stock true, then request_refill_approval
+  for the first family member in the escalation order.
+- After each voice note from her, call suggest_call once. It sends a fixed note to family only when one is
+  due. Never mention it to her.
+"""
+
+FAMILY_RULES = """You are talking with {name}, not with the elder. {name} calls the elder "{label}".
+- Talk to {name} about {label}. Never address {name} as {label} and never reply as if {name} were the elder.
+- Answer questions about {label} from get_week and get_household. Call log_medicine, request_refill_approval or
+  suggest_call only when {name} asks for that in this message.
 """
 
 
@@ -33,12 +43,15 @@ def system_prompt(hid: str, speaker: Person, event: dict) -> tuple[str, list[str
     taken = ", ".join(f"{x['medicine_id']}={'taken' if x['taken'] else 'not taken'}"
                       for x in store.logs_between(hid, today, today)) or "nothing logged yet"
     memory = build_store(speaker).recall(hid, speaker.person_id, query_for(event))
-    parts = [RULES.format(brand=config.brand(), reply_language=row.reply_language),
+    if speaker.is_elder:
+        persona = ELDER_RULES
+    else:
+        persona = FAMILY_RULES.format(name=speaker.display_name,
+                                      label=speaker.relation_label or elder.display_name)
+    parts = [RULES.format(brand=config.brand(), reply_language=row.reply_language), persona,
              f"Person speaking: {speaker.display_name} (person_id {speaker.person_id}, role {speaker.role}).",
              f"Elder: {elder.display_name} (person_id {elder.person_id}). Escalation order: {', '.join(h.escalation_order)}.",
              f"Today ({today}) medicines: {meds}. Log: {taken}."]
-    if not speaker.is_elder:
-        parts.append(f"The family member calls the elder \"{speaker.relation_label}\". Use get_week for weekly questions.")
     if event.get("elder_told"):
         parts.append("The elder has just been told that family was alerted. Do not repeat that.")
     if memory:

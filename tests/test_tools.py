@@ -32,6 +32,17 @@ def test_log_medicine_and_get_household(sample):
     assert next(m for m in hh["medicines"] if m["medicine_id"] == "bp")["stock"] == "out"
 
 
+def test_repeated_out_of_stock_log_keeps_the_first_entry_and_the_order(sample):
+    args = {"medicine_id": "bp", "taken": False, "out_of_stock": True}
+    first = tools.run(tools.ToolContext(sample, store.get_person(sample, "kamala"), "ev2"), "log_medicine", args)
+    assert first == ("success", {"status": "ok"})
+    store.set_stock(sample, "bp", "ordered")
+    again = tools.run(tools.ToolContext(sample, store.get_person(sample, "kamala"), "ev3"), "log_medicine", args)
+    assert again == ("success", {"status": "ok", "note": "already logged today"})
+    log = store.get(store.hh(sample), "LOG#2026-10-12#bp")
+    assert log["source_msg"] == "ev2" and store.get_medicine(sample, "bp").stock == "ordered"
+
+
 def test_retried_message_after_a_failed_send_is_not_reported_ok(sample, monkeypatch):
     rcs = channels.get("rcs")
     monkeypatch.setattr(rcs, "send", lambda msg: SendResult.failed("ValidationException", False, simulated=True))

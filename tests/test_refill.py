@@ -23,6 +23,29 @@ def test_request_sends_card_and_creates_expiry(sample, approval):
     assert schedules.name_approval_expiry(approval) in schedules.client().names()
 
 
+def test_second_request_for_a_pending_medicine_sends_nothing(sample, approval):
+    sends, expiries = len(sim.read("rcs")), len(schedules.client().names())
+    again = refill.request_refill_approval(sample, "bp", "rohan", correlation_id="ev2#1")
+    assert again["approval_id"] == approval and again["note"] == "already asked"
+    assert len(sim.read("rcs")) == sends and len(schedules.client().names()) == expiries
+    assert len([a for a in store.approvals(sample) if a.medicine_id == "bp"]) == 1
+
+
+def test_request_after_a_recent_approval_returns_it(sample, approval):
+    refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1")
+    sends = len(sim.read("rcs"))
+    again = refill.request_refill_approval(sample, "bp", "rohan", correlation_id="ev2#1")
+    assert again["approval_id"] == approval and again["approval_status"] == "ordered"
+    assert len(sim.read("rcs")) == sends and len(store.approvals(sample)) == 1
+
+
+def test_request_a_day_after_an_order_asks_again(sample, approval, frozen):
+    refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1")
+    frozen.advance(25 * 60)
+    again = refill.request_refill_approval(sample, "bp", "rohan", correlation_id="ev2#1")
+    assert again["approval_id"] != approval and len(store.approvals(sample)) == 2
+
+
 def test_double_tap_gives_one_order(sample, approval):
     assert refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1") == "ordered"
     assert refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t2") == "already_handled"

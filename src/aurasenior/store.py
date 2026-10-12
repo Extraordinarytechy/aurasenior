@@ -182,7 +182,12 @@ def set_wa_inbound(hid: str, pid: str) -> None:
 # Medicine log
 
 def log_medicine(hid: str, mid: str, local_date: str, *, taken: bool, out_of_stock: bool = False,
-                 source_msg: str | None = None) -> None:
+                 source_msg: str | None = None) -> bool:
+    """False when the same answer is already logged for that day: nothing is written and stock is left as is,
+    so a repeated "ran out" never undoes an order placed since."""
+    old = get(hh(hid), f"LOG#{local_date}#{mid}")
+    if old and old.get("taken") == taken and bool(old.get("out_of_stock")) == out_of_stock:
+        return False
     put({"PK": hh(hid), "SK": f"LOG#{local_date}#{mid}", "medicine_id": mid, "date": local_date, "taken": taken,
          "out_of_stock": out_of_stock, "source_msg": source_msg, "at": clock.iso(), "ttl": ttl("LOG")})
     med = get_medicine(hid, mid)
@@ -190,6 +195,7 @@ def log_medicine(hid: str, mid: str, local_date: str, *, taken: bool, out_of_sto
         set_stock(hid, mid, "out")
     elif taken and med and med.stock == "ordered":
         set_stock(hid, mid, "ok")
+    return True
 
 
 def logs_between(hid: str, start: str, end: str) -> list[dict]:

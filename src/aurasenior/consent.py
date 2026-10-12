@@ -47,6 +47,13 @@ def handle(person: Person, channel: str, text: str, *, correlation_id: str, simu
         router.send(p, Content(phrase="optin_done", vars={"relation_label": p.relation_label or ""}),
                     correlation_id=correlation_id, only_channel=channel)
         return True
+    if status == "opted_in" and (keywords.is_yes(text, lang) or keywords.is_start(text, lang)):
+        # A bare YES or START carries no new information: a model turn would only act again on old context.
+        store.trace(person.household_id, "consent", person_id=person.person_id, channel=channel,
+                    outcome="already_opted_in", simulated=simulated)
+        router.send(person, Content(phrase="consent_ack", vars={"relation_label": person.relation_label or ""}),
+                    correlation_id=correlation_id, inbound_text=text, only_channel=channel)
+        return True
     if status != "opted_in":
         if channel == "whatsapp":
             _ask(person, channel, text, correlation_id)  # the guard allows this at most once a day
