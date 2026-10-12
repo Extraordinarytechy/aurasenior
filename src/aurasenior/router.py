@@ -128,7 +128,8 @@ def _deliver(person: Person, channel: str, msg: OutboundMessage, c: Content, urg
         return RouteResult("skipped", channel, provider_id, adapter.simulated)
     r = holder["r"]
     if not r.ok:
-        log.get().error("send failed", extra={"channel": channel, "code": r.code, "person_id": person.person_id})
+        log.get().error("send failed", extra={"channel": channel, "code": r.code, "error": r.message,
+                                              "person_id": person.person_id})
         store.trace(person.household_id, "send", channel=channel, person_id=person.person_id, outcome="failed",
                     code=r.code, phrase=c.phrase, simulated=adapter.simulated)
         return RouteResult("failed", channel, simulated=adapter.simulated)

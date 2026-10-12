@@ -32,14 +32,15 @@ class SendResult:
     code: str | None = None
     retryable: bool = False
     simulated: bool = False
+    message: str | None = None  # provider error text, masked and truncated, for the log only
 
     @classmethod
     def sent(cls, provider_id: str, simulated: bool = False) -> "SendResult":
         return cls(True, provider_id, simulated=simulated)
 
     @classmethod
-    def failed(cls, code: str, retryable: bool, simulated: bool = False) -> "SendResult":
-        return cls(False, None, code, retryable, simulated)
+    def failed(cls, code: str, retryable: bool, simulated: bool = False, message: str | None = None) -> "SendResult":
+        return cls(False, None, code, retryable, simulated, message)
 
 
 @dataclass

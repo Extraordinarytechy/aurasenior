@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from botocore.exceptions import ClientError
 
 from .. import aws, clock, config, log, phrases, router, store
+from ..channels.errors import error_message
 from ..memory import build_store
 from ..router import Content
 from . import prompt, tools
@@ -72,7 +73,8 @@ class AgentRunner:
             except ClientError as e:
                 code = e.response.get("Error", {}).get("Code", "")
                 if code in FATAL:
-                    self._unavailable(hid, speaker, today, "converse_error", event, code=code)
+                    self._unavailable(hid, speaker, today, "converse_error", event, code=code,
+                                      error=error_message(e))
                     result.outcome = "unavailable"
                     return result
                 raise
@@ -130,10 +132,12 @@ class AgentRunner:
         router.send(speaker, Content(phrase="guardrail_blocked", voice=speaker.is_elder and ctx.voice_reply),
                     correlation_id=f"{event['event_id']}#guardrail", inbound_text=event.get("text"))
 
-    def _unavailable(self, hid: str, speaker, today: str, why: str, event: dict, code: str | None = None) -> None:
+    def _unavailable(self, hid: str, speaker, today: str, why: str, event: dict, code: str | None = None,
+                     error: str | None = None) -> None:
         """Cost cap or a fatal model error: keep the cost_cap promise, tell family once a day."""
         if store.set_usage_flag(hid, today, f"agent_error_logged_{why}"):
-            log.get().error("agent unavailable", extra={"household_id": hid, "reason": why, "code": code})
+            log.get().error("agent unavailable", extra={"household_id": hid, "reason": why, "code": code,
+                                                        "error": error})
         store.trace(hid, "agent", outcome=why, code=code)
         if not speaker.is_elder:
             return
