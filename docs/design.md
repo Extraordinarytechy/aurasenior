@@ -686,8 +686,8 @@ place every path crosses, including deterministic paths that skip the model:
 3. Wording: blocks text that contains a disease name, a dose instruction, or the words score, diagnosis,
    diagnose (lists in `config/wording.toml`, one list per language row, Hindi in Devanagari and in Latin script,
    and English). Blocked text is replaced by the fixed phrase `guard_replacement` from `config/phrases.toml` in the
-   recipient's language and logged at WARN with the rule hit. For the elder it is "I have told {family_name}. They
-   will call you." (`{family_name}` is the `display_name` of the first person in the escalation order); for family
+   recipient's language and logged at WARN with the rule hit. For the elder it is "I have told {family_name}."
+   (`{family_name}` is the `display_name` of the first person in the escalation order); for family
    it is "Please call {elder_name}."
    Exception for urgent alerts (`urgent_alert`, `urgent_sms`, `aurasenior_urgent_alert_<lang>`,
    `aurasenior-urgent`): only the quote variable is checked, and if it fails it is replaced by the fixed phrase

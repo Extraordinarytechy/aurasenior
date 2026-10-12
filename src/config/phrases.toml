@@ -48,7 +48,7 @@ esc_ack_elder = "{name} knows and is on it. I am here with you."
 cost_cap = "I will tell {family_name}."
 send_voice_note = "Please send me a voice note."
 not_heard = "I could not hear that, please send it again."
-guard_replacement = "I have told {family_name}. They will call you."
+guard_replacement = "I have told {family_name}."
 guardrail_blocked = "I cannot help with that. Please ask your doctor."
 
 [hi]
@@ -96,5 +96,5 @@ esc_ack_elder = "{name} को पता है और वे देख रह�
 cost_cap = "मैं {family_name} को बता दूँगी।"
 send_voice_note = "कृपया मुझे एक वॉइस नोट भेजिए।"
 not_heard = "मुझे ठीक से सुनाई नहीं दिया, कृपया फिर से भेजिए।"
-guard_replacement = "मैंने {family_name} को बता दिया है। वे आपको फ़ोन करेंगे।"
+guard_replacement = "मैंने {family_name} को बता दिया है।"
 guardrail_blocked = "मैं इसमें मदद नहीं कर सकती। कृपया अपने डॉक्टर से पूछिए।"
