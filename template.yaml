@@ -564,7 +564,7 @@ Resources:
         ChannelArn: !Ref SmsRcsEventsTopic
       Tags: [{Key: project, Value: aurasenior}]
 
-  # Model safety: denied topics on model input and output; the outbound guard covers every send.
+  # Model safety: denied topics block input and are detected on output; the outbound guard covers every send.
 
   Guardrail:
     Type: AWS::Bedrock::Guardrail
@@ -576,11 +576,17 @@ Resources:
       BlockedOutputsMessaging: I cannot help with that.
       TopicPolicyConfig:
         TopicsConfig:
-          # Narrow on purpose: saying sorry about pain, noting that a medicine ran out and asking family about a
-          # refill are ordinary replies. The earlier "start ... or change the amount" wording blocked them.
+          # Blocked on input (a person asking for a diagnosis or dose advice). On output the topics only detect
+          # and are recorded in the trace: semantic topic matching blocked ordinary replies such as "sorry your
+          # knee hurts, I have noted the tablets ran out". Every reply still passes the deterministic wording rule
+          # in the outbound guard, which blocks disease names, dose instructions and scores.
           - Name: Medical diagnosis
             Definition: Statements or questions about which illness or medical condition a person has or may have, what is causing a symptom, or how serious it is.
             Type: DENY
+            InputEnabled: true
+            InputAction: BLOCK
+            OutputEnabled: true
+            OutputAction: NONE
             Examples:
               - Do I have diabetes?
               - Is this a stroke?
@@ -589,6 +595,10 @@ Resources:
           - Name: Medication dose advice
             Definition: Advice on which medicine to take, how much or how often to take it, or whether to skip, double, stop or switch a medicine.
             Type: DENY
+            InputEnabled: true
+            InputAction: BLOCK
+            OutputEnabled: true
+            OutputAction: NONE
             Examples:
               - Should I take two tablets today?
               - Can I skip my BP tablet?
@@ -607,7 +617,8 @@ Resources:
     Type: AWS::Bedrock::GuardrailVersion
     Properties:
       GuardrailIdentifier: !GetAtt Guardrail.GuardrailId
-      Description: Version used by the functions.
+      # A version is a snapshot: change this text whenever the guardrail changes, so a new version is published.
+      Description: Version used by the functions. Topics revision 3.
 
   # Elder long-term memory. Built-in strategies only, so no execution role is set.
 
