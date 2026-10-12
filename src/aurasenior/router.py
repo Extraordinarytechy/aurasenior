@@ -176,6 +176,9 @@ def send(person: Person, c: Content, *, urgency: str = "normal", correlation_id:
             return result
         result = _deliver(person, channel, g.message, c, urgency, cid)
         result.replaced = g.replaced
+        if result.outcome == "skipped" and result.provider_id == "" and i + 1 < len(order):
+            # The earlier attempt failed on this channel; its fallback has its own SEND# row.
+            continue
         if result.outcome in ("sent", "skipped"):
             if result.outcome == "sent" and urgency == "urgent" and i == 0 and len(order) > 1:
                 tz = (store.get_household(person.household_id).timezone)
