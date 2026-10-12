@@ -109,9 +109,16 @@ def test_denied_topics_stay_narrow():
         words = re.findall(r"[a-z]+", (t["Definition"] + " " + " ".join(t["Examples"])).lower())
         assert not {"start", "change", "refill", "order", "ran", "finished", "tired"} & set(words), t["Name"]
     assert "Do I have diabetes?" in topics["Medical diagnosis"]["Examples"]
-    assert "illness" in topics["Medical diagnosis"]["Definition"]
+    assert "disease" in topics["Medical diagnosis"]["Definition"]
     assert "Can I skip my BP tablet?" in topics["Medication dose advice"]["Examples"]
     assert "how much" in topics["Medication dose advice"]["Definition"]
+
+
+def test_guardrail_topics_detect_without_blocking():
+    # Blocking topics stopped ordinary reports ("my knee hurts"); the outbound wording rule enforces the rule instead.
+    for t in R["Guardrail"]["Properties"]["TopicPolicyConfig"]["TopicsConfig"]:
+        assert t["InputEnabled"] and t["OutputEnabled"], t["Name"]
+        assert t["InputAction"] == t["OutputAction"] == "NONE", t["Name"]
 
 
 def test_topic_policies_have_one_allow_and_no_deny():

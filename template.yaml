@@ -564,27 +564,27 @@ Resources:
         ChannelArn: !Ref SmsRcsEventsTopic
       Tags: [{Key: project, Value: aurasenior}]
 
-  # Model safety: denied topics block input and are detected on output; the outbound guard covers every send.
+  # Model safety: the guardrail detects diagnosis and dose-advice topics; the outbound guard checks every send.
 
   Guardrail:
     Type: AWS::Bedrock::Guardrail
     Properties:
       Name: aurasenior-safety
-      Description: Denies diagnosis and medication dose advice.
+      Description: Detects diagnosis and medication dose advice topics.
       # The runner replaces this text with guardrail_blocked in the speaker's language.
       BlockedInputMessaging: I cannot help with that.
       BlockedOutputsMessaging: I cannot help with that.
       TopicPolicyConfig:
         TopicsConfig:
-          # Blocked on input (a person asking for a diagnosis or dose advice). On output the topics only detect
-          # and are recorded in the trace: semantic topic matching blocked ordinary replies such as "sorry your
-          # knee hurts, I have noted the tablets ran out". Every reply still passes the deterministic wording rule
-          # in the outbound guard, which blocks disease names, dose instructions and scores.
+          # Detect only, on input and output; detections are recorded in the trace. Tested on 2026-10-12: as
+          # blocking topics they stopped the elder's ordinary reports ("my knee hurts", "I took the sugar tablet"),
+          # which are the core of the product. The no-diagnosis, no-dose-advice rule is enforced by the system
+          # prompt and by the deterministic wording rule in the outbound guard, which every reply passes.
           - Name: Medical diagnosis
-            Definition: Statements or questions about which illness or medical condition a person has or may have, what is causing a symptom, or how serious it is.
+            Definition: Requests to identify, name or confirm a disease or medical condition that a person may have.
             Type: DENY
             InputEnabled: true
-            InputAction: BLOCK
+            InputAction: NONE
             OutputEnabled: true
             OutputAction: NONE
             Examples:
@@ -596,7 +596,7 @@ Resources:
             Definition: Advice on which medicine to take, how much or how often to take it, or whether to skip, double, stop or switch a medicine.
             Type: DENY
             InputEnabled: true
-            InputAction: BLOCK
+            InputAction: NONE
             OutputEnabled: true
             OutputAction: NONE
             Examples:
@@ -618,7 +618,7 @@ Resources:
     Properties:
       GuardrailIdentifier: !GetAtt Guardrail.GuardrailId
       # A version is a snapshot: change this text whenever the guardrail changes, so a new version is published.
-      Description: Version used by the functions. Topics revision 3.
+      Description: Version used by the functions. Topics revision 4.
 
   # Elder long-term memory. Built-in strategies only, so no execution role is set.
 
