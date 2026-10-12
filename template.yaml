@@ -300,9 +300,18 @@ Resources:
             Action: bedrock:ApplyGuardrail
             Resource:
               - !GetAtt Guardrail.GuardrailArn
+              # The profile ARN in every destination Region of us.guardrail.v1:0 from us-east-1.
               - !If
                 - HasGuardrailProfile
                 - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail-profile/${GuardrailProfileId}
+                - !Ref AWS::NoValue
+              - !If
+                - HasGuardrailProfile
+                - !Sub arn:aws:bedrock:us-east-2:${AWS::AccountId}:guardrail-profile/${GuardrailProfileId}
+                - !Ref AWS::NoValue
+              - !If
+                - HasGuardrailProfile
+                - !Sub arn:aws:bedrock:us-west-2:${AWS::AccountId}:guardrail-profile/${GuardrailProfileId}
                 - !Ref AWS::NoValue
           - Effect: Allow
             Action: polly:SynthesizeSpeech
@@ -338,6 +347,8 @@ Resources:
               - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*
               - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/aurasenior-email
               - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:template/aurasenior-*
+              # Summaries and updates send with ListManagementOptions on this list.
+              - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:contact-list/aurasenior-contacts
           - !If
             - HasAgentCoreMemory
             - Effect: Allow
