@@ -100,7 +100,7 @@ def send_pharmacy_order(hid: str, aid: str, *, correlation_id: str) -> str:
             "approver_name": approver.display_name, "approved_at": a.handled_at or clock.iso()}
     r = router.send(pharmacy, Content(text=f"Refill request for {elder.display_name}", email_template="aurasenior-refill-order",
                                       email_data=data), correlation_id=f"{correlation_id}#order", only_channel="email")
-    if r.outcome not in ("sent", "skipped"):
+    if not r.went_out:
         log.get().error("pharmacy order email not sent", extra={"household_id": hid, "outcome": r.outcome})
         router.send(approver, Content(phrase="refill_order_failed"), correlation_id=f"{correlation_id}#failed")
         return "order_failed"

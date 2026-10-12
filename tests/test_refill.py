@@ -70,6 +70,29 @@ def test_retried_approve_tap_sends_the_order_once(sample, approval, monkeypatch)
     assert store.get_approval(sample, approval).status == "ordered"
 
 
+def test_retry_after_a_failed_order_email_does_not_claim_the_order(sample, approval, monkeypatch):
+    email = channels.get("email")
+    monkeypatch.setattr(email, "send", lambda msg: SendResult.failed("MessageRejected", False, simulated=True))
+    rcs = channels.get("rcs")
+    real = rcs.send
+    state = {"done": False}
+
+    def throttled_once(msg):
+        if not state["done"]:
+            state["done"] = True
+            return SendResult.failed("ThrottlingException", True, simulated=True)
+        return real(msg)
+
+    monkeypatch.setattr(rcs, "send", throttled_once)
+    with pytest.raises(RetryableSendError):
+        refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1")
+    assert refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1") == "order_failed"
+    assert store.get_approval(sample, approval).status == "approved"
+    assert store.get_medicine(sample, "bp").stock != "ordered"
+    assert [x for x in sim.read("whatsapp") if x["person_id"] == "kamala"] == []
+    assert sim.read("rcs")[-1]["text"] == "The order email could not be sent. Please call the pharmacy."
+
+
 def test_wrong_person_tap_is_ignored(sample, approval):
     assert refill.handle_action(sample, "nbr", "refill:approve", approval, correlation_id="t1") == "ignored"
 
