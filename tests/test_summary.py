@@ -23,7 +23,15 @@ def test_week_facts_from_fixed_items(sample):
     assert f.missed_checkins == 1 and f.mentions["pain"] == 2
     assert f.quotes == []
     data = summary.to_template_data(f, "Kamala")
-    assert data["brand"] and "6 of 7" in data["medicines"]
+    assert data["brand"] and "sugar tablet: taken 6 days, not taken 1 day, no answer 0 days" in data["medicines"]
+
+
+def test_week_with_nothing_logged_reads_as_no_answer(sample):
+    store.log_medicine(sample, "bp", "2026-10-18", taken=False, out_of_stock=True)
+    data = summary.to_template_data(summary.build_week(sample, "2026-10-18"), "Kamala")
+    assert "BP tablets: taken 0 days, not taken 1 day, no answer 6 days" in data["medicines"]
+    assert "sugar tablet: taken 0 days, not taken 0 days, no answer 7 days" in data["medicines"]
+    assert "of 7 days" not in data["medicines"]
 
 
 def test_quotes_only_when_shared(sample):

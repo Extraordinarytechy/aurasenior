@@ -70,8 +70,18 @@ def build_week(household_id: str, end_date: str, days: int = 7) -> WeekFacts:
     return facts
 
 
+def _days(n: int) -> str:
+    return f"{n} day" if n == 1 else f"{n} days"
+
+
+def medicine_line(m: dict) -> str:
+    """Taken, not taken and no answer apart, so a day nobody asked about never reads as a missed dose."""
+    return (f"{m['display_label']}: taken {_days(m['days_taken'])}, not taken {_days(m['days_not_taken'])}, "
+            f"no answer {_days(m['days_no_answer'])}")
+
+
 def to_template_data(facts: WeekFacts, elder_name: str) -> dict:
-    meds = "; ".join(f"{m['display_label']}: taken on {m['days_taken']} of {facts.days} days" for m in facts.medicines)
+    meds = "; ".join(medicine_line(m) for m in facts.medicines)
     escs = "; ".join(f"{e['reason'].replace('_', ' ')}: " + (f"acknowledged in {e['minutes_to_ack']} min"
                      if e["minutes_to_ack"] != "unacknowledged" else "not acknowledged") for e in facts.escalations)
     return {"brand": config.brand(), "elder_name": elder_name, "week_start": facts.week_start,
