@@ -65,7 +65,9 @@ def test_wording_replacement_for_elder_and_family(sample):
     open_window(sample, "kamala")
     p = store.get_person(sample, "kamala")
     g = outbound.guard(p, "whatsapp", _msg(text="This looks like diabetes"), names={"family_name": "Rohan"})
-    assert g.replaced == "disease" and "Rohan" in g.message.text and "diabetes" not in g.message.text
+    # The guard alerts no one, so the elder is not told that family knows.
+    assert g.replaced == "disease" and "Rohan" not in g.message.text
+    assert g.message.text == "मैं इसका जवाब नहीं दे सकती। कृपया अपने डॉक्टर से पूछिए।"
     r = store.get_person(sample, "rohan")
     g = outbound.guard(r, "rcs", _msg(person_id="rohan", kind="text", text="Her dementia", language="en-US"),
                        names={"elder_name": "Kamala"})
