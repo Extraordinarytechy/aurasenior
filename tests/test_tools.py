@@ -1,7 +1,8 @@
 from pathlib import Path
 
-from aurasenior import store
+from aurasenior import channels, store
 from aurasenior.agent import tools
+from aurasenior.channels.base import SendResult
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "aurasenior" / "agent" / "tools.py"
 
@@ -29,6 +30,18 @@ def test_log_medicine_and_get_household(sample):
     status, hh = tools.run(ctx, "get_household", {})
     assert status == "success" and {"medicine_id": "bp", "taken": False} in hh["today_log"]
     assert next(m for m in hh["medicines"] if m["medicine_id"] == "bp")["stock"] == "out"
+
+
+def test_retried_message_after_a_failed_send_is_not_reported_ok(sample, monkeypatch):
+    rcs = channels.get("rcs")
+    monkeypatch.setattr(rcs, "send", lambda msg: SendResult.failed("ValidationException", False, simulated=True))
+    outcomes = []
+    for _ in range(2):
+        ctx = tools.ToolContext(sample, store.get_person(sample, "kamala"), "ev3")
+        _, result = tools.run(ctx, "message_person", {"person_id": "simfam", "text": "Please call Mom."})
+        outcomes.append(result["status"])
+        assert "simfam" not in ctx.messaged
+    assert outcomes == ["failed", "skipped"]
 
 
 def test_tool_config_shape():

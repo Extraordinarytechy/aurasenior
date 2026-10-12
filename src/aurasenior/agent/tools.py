@@ -120,9 +120,9 @@ def message_person(ctx: ToolContext, args: dict) -> dict:
     voice = bool(args.get("as_voice")) and p.is_elder
     r = router.send(p, router.Content(text=args["text"], voice=voice), urgency=args.get("urgency", "normal"),
                     correlation_id=ctx.correlation(f"msg-{p.person_id}"))
-    if r.ok:
+    if r.went_out:
         ctx.messaged.add(p.person_id)
-    return {"status": "ok" if r.ok else r.outcome, "channel": r.channel}
+    return {"status": "ok" if r.went_out else r.outcome, "channel": r.channel}
 
 
 def request_refill_approval_tool(ctx: ToolContext, args: dict) -> dict:
