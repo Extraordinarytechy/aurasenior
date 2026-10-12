@@ -70,6 +70,16 @@ def test_recoverable_error_falls_back_and_turn_completes(table, frozen, stub, er
     assert "ERROR" not in levels and "WARN" in levels
 
 
+def test_failed_create_event_logs_one_warn_with_code_and_message(table, frozen, stub, capsys):
+    stub.error = ClientError({"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded for CreateEvent"}},
+                             "CreateEvent")
+    _store().record_turn(HID, PID, "hello", "namaste")
+    lines = [json.loads(x) for x in capsys.readouterr().out.splitlines()]
+    assert len(lines) == 1 and lines[0]["level"] == "WARN"
+    assert lines[0]["op"] == "CreateEvent" and lines[0]["code"] == "ThrottlingException"
+    assert lines[0]["error"] == "Rate exceeded for CreateEvent"
+
+
 def test_empty_turn_sides_are_never_sent(table, frozen, stub):
     m = _store()
     m.record_turn(HID, PID, "", "")

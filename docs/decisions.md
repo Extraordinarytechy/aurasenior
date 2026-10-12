@@ -596,6 +596,12 @@ Guardrail: `AWS::Bedrock::Guardrail` `aurasenior-safety` (required `Name`, `Bloc
 prompts, system prompts and model response text (table on guardrails-use-converse-api). So the outbound guard in
 code is the main wording control. SDK model: `Converse` input includes `toolConfig` and `guardrailConfig`.
 Blocked turn (2026-10-11): on `stopReason` `guardrail_intervened` the runner sends the fixed phrase `guardrail_blocked` in the speaker's language ("I cannot help with that. Please ask your doctor." to the elder), promises nothing, notifies no one, and keeps the question only in TRACE.
+Update (2026-10-12): `guardrailConfig.trace` is `enabled`, so the trace records which policy blocked and on which side.
+When only the model's reply is blocked after tools ran for the elder, she hears a fixed line built from the tool
+results (`refill_asked_elder` only when the refill card went out, else `noted_elder` after a medicine log), and the
+turn is kept in history and memory with that line. A blocked input still gets `guardrail_blocked` and is not kept.
+The first live turns showed the old "Medication dose advice" definition ("start, stop, skip or change the amount")
+also blocked "I have asked Rohan to order more BP tablets", so both topics were narrowed to diagnosis and dose advice.
 
 Guardrail tier and Hindi (read 2026-10-10):
 - Denied topics support safeguard tiers. Classic tier supports English, French and Spanish for denied topics.

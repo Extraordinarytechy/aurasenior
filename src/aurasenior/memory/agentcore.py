@@ -11,6 +11,7 @@ import re
 from botocore.exceptions import BotoCoreError, ClientError
 
 from .. import aws, clock, log, wording
+from ..channels.errors import error_message
 from .dynamo import DynamoMemoryStore
 
 FACTS = "/aurasenior/facts/{actor}/"
@@ -70,13 +71,14 @@ class AgentCoreMemoryStore:
 
     def _failed(self, op: str, e: Exception) -> None:
         code = e.response.get("Error", {}).get("Code", "") if isinstance(e, ClientError) else type(e).__name__
+        extra = {"op": op, "code": code, "error": error_message(e)}
         if code in FATAL:
             _disabled["value"] = True
             if not _disabled["logged"]:
                 _disabled["logged"] = True
-                log.get().error("agentcore memory disabled for this invocation", extra={"op": op, "code": code})
+                log.get().error("agentcore memory disabled for this invocation", extra=extra)
         else:
-            log.get().warning("agentcore memory call failed, using dynamodb", extra={"op": op, "code": code})
+            log.get().warning("agentcore memory call failed, using dynamodb", extra=extra)
 
     def _event(self, hid: str, pid: str, payload: list[dict], local_date: str | None = None,
                token: str | None = None) -> None:

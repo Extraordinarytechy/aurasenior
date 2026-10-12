@@ -239,3 +239,40 @@ def test_record_turn_gets_text_and_reply(sample, monkeypatch):
     _scripted([end_turn("नमस्ते")])
     AgentRunner().run_turn(sample, "kamala", {"event_id": "ev7", "text": "नमस्ते"})
     assert calls == [("नमस्ते", "नमस्ते")]
+
+
+def _memory_calls(monkeypatch):
+    calls = []
+
+    class Mem:
+        def recall(self, *a, **k):
+            return []
+
+        def record_turn(self, hid, pid, user_text, reply_text):
+            calls.append((user_text, reply_text))
+
+    monkeypatch.setattr("aurasenior.agent.runner.build_store", lambda p: Mem())
+    monkeypatch.setattr("aurasenior.agent.prompt.build_store", lambda p: Mem())
+    return calls
+
+
+def test_turn_with_only_the_reply_blocked_is_kept_with_what_she_heard(sample, monkeypatch):
+    calls = _memory_calls(monkeypatch)
+    open_window(sample, "kamala")
+    _scripted([tool_use("request_refill_approval", {"medicine_id": "bp", "ask_person_id": "rohan"}, "a"),
+               _blocked_with("output")])
+    text = "BP वाली गोली खत्म हो गई।"
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev15", "text": text})
+    heard = "मैंने Rohan से आपकी BP tablets फिर से मँगवाने के बारे में पूछ लिया है।"
+    assert calls == [(text, heard)]
+    # Same frozen timestamp for both items, so their order in the table is not fixed.
+    assert {(t["role"], t["text"]) for t in store.last_turns(sample, "kamala", 10)} == {("user", text),
+                                                                                       ("assistant", heard)}
+
+
+def test_turn_with_blocked_input_is_not_kept(sample, monkeypatch):
+    calls = _memory_calls(monkeypatch)
+    open_window(sample, "kamala")
+    _scripted([_blocked_with("input")])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev16", "text": "क्या मुझे डायबिटीज़ है?"})
+    assert calls == [] and store.last_turns(sample, "kamala", 10) == []

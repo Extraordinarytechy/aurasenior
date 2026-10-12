@@ -89,7 +89,12 @@ class AgentRunner:
                         guardrail_mode=os.environ.get("GUARDRAIL_MODE", "none") if guardrail else "none",
                         memory_items=len(memory), simulated=label == "scripted")
             if stop == "guardrail_intervened":
-                self._guardrail_blocked(hid, speaker, ctx, event, guardrail_findings(resp), done)
+                findings = guardrail_findings(resp)
+                said = self._guardrail_blocked(hid, speaker, ctx, event, findings, done)
+                if findings is not None and not findings["input"]:
+                    # Her words passed the guardrail, only the model's reply did not: keep the turn with the
+                    # fixed line she actually heard, so memory has this check-in too.
+                    self._keep(hid, speaker, text, said)
                 result.outcome = "guardrail_blocked"
                 return result
             if stop == "tool_use":
@@ -123,18 +128,24 @@ class AgentRunner:
         if reply:
             router.send(speaker, Content(text=reply, voice=speaker.is_elder and ctx.voice_reply),
                         correlation_id=f"{event['event_id']}#reply", inbound_text=text)
+        self._keep(hid, speaker, text, reply)
+        return result
+
+    @staticmethod
+    def _keep(hid: str, speaker, text: str, reply: str) -> None:
+        """Turn history in DynamoDB and the speaker's long-term memory."""
         if text:
             store.put_turn(hid, speaker.person_id, "user", text)
         if reply:
             store.put_turn(hid, speaker.person_id, "assistant", reply)
         build_store(speaker).record_turn(hid, speaker.person_id, text, reply)
-        return result
 
     def _guardrail_blocked(self, hid: str, speaker, ctx, event: dict, findings: dict | None,
-                           done: list[tuple[str, dict, dict]]) -> None:
+                           done: list[tuple[str, dict, dict]]) -> str:
         """No family notice. When tools already ran and only the reply was blocked, the elder hears a fixed line
         built from the tool results; otherwise a fixed reply in her language that promises nothing. A blocked
-        question stays only in the inbound TRACE item: it is not kept in turn history or memory."""
+        question stays only in the inbound TRACE item: it is not kept in turn history or memory. Returns the text
+        that went out, or an empty string."""
         input_blocked = bool(findings and findings["input"])
         content = None if input_blocked else self._confirmation(hid, speaker, ctx, done)
         store.trace(hid, "guardrail", outcome="blocked", person_id=speaker.person_id,
@@ -142,7 +153,11 @@ class AgentRunner:
                     reply=content.phrase if content else "guardrail_blocked")
         if content is None:
             content = Content(phrase="guardrail_blocked", voice=speaker.is_elder and ctx.voice_reply)
-        router.send(speaker, content, correlation_id=f"{event['event_id']}#guardrail", inbound_text=event.get("text"))
+        r = router.send(speaker, content, correlation_id=f"{event['event_id']}#guardrail",
+                        inbound_text=event.get("text"))
+        if not r.went_out:
+            return ""
+        return phrases.render(content.phrase, speaker.language, speaker.audience, **content.vars)
 
     @staticmethod
     def _confirmation(hid: str, speaker, ctx, done: list[tuple[str, dict, dict]]) -> Content | None:
