@@ -31,7 +31,8 @@ def request_refill_approval(hid: str, medicine_id: str, ask_person_id: str, *, c
     if existing:
         # Same medicine already asked about: no second card and no second expiry schedule.
         return {"status": "ok", "approval_id": existing.approval_id, "note": "already asked",
-                "approval_status": existing.status}
+                "approval_status": existing.status, "ask_person_id": existing.ask_person_id,
+                "asked": existing.status != "pending" or _card_went_out(hid, existing.approval_id)}
     aid = store.new_id()
     now = clock.iso()
     store.put_approval(Approval(hid, aid, "refill", medicine_id, "pending", ask_person_id, now, ran_out_at=now))
@@ -47,7 +48,13 @@ def request_refill_approval(hid: str, medicine_id: str, ask_person_id: str, *, c
     r = router.send(asked, c, correlation_id=correlation_id)
     schedules.create_approval_expiry(hid, aid, store.get_household(hid).timezone)
     store.trace(hid, "refill", outcome="approval_requested", approval_id=aid, person_id=ask_person_id)
-    return {"status": "ok", "approval_id": aid, "send": r.outcome}
+    # "asked" is what the elder may be told: the card really went out to the family member.
+    return {"status": "ok", "approval_id": aid, "send": r.outcome, "ask_person_id": ask_person_id,
+            "asked": r.went_out}
+
+
+def _card_went_out(hid: str, aid: str) -> bool:
+    return any((m.get("ref") or {}).get("id") == aid for m in store.query_prefix(hid, "MSG#"))
 
 
 def _elder_number(hid: str, to_pid: str, cid: str) -> None:

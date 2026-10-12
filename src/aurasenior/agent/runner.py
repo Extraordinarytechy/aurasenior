@@ -57,6 +57,7 @@ class AgentRunner:
         label = _model_label(client)
         guardrail = os.environ.get("GUARDRAIL_ID", "")
         result = TurnResult()
+        done: list[tuple[str, dict, dict]] = []  # tools that succeeded this turn: name, input, result
         ended = False
         for i in range(agent_cfg["max_iterations"]):
             if store.incr_converse(hid, today) > agent_cfg["daily_converse_cap"]:
@@ -66,8 +67,10 @@ class AgentRunner:
             kw = {"modelId": config.model_id(), "system": [{"text": system}], "messages": messages,
                   "inferenceConfig": {"maxTokens": agent_cfg["max_tokens"]}, "toolConfig": tools.tool_config()}
             if guardrail:
+                # The trace says which policy fired and whether on her words or on the model's reply.
                 kw["guardrailConfig"] = {"guardrailIdentifier": guardrail,
-                                         "guardrailVersion": os.environ.get("GUARDRAIL_VERSION", "DRAFT")}
+                                         "guardrailVersion": os.environ.get("GUARDRAIL_VERSION", "DRAFT"),
+                                         "trace": "enabled"}
             try:
                 resp = client.converse(**kw)
             except ClientError as e:
@@ -86,7 +89,7 @@ class AgentRunner:
                         guardrail_mode=os.environ.get("GUARDRAIL_MODE", "none") if guardrail else "none",
                         memory_items=len(memory), simulated=label == "scripted")
             if stop == "guardrail_intervened":
-                self._guardrail_blocked(hid, speaker, ctx, event)
+                self._guardrail_blocked(hid, speaker, ctx, event, guardrail_findings(resp), done)
                 result.outcome = "guardrail_blocked"
                 return result
             if stop == "tool_use":
@@ -97,6 +100,8 @@ class AgentRunner:
                     tu = block["toolUse"]
                     status, out = tools.run(ctx, tu["name"], tu.get("input"))
                     result.tools.append(tu["name"])
+                    if status == "success":
+                        done.append((tu["name"], tu.get("input") or {}, out))
                     store.trace(hid, "tool", tool=tu["name"], outcome=status, inputs=tu.get("input"),
                                 simulated=label == "scripted")
                     results.append({"toolResult": {"toolUseId": tu["toolUseId"], "content": [{"json": out}],
@@ -125,12 +130,40 @@ class AgentRunner:
         build_store(speaker).record_turn(hid, speaker.person_id, text, reply)
         return result
 
-    def _guardrail_blocked(self, hid: str, speaker, ctx, event: dict) -> None:
-        """Fixed reply in the speaker's language that promises nothing. No family notice. The question stays only
-        in the inbound TRACE item: it is not kept in turn history or memory."""
-        store.trace(hid, "guardrail", outcome="blocked", person_id=speaker.person_id)
-        router.send(speaker, Content(phrase="guardrail_blocked", voice=speaker.is_elder and ctx.voice_reply),
-                    correlation_id=f"{event['event_id']}#guardrail", inbound_text=event.get("text"))
+    def _guardrail_blocked(self, hid: str, speaker, ctx, event: dict, findings: dict | None,
+                           done: list[tuple[str, dict, dict]]) -> None:
+        """No family notice. When tools already ran and only the reply was blocked, the elder hears a fixed line
+        built from the tool results; otherwise a fixed reply in her language that promises nothing. A blocked
+        question stays only in the inbound TRACE item: it is not kept in turn history or memory."""
+        input_blocked = bool(findings and findings["input"])
+        content = None if input_blocked else self._confirmation(hid, speaker, ctx, done)
+        store.trace(hid, "guardrail", outcome="blocked", person_id=speaker.person_id,
+                    input_topics=(findings or {}).get("input"), output_topics=(findings or {}).get("output"),
+                    reply=content.phrase if content else "guardrail_blocked")
+        if content is None:
+            content = Content(phrase="guardrail_blocked", voice=speaker.is_elder and ctx.voice_reply)
+        router.send(speaker, content, correlation_id=f"{event['event_id']}#guardrail", inbound_text=event.get("text"))
+
+    @staticmethod
+    def _confirmation(hid: str, speaker, ctx, done: list[tuple[str, dict, dict]]) -> Content | None:
+        """Only what the tools really did: a refill ask whose card went out, else a medicine that was logged."""
+        if not speaker.is_elder or not done:
+            return None
+        voice = ctx.voice_reply
+        asked = [(i, out) for name, i, out in done if name == "request_refill_approval" and out.get("asked")]
+        if asked:
+            labels = []
+            for i, _ in asked:
+                med = store.get_medicine(hid, i.get("medicine_id", ""))
+                if med and med.display_label not in labels:
+                    labels.append(med.display_label)
+            family = store.get_person(hid, asked[0][1].get("ask_person_id", ""))
+            if labels and family:
+                return Content(phrase="refill_asked_elder", voice=voice,
+                               vars={"family_name": family.display_name, "display_label": ", ".join(labels)})
+        if any(name == "log_medicine" for name, _, _ in done):
+            return Content(phrase="noted_elder", voice=voice)
+        return None
 
     def _unavailable(self, hid: str, speaker, today: str, why: str, event: dict, code: str | None = None,
                      error: str | None = None) -> None:
@@ -168,6 +201,24 @@ class AgentRunner:
         phrase = "cost_cap" if family_ok else "not_heard"
         router.send(speaker, Content(phrase=phrase, vars={"family_name": names.get("family_name", "")}, voice=True),
                     correlation_id=f"{event['event_id']}#{phrase}", inbound_text=event.get("text"))
+
+
+def guardrail_findings(resp: dict) -> dict | None:
+    """Names of the guardrail policies that blocked, on the input and on the model output. None without a trace."""
+    trace = (resp.get("trace") or {}).get("guardrail")
+    if not trace:
+        return None
+
+    def blocked(node) -> list[str]:
+        if isinstance(node, list):
+            return [n for x in node for n in blocked(x)]
+        if not isinstance(node, dict):
+            return []
+        own = [str(node.get("name") or node.get("type") or "policy")] if node.get("action") == "BLOCKED" else []
+        return own + [n for v in node.values() for n in blocked(v)]
+
+    return {"input": blocked(list((trace.get("inputAssessment") or {}).values())),
+            "output": blocked(list((trace.get("outputAssessments") or {}).values()))}
 
 
 def dumps(obj) -> str:

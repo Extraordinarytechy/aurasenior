@@ -26,6 +26,13 @@ def test_family_prompt_speaks_to_the_family_member_not_the_elder(sample):
         assert "never repeat their tool calls" in system
 
 
+def test_rules_forbid_symptom_and_medicine_advice(sample):
+    system, _ = prompt.system_prompt(sample, store.get_person(sample, "kamala"), {"text": "hi"})
+    assert "never say how, when or whether to take a medicine" in system
+    assert "only say you are sorry to hear it" in system
+    assert "say only what it did" in system
+
+
 def test_memory_block_present_for_elder(sample):
     DynamoMemoryStore("hi-IN").remember(sample, "kamala", "Granddaughter Priya calls on Sundays")
     system, mem = prompt.system_prompt(sample, store.get_person(sample, "kamala"), {"text": "hello"})

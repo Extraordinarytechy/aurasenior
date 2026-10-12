@@ -99,6 +99,21 @@ def test_guardrail_messaging_promises_nothing():
     assert g["BlockedInputMessaging"] == g["BlockedOutputsMessaging"] == "I cannot help with that."
 
 
+def test_denied_topics_stay_narrow():
+    topics = {t["Name"]: t for t in R["Guardrail"]["Properties"]["TopicPolicyConfig"]["TopicsConfig"]}
+    assert set(topics) == {"Medical diagnosis", "Medication dose advice"}
+    for t in topics.values():
+        assert t["Type"] == "DENY" and len(t["Definition"]) <= 200
+        assert 1 <= len(t["Examples"]) <= 5 and all(len(x) <= 100 for x in t["Examples"])
+        # Ordinary companionship and refill replies must not fall inside a definition or an example.
+        words = re.findall(r"[a-z]+", (t["Definition"] + " " + " ".join(t["Examples"])).lower())
+        assert not {"start", "change", "refill", "order", "ran", "finished", "tired"} & set(words), t["Name"]
+    assert "Do I have diabetes?" in topics["Medical diagnosis"]["Examples"]
+    assert "illness" in topics["Medical diagnosis"]["Definition"]
+    assert "Can I skip my BP tablet?" in topics["Medication dose advice"]["Examples"]
+    assert "how much" in topics["Medication dose advice"]["Definition"]
+
+
 def test_topic_policies_have_one_allow_and_no_deny():
     for pol in _of("AWS::SNS::TopicPolicy").values():
         st = pol["Properties"]["PolicyDocument"]["Statement"]

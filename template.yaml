@@ -576,14 +576,25 @@ Resources:
       BlockedOutputsMessaging: I cannot help with that.
       TopicPolicyConfig:
         TopicsConfig:
+          # Narrow on purpose: saying sorry about pain, noting that a medicine ran out and asking family about a
+          # refill are ordinary replies. The earlier "start ... or change the amount" wording blocked them.
           - Name: Medical diagnosis
-            Definition: Naming an illness or condition a person may have, or judging how serious their health is.
+            Definition: Statements or questions about which illness or medical condition a person has or may have, what is causing a symptom, or how serious it is.
             Type: DENY
-            Examples: ["Do I have diabetes?", "Is this a stroke?"]
+            Examples:
+              - Do I have diabetes?
+              - Is this a stroke?
+              - Your knee pain could be arthritis.
+              - This pain sounds serious, it may be your heart.
           - Name: Medication dose advice
-            Definition: Telling a person to start, stop, skip or change the amount of a medicine.
+            Definition: Advice on which medicine to take, how much or how often to take it, or whether to skip, double, stop or switch a medicine.
             Type: DENY
-            Examples: ["Should I take two tablets today?", "Can I skip my BP tablet?"]
+            Examples:
+              - Should I take two tablets today?
+              - Can I skip my BP tablet?
+              - Take an extra BP tablet if you feel dizzy.
+              - You can stop the sugar tablet now.
+              - Which painkiller should I take for my knee?
         TopicsTierConfig:
           TierName: !If [HasGuardrailProfile, STANDARD, CLASSIC]
       CrossRegionConfig: !If

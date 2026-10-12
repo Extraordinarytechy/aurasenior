@@ -137,6 +137,75 @@ def test_guardrail_phrases_promise_nothing():
     assert phrases.render("guardrail_blocked", "hi-IN", "family") == "मैं इसमें मदद नहीं कर सकती।"
 
 
+def _blocked_with(where):
+    """A guardrail block with the trace shape Converse returns when trace is enabled."""
+    topic = {"topicPolicy": {"topics": [{"name": "Medication dose advice", "type": "DENY", "action": "BLOCKED",
+                                         "detected": True}]}}
+    trace = {"inputAssessment": {"g1": topic if where == "input" else {"invocationMetrics": {}}}}
+    if where == "output":
+        trace["outputAssessments"] = {"g1": [topic]}
+    return {**_blocked(), "trace": {"guardrail": trace}}
+
+
+def test_guardrail_findings_name_the_policy_and_the_side():
+    from aurasenior.agent.runner import guardrail_findings
+
+    assert guardrail_findings(_blocked_with("output")) == {"input": [], "output": ["Medication dose advice"]}
+    assert guardrail_findings(_blocked_with("input")) == {"input": ["Medication dose advice"], "output": []}
+    assert guardrail_findings(_blocked()) is None
+
+
+def test_guardrail_config_asks_for_the_trace(sample, monkeypatch):
+    monkeypatch.setenv("GUARDRAIL_ID", "g1")
+    open_window(sample, "kamala")
+    s = _scripted([end_turn("नमस्ते")])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev10", "text": "नमस्ते"})
+    assert s.calls[0]["guardrailConfig"]["trace"] == "enabled"
+
+
+def test_reply_blocked_after_a_refill_ask_tells_her_only_what_happened(sample):
+    open_window(sample, "kamala")
+    _scripted([
+        tool_use("log_medicine", {"medicine_id": "bp", "taken": False, "out_of_stock": True}, "a"),
+        tool_use("request_refill_approval", {"medicine_id": "bp", "ask_person_id": "rohan"}, "b"),
+        _blocked_with("output"),
+    ])
+    r = AgentRunner().run_turn(sample, "kamala", {"event_id": "ev11", "text": "BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।"})
+    assert r.outcome == "guardrail_blocked"
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "refill_asked_elder"
+    assert reply["text"] == "मैंने Rohan से आपकी BP tablets फिर से मँगवाने के बारे में पूछ लिया है।"
+    g = [t for t in store.traces(sample) if t["step"] == "guardrail"][-1]
+    assert g["output_topics"] == ["Medication dose advice"] and g["reply"] == "refill_asked_elder"
+
+
+def test_reply_blocked_when_the_refill_card_did_not_go_out_claims_no_ask(sample):
+    open_window(sample, "kamala")
+    for ch in ("rcs", "sms", "email"):
+        store.set_consent(sample, "rohan", ch, "opted_out", "test")
+    _scripted([
+        tool_use("log_medicine", {"medicine_id": "bp", "taken": False, "out_of_stock": True}, "a"),
+        tool_use("request_refill_approval", {"medicine_id": "bp", "ask_person_id": "rohan"}, "b"),
+        _blocked_with("output"),
+    ])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev12", "text": "BP वाली गोली खत्म हो गई।"})
+    assert sim.read("whatsapp")[-1]["phrase_key"] == "noted_elder"
+
+
+def test_blocked_input_gets_the_fixed_reply_even_after_tools(sample):
+    open_window(sample, "kamala")
+    _scripted([tool_use("log_medicine", {"medicine_id": "bp", "taken": True, "out_of_stock": False}, "a"),
+               _blocked_with("input")])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev13", "text": "क्या मैं दो गोली ले लूँ?"})
+    assert sim.read("whatsapp")[-1]["phrase_key"] == "guardrail_blocked"
+
+
+def test_family_reply_blocked_after_tools_gets_the_fixed_reply(sample):
+    _scripted([tool_use("get_week", {}, "a"), _blocked_with("output")])
+    AgentRunner().run_turn(sample, "rohan", {"event_id": "ev14", "text": "How was Mom this week?"})
+    assert sim.read("rcs")[-1]["phrase_key"] == "guardrail_blocked"
+
+
 class Fatal:
     label = "bedrock"
 
