@@ -341,7 +341,8 @@ Resources:
             Action: sns:Publish
             Resource: !Ref FailedEventsTopic
           - Effect: Allow
-            Action: ses:SendEmail
+            # SESv2 SendEmail with a stored template is authorized as ses:SendTemplatedEmail.
+            Action: [ses:SendEmail, ses:SendTemplatedEmail]
             Resource:
               # Sandbox: recipients come from household data. Narrow to identity/<SenderEmail> after production access.
               - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*
