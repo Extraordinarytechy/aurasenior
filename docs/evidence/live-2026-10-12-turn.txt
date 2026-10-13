@@ -1,0 +1,655 @@
+===== turn 2026-10-12T13:54:46+00:00
+account ok (...3900)
+== son opts in on RCS (simulated inbound YES)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 3.2,
+ "request_id": "49952942-37ee-409c-ae95-daf0f83d303a",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 49952942-37ee-409c-ae95-daf0f83d303a Version: $LATEST
+END RequestId: 49952942-37ee-409c-ae95-daf0f83d303a
+REPORT RequestId: 49952942-37ee-409c-ae95-daf0f83d303a	Duration: 858.40 ms	Billed Duration: 1763 ms	Memory Size: 512 MB	Max Memory Used: 94 MB	Init Duration: 904.05 ms	
+
+== elder opts in on WhatsApp (simulated inbound हाँ)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 1.4,
+ "request_id": "d416b577-a766-4224-bca9-7afbfa479d52",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: d416b577-a766-4224-bca9-7afbfa479d52 Version: $LATEST
+END RequestId: d416b577-a766-4224-bca9-7afbfa479d52
+REPORT RequestId: d416b577-a766-4224-bca9-7afbfa479d52	Duration: 420.67 ms	Billed Duration: 421 ms	Memory Size: 512 MB	Max Memory Used: 95 MB	
+
+== elder Hindi text turn
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 7.6,
+ "request_id": "4375dab0-868d-40bf-a644-725feadad47d",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 4375dab0-868d-40bf-a644-725feadad47d Version: $LATEST
+END RequestId: 4375dab0-868d-40bf-a644-725feadad47d
+REPORT RequestId: 4375dab0-868d-40bf-a644-725feadad47d	Duration: 6634.54 ms	Billed Duration: 6635 ms	Memory Size: 512 MB	Max Memory Used: 99 MB	
+
+TRACE (python -m aurasenior.trace format)
+10-12 13:54Z inbound        channel=rcs person_id=rohan kind=text text="YES" [SIMULATED]
+10-12 13:54Z consent        channel=rcs person_id=rohan outcome=opted_in [SIMULATED]
+10-12 13:54Z send           channel=rcs person_id=rohan phrase=optin_done kind=text outcome=sent text="Thank you. You will now get updates about Mom from AuraSenior." [SIMULATED]
+10-12 13:54Z status         channel=rcs person_id=rohan outcome=delivered [SIMULATED]
+10-12 13:54Z inbound        channel=whatsapp person_id=kamala kind=text text="हाँ" [SIMULATED]
+10-12 13:54Z consent        channel=whatsapp person_id=kamala outcome=opted_in [SIMULATED]
+10-12 13:54Z send           channel=whatsapp person_id=kamala phrase=optin_done kind=text outcome=sent text="धन्यवाद। मैं हर सुबह आपसे बात करूँगी।" [SIMULATED]
+10-12 13:54Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+10-12 13:54Z inbound        channel=whatsapp person_id=kamala kind=text text="BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।" [SIMULATED]
+10-12 13:54Z converse       stop_reason=tool_use
+10-12 13:54Z tool           tool=log_medicine outcome=success inputs={'medicine_id': 'bp', 'out_of_stock': True, 'taken': False}
+10-12 13:55Z converse       stop_reason=tool_use
+10-12 13:55Z send           channel=rcs person_id=rohan phrase=refill_approval_title kind=card outcome=sent text="Mom's BP tablets ran out" [SIMULATED]
+10-12 13:55Z status         channel=rcs person_id=rohan outcome=delivered [SIMULATED]
+10-12 13:55Z refill         person_id=rohan outcome=approval_requested
+10-12 13:55Z tool           tool=request_refill_approval outcome=success inputs={'ask_person_id': 'rohan', 'medicine_id': 'bp'}
+10-12 13:55Z converse       stop_reason=guardrail_intervened
+10-12 13:55Z guardrail      person_id=kamala outcome=blocked
+10-12 13:55Z send           channel=whatsapp person_id=kamala phrase=guardrail_blocked kind=text outcome=sent text="मैं इसमें मदद नहीं कर सकती। कृपया अपने डॉक्टर से पूछिए।" [SIMULATED]
+10-12 13:55Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+approvals created by the turn: [
+ {
+  "household_id": "sample01",
+  "approval_id": "5fa3a41d3897",
+  "kind": "refill",
+  "medicine_id": "bp",
+  "status": "pending",
+  "ask_person_id": "rohan",
+  "created_at": "2026-10-12T13:55:00+00:00",
+  "handled_at": null,
+  "ran_out_at": "2026-10-12T13:55:00+00:00",
+  "ordered_at": null,
+  "handled_cid": null
+ }
+]
+consent: {
+ "doctor": {
+  "email": {
+   "status": "opted_in",
+   "at": "2026-10-12T11:20:15+00:00",
+   "source": "admin:test addresses 2026-10-12"
+  }
+ },
+ "kamala": {
+  "whatsapp": {
+   "at": "2026-10-12T13:54:52+00:00",
+   "simulated": true,
+   "source": "wa_inbound_yes",
+   "status": "opted_in"
+  }
+ },
+ "nbr": {},
+ "pharmacy": {
+  "email": {
+   "at": "2026-10-12T11:20:18+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  }
+ },
+ "rohan": {
+  "email": {
+   "at": "2026-10-12T11:20:13+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  },
+  "rcs": {
+   "at": "2026-10-12T13:54:51+00:00",
+   "simulated": true,
+   "source": "rcs_inbound_yes",
+   "status": "opted_in"
+  }
+ },
+ "simfam": {}
+}
+AgentCore list_events: []
+inbound log lines for the turn:
+START RequestId: 4375dab0-868d-40bf-a644-725feadad47d Version: $LATEST
+END RequestId: 4375dab0-868d-40bf-a644-725feadad47d
+REPORT RequestId: 4375dab0-868d-40bf-a644-725feadad47d	Duration: 6634.54 ms	Billed Duration: 6635 ms	Memory Size: 512 MB	Max Memory Used: 99 MB
+===== end turn 2026-10-12T13:55:07+00:00
+===== turn 2026-10-12T15:07:00+00:00
+account ok (...3900)
+== son opts in on RCS (simulated inbound YES)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 8.2,
+ "request_id": "148bd2e8-2a75-42c7-99d6-d28b614ee07c",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 148bd2e8-2a75-42c7-99d6-d28b614ee07c Version: $LATEST
+END RequestId: 148bd2e8-2a75-42c7-99d6-d28b614ee07c
+REPORT RequestId: 148bd2e8-2a75-42c7-99d6-d28b614ee07c	Duration: 7323.43 ms	Billed Duration: 7324 ms	Memory Size: 512 MB	Max Memory Used: 96 MB	
+
+== elder opts in on WhatsApp (simulated inbound हाँ)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 10.7,
+ "request_id": "f547ce66-6ce0-49be-9669-c96dcc7cecc5",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: f547ce66-6ce0-49be-9669-c96dcc7cecc5 Version: $LATEST
+END RequestId: f547ce66-6ce0-49be-9669-c96dcc7cecc5
+REPORT RequestId: f547ce66-6ce0-49be-9669-c96dcc7cecc5	Duration: 9808.07 ms	Billed Duration: 9809 ms	Memory Size: 512 MB	Max Memory Used: 101 MB	
+
+== elder Hindi text turn
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 6.7,
+ "request_id": "5583233e-379f-40cf-b168-ed1d897058de",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 5583233e-379f-40cf-b168-ed1d897058de Version: $LATEST
+END RequestId: 5583233e-379f-40cf-b168-ed1d897058de
+REPORT RequestId: 5583233e-379f-40cf-b168-ed1d897058de	Duration: 5791.74 ms	Billed Duration: 5792 ms	Memory Size: 512 MB	Max Memory Used: 101 MB	
+
+TRACE (python -m aurasenior.trace format)
+10-12 15:07Z inbound        channel=rcs person_id=rohan kind=text text="YES" [SIMULATED]
+10-12 15:07Z converse       stop_reason=tool_use
+10-12 15:07Z tool           tool=get_household outcome=success
+10-12 15:07Z converse       stop_reason=tool_use
+10-12 15:07Z tool           tool=log_medicine outcome=success inputs={'medicine_id': 'bp', 'out_of_stock': True, 'taken': False}
+10-12 15:07Z converse       stop_reason=tool_use
+10-12 15:07Z send           channel=rcs person_id=rohan phrase=refill_approval_title kind=card outcome=sent text="Mom's BP tablets ran out" [SIMULATED]
+10-12 15:07Z status         channel=rcs person_id=rohan outcome=delivered [SIMULATED]
+10-12 15:07Z refill         person_id=rohan outcome=approval_requested
+10-12 15:07Z tool           tool=request_refill_approval outcome=success inputs={'ask_person_id': 'rohan', 'medicine_id': 'bp'}
+10-12 15:07Z converse       stop_reason=end_turn
+10-12 15:07Z send           channel=rcs person_id=rohan phrase=model_text kind=text outcome=sent text="Mom, I’ve noted that your BP tablets are finished and I’ve asked Rohan to approv" [SIMULATED]
+10-12 15:07Z status         channel=rcs person_id=rohan outcome=delivered [SIMULATED]
+10-12 15:07Z inbound        channel=whatsapp person_id=kamala kind=text text="हाँ" [SIMULATED]
+10-12 15:07Z converse       stop_reason=tool_use
+10-12 15:07Z tool           tool=get_household outcome=success
+10-12 15:07Z converse       stop_reason=tool_use
+10-12 15:07Z tool           tool=log_medicine outcome=success inputs={'medicine_id': 'bp', 'out_of_stock': True, 'taken': False}
+10-12 15:07Z converse       stop_reason=tool_use
+10-12 15:07Z tool           tool=request_refill_approval outcome=success inputs={'ask_person_id': 'rohan', 'medicine_id': 'bp'}
+10-12 15:07Z converse       stop_reason=tool_use
+10-12 15:07Z tool           tool=suggest_call outcome=success
+10-12 15:07Z converse       stop_reason=guardrail_intervened
+10-12 15:07Z guardrail      person_id=kamala outcome=blocked
+10-12 15:07Z send           channel=whatsapp person_id=kamala phrase=guardrail_blocked kind=text outcome=sent text="मैं इसमें मदद नहीं कर सकती। कृपया अपने डॉक्टर से पूछिए।" [SIMULATED]
+10-12 15:07Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+10-12 15:07Z inbound        channel=whatsapp person_id=kamala kind=text text="BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।" [SIMULATED]
+10-12 15:07Z converse       stop_reason=tool_use
+10-12 15:07Z tool           tool=log_medicine outcome=success inputs={'medicine_id': 'bp', 'out_of_stock': True, 'taken': False}
+10-12 15:07Z converse       stop_reason=tool_use
+10-12 15:07Z tool           tool=request_refill_approval outcome=success inputs={'ask_person_id': 'rohan', 'medicine_id': 'bp'}
+10-12 15:07Z converse       stop_reason=guardrail_intervened
+10-12 15:07Z guardrail      person_id=kamala outcome=blocked
+10-12 15:07Z send           channel=whatsapp person_id=kamala phrase=guardrail_blocked kind=text outcome=sent text="मैं इसमें मदद नहीं कर सकती। कृपया अपने डॉक्टर से पूछिए।" [SIMULATED]
+10-12 15:07Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+approvals created by the turn: []
+consent: {
+ "doctor": {
+  "email": {
+   "status": "opted_in",
+   "at": "2026-10-12T11:20:15+00:00",
+   "source": "admin:test addresses 2026-10-12"
+  }
+ },
+ "kamala": {
+  "whatsapp": {
+   "at": "2026-10-12T13:54:52+00:00",
+   "simulated": true,
+   "source": "wa_inbound_yes",
+   "status": "opted_in"
+  }
+ },
+ "nbr": {},
+ "pharmacy": {
+  "email": {
+   "at": "2026-10-12T11:20:18+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  }
+ },
+ "rohan": {
+  "email": {
+   "at": "2026-10-12T11:20:13+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  },
+  "rcs": {
+   "at": "2026-10-12T13:54:51+00:00",
+   "simulated": true,
+   "source": "rcs_inbound_yes",
+   "status": "opted_in"
+  }
+ },
+ "simfam": {}
+}
+AgentCore list_events: []
+inbound log lines for the turn:
+START RequestId: 5583233e-379f-40cf-b168-ed1d897058de Version: $LATEST
+END RequestId: 5583233e-379f-40cf-b168-ed1d897058de
+REPORT RequestId: 5583233e-379f-40cf-b168-ed1d897058de	Duration: 5791.74 ms	Billed Duration: 5792 ms	Memory Size: 512 MB	Max Memory Used: 101 MB
+===== end turn 2026-10-12T15:07:36+00:00
+===== turn 2026-10-12T16:28:28+00:00
+account ok (...3900)
+== son opts in on RCS (simulated inbound YES)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 2.9,
+ "request_id": "996f62d8-d999-4bcf-8e50-7973b1034335",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 996f62d8-d999-4bcf-8e50-7973b1034335 Version: $LATEST
+END RequestId: 996f62d8-d999-4bcf-8e50-7973b1034335
+REPORT RequestId: 996f62d8-d999-4bcf-8e50-7973b1034335	Duration: 877.48 ms	Billed Duration: 1781 ms	Memory Size: 512 MB	Max Memory Used: 94 MB	Init Duration: 902.63 ms	
+
+== elder opts in on WhatsApp (simulated inbound हाँ)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 1.4,
+ "request_id": "7a03f91d-9454-4ebc-8276-702ba8376245",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 7a03f91d-9454-4ebc-8276-702ba8376245 Version: $LATEST
+END RequestId: 7a03f91d-9454-4ebc-8276-702ba8376245
+REPORT RequestId: 7a03f91d-9454-4ebc-8276-702ba8376245	Duration: 434.81 ms	Billed Duration: 435 ms	Memory Size: 512 MB	Max Memory Used: 95 MB	
+
+== elder Hindi text turn
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 5.4,
+ "request_id": "39803aa8-1478-4477-8b2c-e726da5cf9f9",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 39803aa8-1478-4477-8b2c-e726da5cf9f9 Version: $LATEST
+END RequestId: 39803aa8-1478-4477-8b2c-e726da5cf9f9
+REPORT RequestId: 39803aa8-1478-4477-8b2c-e726da5cf9f9	Duration: 4674.57 ms	Billed Duration: 4675 ms	Memory Size: 512 MB	Max Memory Used: 99 MB	
+
+TRACE (python -m aurasenior.trace format)
+10-12 16:28Z inbound        channel=rcs person_id=rohan kind=text text="YES" [SIMULATED]
+10-12 16:28Z consent        channel=rcs person_id=rohan outcome=opted_in [SIMULATED]
+10-12 16:28Z send           channel=rcs person_id=rohan phrase=optin_done kind=text outcome=sent text="Thank you. You will now get updates about Mom from AuraSenior." [SIMULATED]
+10-12 16:28Z status         channel=rcs person_id=rohan outcome=delivered [SIMULATED]
+10-12 16:28Z inbound        channel=whatsapp person_id=kamala kind=text text="हाँ" [SIMULATED]
+10-12 16:28Z consent        channel=whatsapp person_id=kamala outcome=opted_in [SIMULATED]
+10-12 16:28Z send           channel=whatsapp person_id=kamala phrase=optin_done kind=text outcome=sent text="धन्यवाद। मैं हर सुबह आपसे बात करूँगी।" [SIMULATED]
+10-12 16:28Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+10-12 16:28Z inbound        channel=whatsapp person_id=kamala kind=text text="BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।" [SIMULATED]
+10-12 16:28Z converse       stop_reason=tool_use
+10-12 16:28Z tool           tool=log_medicine outcome=success inputs={'out_of_stock': True, 'medicine_id': 'bp', 'taken': False}
+10-12 16:28Z converse       stop_reason=guardrail_intervened
+10-12 16:28Z guardrail      person_id=kamala outcome=blocked
+10-12 16:28Z send           channel=whatsapp person_id=kamala phrase=noted_elder kind=text outcome=sent text="मैंने यह लिख लिया है।" [SIMULATED]
+10-12 16:28Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+approvals created by the turn: []
+consent: {
+ "doctor": {
+  "email": {
+   "status": "opted_in",
+   "at": "2026-10-12T11:20:15+00:00",
+   "source": "admin:test addresses 2026-10-12"
+  }
+ },
+ "kamala": {
+  "whatsapp": {
+   "simulated": true,
+   "at": "2026-10-12T16:28:35+00:00",
+   "source": "wa_inbound_yes",
+   "status": "opted_in"
+  }
+ },
+ "nbr": {},
+ "pharmacy": {
+  "email": {
+   "at": "2026-10-12T11:20:18+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  }
+ },
+ "rohan": {
+  "email": {
+   "at": "2026-10-12T11:20:13+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  },
+  "rcs": {
+   "status": "opted_in",
+   "simulated": true,
+   "at": "2026-10-12T16:28:33+00:00",
+   "source": "rcs_inbound_yes"
+  }
+ },
+ "simfam": {}
+}
+AgentCore list_events: [
+ {
+  "eventId": "0000001791822522914#397c3e7c",
+  "at": "2026-10-12 21:58:42.914000+05:30",
+  "payload": [
+   {
+    "conversational": {
+     "content": {
+      "text": "BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।"
+     },
+     "role": "USER"
+    }
+   },
+   {
+    "conversational": {
+     "content": {
+      "text": "मैंने यह लिख लिया है।"
+     },
+     "role": "ASSISTANT"
+    }
+   }
+  ]
+ }
+]
+inbound log lines for the turn:
+START RequestId: 39803aa8-1478-4477-8b2c-e726da5cf9f9 Version: $LATEST
+END RequestId: 39803aa8-1478-4477-8b2c-e726da5cf9f9
+REPORT RequestId: 39803aa8-1478-4477-8b2c-e726da5cf9f9	Duration: 4674.57 ms	Billed Duration: 4675 ms	Memory Size: 512 MB	Max Memory Used: 99 MB
+===== end turn 2026-10-12T16:28:47+00:00
+===== turn 2026-10-12T16:47:19+00:00
+account ok (...3900)
+== son opts in on RCS (simulated inbound YES)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 2.7,
+ "request_id": "b25db0d2-bb13-4dee-a2bd-511d4625b0e7",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: b25db0d2-bb13-4dee-a2bd-511d4625b0e7 Version: $LATEST
+END RequestId: b25db0d2-bb13-4dee-a2bd-511d4625b0e7
+REPORT RequestId: b25db0d2-bb13-4dee-a2bd-511d4625b0e7	Duration: 791.68 ms	Billed Duration: 1493 ms	Memory Size: 512 MB	Max Memory Used: 94 MB	Init Duration: 700.57 ms	
+
+== elder opts in on WhatsApp (simulated inbound हाँ)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 1.3,
+ "request_id": "093f6df2-fafb-4ceb-9a9c-a1cabac7772f",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 093f6df2-fafb-4ceb-9a9c-a1cabac7772f Version: $LATEST
+END RequestId: 093f6df2-fafb-4ceb-9a9c-a1cabac7772f
+REPORT RequestId: 093f6df2-fafb-4ceb-9a9c-a1cabac7772f	Duration: 407.67 ms	Billed Duration: 408 ms	Memory Size: 512 MB	Max Memory Used: 95 MB	
+
+== elder Hindi text turn
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 2.8,
+ "request_id": "1881a829-f2b3-46cb-aace-fd681cf30043",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 1881a829-f2b3-46cb-aace-fd681cf30043 Version: $LATEST
+END RequestId: 1881a829-f2b3-46cb-aace-fd681cf30043
+REPORT RequestId: 1881a829-f2b3-46cb-aace-fd681cf30043	Duration: 1970.49 ms	Billed Duration: 1971 ms	Memory Size: 512 MB	Max Memory Used: 99 MB	
+
+TRACE (python -m aurasenior.trace format)
+10-12 16:47Z inbound        channel=rcs person_id=rohan kind=text text="YES" [SIMULATED]
+10-12 16:47Z consent        channel=rcs person_id=rohan outcome=opted_in [SIMULATED]
+10-12 16:47Z send           channel=rcs person_id=rohan phrase=optin_done kind=text outcome=sent text="Thank you. You will now get updates about Mom from AuraSenior." [SIMULATED]
+10-12 16:47Z status         channel=rcs person_id=rohan outcome=delivered [SIMULATED]
+10-12 16:47Z inbound        channel=whatsapp person_id=kamala kind=text text="हाँ" [SIMULATED]
+10-12 16:47Z consent        channel=whatsapp person_id=kamala outcome=opted_in [SIMULATED]
+10-12 16:47Z send           channel=whatsapp person_id=kamala phrase=optin_done kind=text outcome=sent text="धन्यवाद। मैं हर सुबह आपसे बात करूँगी।" [SIMULATED]
+10-12 16:47Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+10-12 16:47Z inbound        channel=whatsapp person_id=kamala kind=text text="BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।" [SIMULATED]
+10-12 16:47Z converse       stop_reason=guardrail_intervened
+10-12 16:47Z guardrail      person_id=kamala outcome=blocked
+10-12 16:47Z send           channel=whatsapp person_id=kamala phrase=guardrail_blocked kind=text outcome=sent text="मैं इसमें मदद नहीं कर सकती। कृपया अपने डॉक्टर से पूछिए।" [SIMULATED]
+10-12 16:47Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+approvals created by the turn: []
+consent: {
+ "doctor": {
+  "email": {
+   "status": "opted_in",
+   "at": "2026-10-12T11:20:15+00:00",
+   "source": "admin:test addresses 2026-10-12"
+  }
+ },
+ "kamala": {
+  "whatsapp": {
+   "status": "opted_in",
+   "source": "wa_inbound_yes",
+   "at": "2026-10-12T16:47:25+00:00",
+   "simulated": true
+  }
+ },
+ "nbr": {},
+ "pharmacy": {
+  "email": {
+   "at": "2026-10-12T11:20:18+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  }
+ },
+ "rohan": {
+  "email": {
+   "at": "2026-10-12T11:20:13+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  },
+  "rcs": {
+   "status": "opted_in",
+   "at": "2026-10-12T16:47:24+00:00",
+   "source": "rcs_inbound_yes",
+   "simulated": true
+  }
+ },
+ "simfam": {}
+}
+AgentCore list_events: [
+ {
+  "eventId": "0000001791822522914#397c3e7c",
+  "at": "2026-10-12 21:58:42.914000+05:30",
+  "payload": [
+   {
+    "conversational": {
+     "content": {
+      "text": "BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।"
+     },
+     "role": "USER"
+    }
+   },
+   {
+    "conversational": {
+     "content": {
+      "text": "मैंने यह लिख लिया है।"
+     },
+     "role": "ASSISTANT"
+    }
+   }
+  ]
+ }
+]
+inbound log lines for the turn:
+START RequestId: 1881a829-f2b3-46cb-aace-fd681cf30043 Version: $LATEST
+END RequestId: 1881a829-f2b3-46cb-aace-fd681cf30043
+REPORT RequestId: 1881a829-f2b3-46cb-aace-fd681cf30043	Duration: 1970.49 ms	Billed Duration: 1971 ms	Memory Size: 512 MB	Max Memory Used: 99 MB
+===== end turn 2026-10-12T16:47:35+00:00
+===== turn 2026-10-12T17:42:38+00:00
+account ok (...3900)
+== son opts in on RCS (simulated inbound YES)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 2.9,
+ "request_id": "11f33577-57d8-4c8f-b720-493f2519b9b6",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 11f33577-57d8-4c8f-b720-493f2519b9b6 Version: $LATEST
+END RequestId: 11f33577-57d8-4c8f-b720-493f2519b9b6
+REPORT RequestId: 11f33577-57d8-4c8f-b720-493f2519b9b6	Duration: 888.14 ms	Billed Duration: 1769 ms	Memory Size: 512 MB	Max Memory Used: 94 MB	Init Duration: 880.44 ms	
+
+== elder opts in on WhatsApp (simulated inbound हाँ)
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 1.3,
+ "request_id": "1e98f22f-9a23-4590-a53b-fdd2973b68e0",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 1e98f22f-9a23-4590-a53b-fdd2973b68e0 Version: $LATEST
+END RequestId: 1e98f22f-9a23-4590-a53b-fdd2973b68e0
+REPORT RequestId: 1e98f22f-9a23-4590-a53b-fdd2973b68e0	Duration: 420.37 ms	Billed Duration: 421 ms	Memory Size: 512 MB	Max Memory Used: 95 MB	
+
+== elder Hindi text turn
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 5.6,
+ "request_id": "b27396ec-ba75-4c75-9dcc-5c2132721781",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: b27396ec-ba75-4c75-9dcc-5c2132721781 Version: $LATEST
+END RequestId: b27396ec-ba75-4c75-9dcc-5c2132721781
+REPORT RequestId: b27396ec-ba75-4c75-9dcc-5c2132721781	Duration: 4891.94 ms	Billed Duration: 4892 ms	Memory Size: 512 MB	Max Memory Used: 99 MB	
+
+TRACE (python -m aurasenior.trace format)
+10-12 17:42Z inbound        channel=rcs person_id=rohan kind=text text="YES" [SIMULATED]
+10-12 17:42Z consent        channel=rcs person_id=rohan outcome=opted_in [SIMULATED]
+10-12 17:42Z send           channel=rcs person_id=rohan phrase=optin_done kind=text outcome=sent text="Thank you. You will now get updates about Mom from AuraSenior." [SIMULATED]
+10-12 17:42Z status         channel=rcs person_id=rohan outcome=delivered [SIMULATED]
+10-12 17:42Z inbound        channel=whatsapp person_id=kamala kind=text text="हाँ" [SIMULATED]
+10-12 17:42Z consent        channel=whatsapp person_id=kamala outcome=opted_in [SIMULATED]
+10-12 17:42Z send           channel=whatsapp person_id=kamala phrase=optin_done kind=text outcome=sent text="धन्यवाद। मैं हर सुबह आपसे बात करूँगी।" [SIMULATED]
+10-12 17:42Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+10-12 17:42Z inbound        channel=whatsapp person_id=kamala kind=text text="BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।" [SIMULATED]
+10-12 17:42Z converse       stop_reason=tool_use
+10-12 17:42Z tool           tool=log_medicine outcome=success inputs={'medicine_id': 'bp', 'out_of_stock': True, 'taken': False}
+10-12 17:42Z converse       stop_reason=end_turn
+10-12 17:42Z send           channel=whatsapp person_id=kamala phrase=model_text kind=text outcome=sent text="माफ़ करें, आपकी BP वाली गोली खत्म हो गई है। मैं परिवार के लिए रिफ़िल की अनुमति म" [SIMULATED]
+10-12 17:42Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+approvals created by the turn: []
+consent: {
+ "doctor": {
+  "email": {
+   "status": "opted_in",
+   "at": "2026-10-12T11:20:15+00:00",
+   "source": "admin:test addresses 2026-10-12"
+  }
+ },
+ "kamala": {
+  "whatsapp": {
+   "at": "2026-10-12T17:42:44+00:00",
+   "simulated": true,
+   "source": "wa_inbound_yes",
+   "status": "opted_in"
+  }
+ },
+ "nbr": {},
+ "pharmacy": {
+  "email": {
+   "at": "2026-10-12T11:20:18+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  }
+ },
+ "rohan": {
+  "email": {
+   "at": "2026-10-12T11:20:13+00:00",
+   "source": "admin:test addresses 2026-10-12",
+   "status": "opted_in"
+  },
+  "rcs": {
+   "at": "2026-10-12T17:42:43+00:00",
+   "simulated": true,
+   "source": "rcs_inbound_yes",
+   "status": "opted_in"
+  }
+ },
+ "simfam": {}
+}
+AgentCore list_events: [
+ {
+  "eventId": "0000001791826972733#5a45a562",
+  "at": "2026-10-12 23:12:52.733000+05:30",
+  "payload": [
+   {
+    "conversational": {
+     "content": {
+      "text": "BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।"
+     },
+     "role": "USER"
+    }
+   },
+   {
+    "conversational": {
+     "content": {
+      "text": "माफ़ करें, आपकी BP वाली गोली खत्म हो गई है। मैं परिवार के लिए रिफ़िल की अनुमति माँग रही हूँ। घुटने में दर्द होने पर मैं खेद महसूस कर रही हूँ। कृपया अपने डॉक्टर से सलाह लें।"
+     },
+     "role": "ASSISTANT"
+    }
+   }
+  ]
+ },
+ {
+  "eventId": "0000001791822522914#397c3e7c",
+  "at": "2026-10-12 21:58:42.914000+05:30",
+  "payload": [
+   {
+    "conversational": {
+     "content": {
+      "text": "BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।"
+     },
+     "role": "USER"
+    }
+   },
+   {
+    "conversational": {
+     "content": {
+      "text": "मैंने यह लिख लिया है।"
+     },
+     "role": "ASSISTANT"
+    }
+   }
+  ]
+ }
+]
+inbound log lines for the turn:
+START RequestId: b27396ec-ba75-4c75-9dcc-5c2132721781 Version: $LATEST
+===== end turn 2026-10-12T17:42:56+00:00

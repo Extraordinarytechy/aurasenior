@@ -1,0 +1,137 @@
+===== refill 2026-10-12T13:55:08+00:00
+account ok (...3900)
+pending approvals for rohan: [
+ {
+  "household_id": "sample01",
+  "approval_id": "5fa3a41d3897",
+  "kind": "refill",
+  "medicine_id": "bp",
+  "status": "pending",
+  "ask_person_id": "rohan",
+  "created_at": "2026-10-12T13:55:00+00:00",
+  "handled_at": null,
+  "ran_out_at": "2026-10-12T13:55:00+00:00",
+  "ordered_at": null,
+  "handled_cid": null
+ }
+]
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 1.7,
+ "request_id": "35528332-b482-4008-a84c-290e7d7f06ef",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 35528332-b482-4008-a84c-290e7d7f06ef Version: $LATEST
+{"level": "ERROR", "msg": "send failed", "household_id": "sample01", "correlation_id": "rcs#live-tap-REDACTED_PHONE", "channel": "email", "code": "AccessDeniedException", "error": "User 'arn:aws:sts::********3900:assumed-role/aurasenior-inbound-role/aurasenior-inbound' is not authorized to perform 'ses:SendTemplatedEmail' on resource 'arn:aws:ses:us-east-1:********3900:identity/***@gmail.com'", "person_id": "pharmacy"}
+{"level": "WARN", "msg": "message undeliverable", "household_id": "sample01", "correlation_id": "rcs#live-tap-REDACTED_PHONE", "person_id": "pharmacy", "outcome": "failed"}
+{"level": "ERROR", "msg": "pharmacy order email not sent", "household_id": "sample01", "correlation_id": "rcs#live-tap-REDACTED_PHONE", "outcome": "failed"}
+END RequestId: 35528332-b482-4008-a84c-290e7d7f06ef
+REPORT RequestId: 35528332-b482-4008-a84c-290e7d7f06ef	Duration: 755.82 ms	Billed Duration: 756 ms	Memory Size: 512 MB	Max Memory Used: 103 MB	
+
+EMAIL MSG items (SES MessageId, statuses): {
+ "pharmacy": []
+}
+TRACE (python -m aurasenior.trace format)
+10-12 13:55Z inbound        channel=rcs person_id=rohan kind=postback text="Order refill" [SIMULATED]
+10-12 13:55Z refill         person_id=rohan outcome=approved
+10-12 13:55Z send           channel=email person_id=pharmacy outcome=failed
+10-12 13:55Z route          person_id=pharmacy outcome=failed
+10-12 13:55Z send           channel=rcs person_id=rohan phrase=refill_order_failed kind=text outcome=sent text="The order email could not be sent. Please call the pharmacy." [SIMULATED]
+10-12 13:55Z status         channel=rcs person_id=rohan outcome=delivered [SIMULATED]
+inbound log events since t0: 6, mentioning the SES ids: 0
+approval after: {
+ "household_id": "sample01",
+ "approval_id": "5fa3a41d3897",
+ "kind": "refill",
+ "medicine_id": "bp",
+ "status": "approved",
+ "ask_person_id": "rohan",
+ "created_at": "2026-10-12T13:55:00+00:00",
+ "handled_at": "2026-10-12T13:55:12+00:00",
+ "ran_out_at": "2026-10-12T13:55:00+00:00",
+ "ordered_at": null,
+ "handled_cid": "rcs#live-tap-REDACTED_PHONE"
+}
+===== end refill 2026-10-12T13:57:48+00:00
+===== refill 2026-10-12T15:07:36+00:00
+account ok (...3900)
+pending approvals for rohan: [
+ {
+  "household_id": "sample01",
+  "approval_id": "3ccf372b63ea",
+  "kind": "refill",
+  "medicine_id": "bp",
+  "status": "pending",
+  "ask_person_id": "rohan",
+  "created_at": "2026-10-12T15:07:08+00:00",
+  "handled_at": null,
+  "ran_out_at": "2026-10-12T15:07:08+00:00",
+  "ordered_at": null,
+  "handled_cid": null
+ }
+]
+INVOKE {
+ "fn": "aurasenior-inbound",
+ "status": 200,
+ "function_error": null,
+ "seconds": 2.0,
+ "request_id": "f9582eea-7cd7-48c0-add1-6845fc751cfb",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: f9582eea-7cd7-48c0-add1-6845fc751cfb Version: $LATEST
+END RequestId: f9582eea-7cd7-48c0-add1-6845fc751cfb
+REPORT RequestId: f9582eea-7cd7-48c0-add1-6845fc751cfb	Duration: 971.52 ms	Billed Duration: 972 ms	Memory Size: 512 MB	Max Memory Used: 104 MB	
+
+EMAIL MSG items (SES MessageId, statuses): {
+ "pharmacy": [
+  [
+   "010001a130a7bcb4-1f048ece-ac6b-41cf-a488-be9e7042fce2-000000",
+   [
+    {
+     "at": "2026-10-12T15:07:41+00:00",
+     "status": "sent"
+    },
+    {
+     "at": "2026-10-12T15:07:42+00:00",
+     "status": "delivered"
+    }
+   ],
+   "delivered"
+  ]
+ ]
+}
+TRACE (python -m aurasenior.trace format)
+10-12 15:07Z status         channel=email person_id=pharmacy outcome=sent
+10-12 15:07Z inbound        channel=rcs person_id=rohan kind=postback text="Order refill" [SIMULATED]
+10-12 15:07Z refill         person_id=rohan outcome=approved
+10-12 15:07Z send           channel=email person_id=pharmacy template=aurasenior-refill-order kind=email_template outcome=sent text="Refill request for Kamala"
+10-12 15:07Z refill         channel=email outcome=ordered
+10-12 15:07Z send           channel=whatsapp person_id=kamala phrase=refill_ordered_elder kind=voice outcome=sent text="Rohan ने आपकी BP tablets मँगवा दी है।" [SIMULATED]
+10-12 15:07Z status         channel=whatsapp person_id=kamala outcome=delivered [SIMULATED]
+10-12 15:07Z send           channel=rcs person_id=rohan phrase=refill_ordered_family kind=text outcome=sent text="Order sent to City Pharmacy for Mom's BP tablets." [SIMULATED]
+10-12 15:07Z status         channel=rcs person_id=rohan outcome=delivered [SIMULATED]
+10-12 15:07Z status         channel=email person_id=pharmacy outcome=delivered
+inbound log events since t0: 9, mentioning the SES ids: 0
+approval after: {
+ "household_id": "sample01",
+ "approval_id": "3ccf372b63ea",
+ "kind": "refill",
+ "medicine_id": "bp",
+ "status": "ordered",
+ "ask_person_id": "rohan",
+ "created_at": "2026-10-12T15:07:08+00:00",
+ "handled_at": "2026-10-12T15:07:41+00:00",
+ "ran_out_at": "2026-10-12T15:07:08+00:00",
+ "ordered_at": "2026-10-12T15:07:41+00:00",
+ "handled_cid": "rcs#live-tap-REDACTED_PHONE"
+}
+===== end refill 2026-10-12T15:08:00+00:00
+===== refill 2026-10-12T16:28:47+00:00
+account ok (...3900)
+pending approvals for rohan: []
+NO pending approval: the model did not request a refill approval
+===== end refill 2026-10-12T16:28:51+00:00

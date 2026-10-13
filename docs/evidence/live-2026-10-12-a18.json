@@ -1,0 +1,117 @@
+{
+ "stage": "a18",
+ "stack_status": "CREATE_COMPLETE",
+ "outputs": {
+  "GuardrailId": "5jxcp5ry6ts8",
+  "TableName": "aurasenior-household",
+  "EmailEventsTopicArn": "arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-email-events",
+  "SmsOriginationNumberArn": "arn:aws:sms-voice:us-east-1:REDACTED_ACCOUNT:phone-number/phone-fd2b084d8c6f4bcdaca0a47530864833",
+  "WhatsAppEventsTopicArn": "arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-whatsapp-events",
+  "SmsRcsEventsTopicArn": "arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-sms-rcs-events",
+  "AgentCoreMemoryId": "aurasenior_memory-MdGP4jD3vJ",
+  "GuardrailVersion": "1"
+ },
+ "functions": {
+  "aurasenior-inbound": {
+   "State": "Active",
+   "LastUpdateStatus": "Successful",
+   "Runtime": "python3.13",
+   "Architectures": [
+    "arm64"
+   ],
+   "Timeout": 120,
+   "MemorySize": 512,
+   "LastModified": "2026-10-12T11:06:34.902+0000",
+   "modes": {
+    "AURASENIOR_MODE_TRANSCRIBE": "aws",
+    "AURASENIOR_MODE_SCHEDULER": "aws",
+    "AURASENIOR_MODE_WHATSAPP": "sim",
+    "AURASENIOR_MODE_EMAIL": "aws",
+    "AURASENIOR_MODE_POLLY": "aws",
+    "AURASENIOR_MODE_SMS": "aws",
+    "AURASENIOR_MODE_CONVERSE": "aws",
+    "AURASENIOR_MODE_MEMORY": "aws",
+    "AURASENIOR_MODE_RCS": "sim"
+   }
+  },
+  "aurasenior-scheduled": {
+   "State": "Active",
+   "LastUpdateStatus": "Successful",
+   "Runtime": "python3.13",
+   "Architectures": [
+    "arm64"
+   ],
+   "Timeout": 120,
+   "MemorySize": 512,
+   "LastModified": "2026-10-12T11:06:34.931+0000",
+   "modes": {
+    "AURASENIOR_MODE_TRANSCRIBE": "aws",
+    "AURASENIOR_MODE_SCHEDULER": "aws",
+    "AURASENIOR_MODE_WHATSAPP": "sim",
+    "AURASENIOR_MODE_EMAIL": "aws",
+    "AURASENIOR_MODE_POLLY": "aws",
+    "AURASENIOR_MODE_SMS": "aws",
+    "AURASENIOR_MODE_CONVERSE": "aws",
+    "AURASENIOR_MODE_MEMORY": "aws",
+    "AURASENIOR_MODE_RCS": "sim"
+   }
+  }
+ },
+ "log_groups": [
+  {
+   "name": "/aws/lambda/aurasenior-inbound",
+   "retention": 14,
+   "stored_bytes": 0
+  },
+  {
+   "name": "/aws/lambda/aurasenior-scheduled",
+   "retention": 14,
+   "stored_bytes": 0
+  }
+ ],
+ "budget": {
+  "name": "aurasenior-monthly",
+  "limit": {
+   "Amount": "25.0",
+   "Unit": "USD"
+  },
+  "type": "COST",
+  "time_unit": "MONTHLY",
+  "notifications": [
+   {
+    "notification": {
+     "NotificationType": "ACTUAL",
+     "ComparisonOperator": "GREATER_THAN",
+     "Threshold": 80.0,
+     "NotificationState": "OK"
+    },
+    "subscribers": [
+     {
+      "SubscriptionType": "EMAIL",
+      "Address": "REDACTED_EMAIL"
+     }
+    ]
+   }
+  ]
+ },
+ "alarm": [
+  {
+   "name": "aurasenior-errors",
+   "state": "OK",
+   "actions": [
+    "arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-failed-events"
+   ]
+  }
+ ],
+ "schedules": [
+  {
+   "name": "aurasenior-weekly-sample01",
+   "state": "ENABLED"
+  },
+  {
+   "name": "aurasenior-checkin-sample01",
+   "state": "ENABLED"
+  }
+ ],
+ "scheduled_invocations_24h": 1
+}

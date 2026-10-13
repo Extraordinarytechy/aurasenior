@@ -1,0 +1,156 @@
+{
+ "stage": "weekly",
+ "t0": "2026-10-12T16:28:50+00:00",
+ "invoke": {
+  "fn": "aurasenior-scheduled",
+  "status": 200,
+  "function_error": null,
+  "seconds": 4.5,
+  "request_id": "6a02eecc-75a9-4c48-98c5-e31f9e4e8525",
+  "payload": "{\"ok\": true}",
+  "log_tail": "START RequestId: 6a02eecc-75a9-4c48-98c5-e31f9e4e8525 Version: $LATEST\nEND RequestId: 6a02eecc-75a9-4c48-98c5-e31f9e4e8525\nREPORT RequestId: 6a02eecc-75a9-4c48-98c5-e31f9e4e8525\tDuration: 1437.28 ms\tBilled Duration: 2284 ms\tMemory Size: 512 MB\tMax Memory Used: 96 MB\tInit Duration: 846.22 ms\t\n"
+ },
+ "email": {
+  "rohan": [
+   [
+    "010001a130f221c1-f498cdd7-e360-4e6c-ade3-eb6a2d460b45-000000",
+    [
+     {
+      "status": "sent",
+      "at": "2026-10-12T16:28:57+00:00"
+     },
+     {
+      "at": "2026-10-12T16:28:58+00:00",
+      "status": "delivered"
+     }
+    ],
+    "delivered"
+   ]
+  ],
+  "doctor": [
+   [
+    "010001a130f22091-3821d7cc-688e-459a-b754-64a1763b4547-000000",
+    [
+     {
+      "status": "sent",
+      "at": "2026-10-12T16:28:57+00:00"
+     },
+     {
+      "at": "2026-10-12T16:28:57+00:00",
+      "status": "delivered"
+     }
+    ],
+    "delivered"
+   ]
+  ]
+ },
+ "trace": [
+  {
+   "person_id": "doctor",
+   "template": "aurasenior-weekly-summary",
+   "step": "send",
+   "ttl": REDACTED_PHONE,
+   "text": "Week of 2026-10-06",
+   "channel": "email",
+   "simulated": false,
+   "at": "2026-10-12T16:28:56+00:00",
+   "kind": "email_template",
+   "urgency": "normal",
+   "PK": "HH#sample01",
+   "outcome": "sent",
+   "SK": "TRACE#2026-10-12T16:28:56+00:00#000001"
+  },
+  {
+   "person_id": "doctor",
+   "at": "2026-10-12T16:28:56+00:00",
+   "ttl": REDACTED_PHONE,
+   "step": "weekly_summary",
+   "outcome": "sent",
+   "PK": "HH#sample01",
+   "channel": "email",
+   "simulated": false,
+   "SK": "TRACE#2026-10-12T16:28:56+00:00#000002"
+  },
+  {
+   "person_id": "nbr",
+   "at": "2026-10-12T16:28:56+00:00",
+   "step": "weekly_summary",
+   "ttl": REDACTED_PHONE,
+   "outcome": "blocked_consent",
+   "PK": "HH#sample01",
+   "channel": "email",
+   "simulated": false,
+   "SK": "TRACE#2026-10-12T16:28:56+00:00#000003"
+  },
+  {
+   "person_id": "rohan",
+   "template": "aurasenior-weekly-summary",
+   "ttl": REDACTED_PHONE,
+   "step": "send",
+   "text": "Week of 2026-10-06",
+   "channel": "email",
+   "simulated": false,
+   "at": "2026-10-12T16:28:57+00:00",
+   "urgency": "normal",
+   "kind": "email_template",
+   "outcome": "sent",
+   "PK": "HH#sample01",
+   "SK": "TRACE#2026-10-12T16:28:57+00:00#000004"
+  },
+  {
+   "person_id": "rohan",
+   "at": "2026-10-12T16:28:57+00:00",
+   "step": "weekly_summary",
+   "ttl": REDACTED_PHONE,
+   "PK": "HH#sample01",
+   "outcome": "sent",
+   "channel": "email",
+   "simulated": false,
+   "SK": "TRACE#2026-10-12T16:28:57+00:00#000005"
+  },
+  {
+   "person_id": "doctor",
+   "at": "2026-10-12T16:28:57+00:00",
+   "ttl": REDACTED_PHONE,
+   "step": "status",
+   "PK": "HH#sample01",
+   "outcome": "sent",
+   "channel": "email",
+   "simulated": false,
+   "SK": "TRACE#2026-10-12T16:28:57+00:00#000016"
+  },
+  {
+   "person_id": "rohan",
+   "at": "2026-10-12T16:28:57+00:00",
+   "step": "status",
+   "ttl": REDACTED_PHONE,
+   "outcome": "sent",
+   "PK": "HH#sample01",
+   "channel": "email",
+   "simulated": false,
+   "SK": "TRACE#2026-10-12T16:28:57+00:00#000017"
+  },
+  {
+   "person_id": "doctor",
+   "at": "2026-10-12T16:28:57+00:00",
+   "ttl": REDACTED_PHONE,
+   "step": "status",
+   "outcome": "delivered",
+   "PK": "HH#sample01",
+   "channel": "email",
+   "simulated": false,
+   "SK": "TRACE#2026-10-12T16:28:57+00:00#000018"
+  },
+  {
+   "person_id": "rohan",
+   "at": "2026-10-12T16:28:58+00:00",
+   "step": "status",
+   "ttl": REDACTED_PHONE,
+   "PK": "HH#sample01",
+   "outcome": "delivered",
+   "channel": "email",
+   "simulated": false,
+   "SK": "TRACE#2026-10-12T16:28:58+00:00#000019"
+  }
+ ]
+}

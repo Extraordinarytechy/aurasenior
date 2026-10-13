@@ -1,0 +1,150 @@
+===== weekly 2026-10-12T13:57:49+00:00
+account ok (...3900)
+INVOKE {
+ "fn": "aurasenior-scheduled",
+ "status": 200,
+ "function_error": null,
+ "seconds": 3.6,
+ "request_id": "519817e7-296c-470a-938c-ae6d6de5ca45",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 519817e7-296c-470a-938c-ae6d6de5ca45 Version: $LATEST
+{"level": "ERROR", "msg": "send failed", "household_id": "sample01", "correlation_id": "weekly#sample01#live1791813470", "channel": "email", "code": "AccessDeniedException", "error": "User 'arn:aws:sts::********3900:assumed-role/aurasenior-scheduled-role/aurasenior-scheduled' is not authorized to perform 'ses:SendTemplatedEmail' on resource 'arn:aws:ses:us-east-1:********3900:contact-list/aurasenior-contacts'", "person_id": "doctor"}
+{"level": "WARN", "msg": "message undeliverable", "household_id": "sample01", "correlation_id": "weekly#sample01#live1791813470", "person_id": "doctor", "outcome": "failed"}
+{"level": "ERROR", "msg": "send failed", "household_id": "sample01", "correlation_id": "weekly#sample01#live1791813470", "channel": "email", "code": "AccessDeniedException", "error": "User 'arn:aws:sts::********3900:assumed-role/aurasenior-scheduled-role/aurasenior-scheduled' is not authorized to perform 'ses:SendTemplatedEmail' on resource 'arn:aws:ses:us-east-1:********3900:contact-list/aurasenior-contacts'", "person_id": "rohan"}
+{"level": "WARN", "msg": "message undeliverable", "household_id": "sample01", "correlation_id": "weekly#sample01#live1791813470", "person_id": "rohan", "outcome": "failed"}
+END RequestId: 519817e7-296c-470a-938c-ae6d6de5ca45
+REPORT RequestId: 519817e7-296c-470a-938c-ae6d6de5ca45	Duration: 1396.25 ms	Billed Duration: 2263 ms	Memory Size: 512 MB	Max Memory Used: 96 MB	Init Duration: 866.44 ms	
+
+EMAIL MSG items (SES MessageId, statuses): {
+ "rohan": [],
+ "doctor": []
+}
+TRACE (python -m aurasenior.trace format)
+10-12 13:57Z send           channel=email person_id=doctor outcome=failed
+10-12 13:57Z route          person_id=doctor outcome=failed
+10-12 13:57Z weekly_summary channel=email person_id=doctor outcome=failed
+10-12 13:57Z weekly_summary channel=email person_id=nbr outcome=blocked_consent
+10-12 13:57Z send           channel=email person_id=rohan outcome=failed
+10-12 13:57Z route          person_id=rohan outcome=failed
+10-12 13:57Z weekly_summary channel=email person_id=rohan outcome=failed
+===== end weekly 2026-10-12T14:00:31+00:00
+===== weekly 2026-10-12T15:06:36+00:00
+account ok (...3900)
+INVOKE {
+ "fn": "aurasenior-scheduled",
+ "status": 200,
+ "function_error": null,
+ "seconds": 3.9,
+ "request_id": "1a4beb6d-f695-4ebc-9fd1-0612437e2dc4",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 1a4beb6d-f695-4ebc-9fd1-0612437e2dc4 Version: $LATEST
+END RequestId: 1a4beb6d-f695-4ebc-9fd1-0612437e2dc4
+REPORT RequestId: 1a4beb6d-f695-4ebc-9fd1-0612437e2dc4	Duration: 1497.35 ms	Billed Duration: 2378 ms	Memory Size: 512 MB	Max Memory Used: 96 MB	Init Duration: 880.06 ms	
+
+EMAIL MSG items (SES MessageId, statuses): {
+ "rohan": [
+  [
+   "010001a130a6d23f-58fa2ac4-1777-4c54-a26e-c7a88a6c2b88-000000",
+   [
+    {
+     "status": "sent",
+     "at": "2026-10-12T15:06:43+00:00"
+    },
+    {
+     "at": "2026-10-12T15:06:44+00:00",
+     "status": "delivered"
+    }
+   ],
+   "delivered"
+  ]
+ ],
+ "doctor": [
+  [
+   "010001a130a6d0cf-f850190b-17da-47ad-95f7-9c5cd7e1c76c-000000",
+   [
+    {
+     "status": "sent",
+     "at": "2026-10-12T15:06:43+00:00"
+    },
+    {
+     "at": "2026-10-12T15:06:44+00:00",
+     "status": "delivered"
+    }
+   ],
+   "delivered"
+  ]
+ ]
+}
+TRACE (python -m aurasenior.trace format)
+10-12 15:06Z send           channel=email person_id=doctor template=aurasenior-weekly-summary kind=email_template outcome=sent text="Week of 2026-10-06"
+10-12 15:06Z weekly_summary channel=email person_id=doctor outcome=sent
+10-12 15:06Z weekly_summary channel=email person_id=nbr outcome=blocked_consent
+10-12 15:06Z send           channel=email person_id=rohan template=aurasenior-weekly-summary kind=email_template outcome=sent text="Week of 2026-10-06"
+10-12 15:06Z weekly_summary channel=email person_id=rohan outcome=sent
+10-12 15:06Z status         channel=email person_id=doctor outcome=sent
+10-12 15:06Z status         channel=email person_id=rohan outcome=delivered
+===== end weekly 2026-10-12T15:06:59+00:00
+===== weekly 2026-10-12T16:28:51+00:00
+account ok (...3900)
+INVOKE {
+ "fn": "aurasenior-scheduled",
+ "status": 200,
+ "function_error": null,
+ "seconds": 4.5,
+ "request_id": "6a02eecc-75a9-4c48-98c5-e31f9e4e8525",
+ "payload": "{\"ok\": true}"
+}
+LOG TAIL
+START RequestId: 6a02eecc-75a9-4c48-98c5-e31f9e4e8525 Version: $LATEST
+END RequestId: 6a02eecc-75a9-4c48-98c5-e31f9e4e8525
+REPORT RequestId: 6a02eecc-75a9-4c48-98c5-e31f9e4e8525	Duration: 1437.28 ms	Billed Duration: 2284 ms	Memory Size: 512 MB	Max Memory Used: 96 MB	Init Duration: 846.22 ms	
+
+EMAIL MSG items (SES MessageId, statuses): {
+ "rohan": [
+  [
+   "010001a130f221c1-f498cdd7-e360-4e6c-ade3-eb6a2d460b45-000000",
+   [
+    {
+     "status": "sent",
+     "at": "2026-10-12T16:28:57+00:00"
+    },
+    {
+     "at": "2026-10-12T16:28:58+00:00",
+     "status": "delivered"
+    }
+   ],
+   "delivered"
+  ]
+ ],
+ "doctor": [
+  [
+   "010001a130f22091-3821d7cc-688e-459a-b754-64a1763b4547-000000",
+   [
+    {
+     "status": "sent",
+     "at": "2026-10-12T16:28:57+00:00"
+    },
+    {
+     "at": "2026-10-12T16:28:57+00:00",
+     "status": "delivered"
+    }
+   ],
+   "delivered"
+  ]
+ ]
+}
+TRACE (python -m aurasenior.trace format)
+10-12 16:28Z send           channel=email person_id=doctor template=aurasenior-weekly-summary kind=email_template outcome=sent text="Week of 2026-10-06"
+10-12 16:28Z weekly_summary channel=email person_id=doctor outcome=sent
+10-12 16:28Z weekly_summary channel=email person_id=nbr outcome=blocked_consent
+10-12 16:28Z send           channel=email person_id=rohan template=aurasenior-weekly-summary kind=email_template outcome=sent text="Week of 2026-10-06"
+10-12 16:28Z weekly_summary channel=email person_id=rohan outcome=sent
+10-12 16:28Z status         channel=email person_id=doctor outcome=sent
+10-12 16:28Z status         channel=email person_id=rohan outcome=sent
+10-12 16:28Z status         channel=email person_id=doctor outcome=delivered
+10-12 16:28Z status         channel=email person_id=rohan outcome=delivered
+===== end weekly 2026-10-12T16:28:59+00:00

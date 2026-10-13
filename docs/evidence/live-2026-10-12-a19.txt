@@ -1,0 +1,51 @@
+===== a19 2026-10-12T11:27:48+00:00
+account ok (...3900)
+start 2026-10-12T11:27:49+00:00 alarm before: ('OK', datetime.datetime(2026, 10, 12, 16, 35, 2, 62000, tzinfo=tzlocal()), 'Threshold Crossed: 1 datapoint [0.0 (12/10/26 11:00:00)] was not greater than the threshold (0.0).')
+INVOKE {
+ "fn": "aurasenior-scheduled",
+ "status": 202,
+ "function_error": null,
+ "seconds": 1.0,
+ "request_id": "06513960-ca88-4a96-bf92-d1af7b42460f"
+}
+ERROR log lines: [
+ "{\"level\": \"ERROR\", \"msg\": \"selftest_error\", \"household_id\": null, \"correlation_id\": null, \"kind\": \"selftest_error\"}"
+]
+alarm state [
+ "2026-10-12T11:28:05+00:00",
+ "ALARM",
+ "2026-10-12 16:58:02.062000+05:30",
+ "Threshold Crossed: 1 datapoint [1.0 (12/10/26 11:23:00)] was greater than the threshold (0.0)."
+]
+alarm state [
+ "2026-10-12T11:34:02+00:00",
+ "OK",
+ "2026-10-12 17:04:02.053000+05:30",
+ "Threshold Crossed: 1 datapoint [0.0 (12/10/26 11:29:00)] was not greater than the threshold (0.0)."
+]
+get-metric-data AuraSenior/ErrorLogs: [
+ {
+  "ts": [
+   "2026-10-12 16:57:00+05:30"
+  ],
+  "values": [
+   4.0
+  ]
+ }
+]
+alarm history: [
+ {
+  "at": "2026-10-12 17:04:02.053000+05:30",
+  "summary": "Alarm updated from ALARM to OK"
+ },
+ {
+  "at": "2026-10-12 16:58:02.062000+05:30",
+  "summary": "Alarm updated from OK to ALARM"
+ }
+] actions: [
+ {
+  "at": "2026-10-12 16:58:02.113000+05:30",
+  "summary": "Successfully executed action arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-failed-events"
+ }
+]
+===== end a19 2026-10-12T11:34:03+00:00

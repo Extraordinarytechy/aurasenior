@@ -1,0 +1,127 @@
+===== a18 2026-10-12T11:27:48+00:00
+account ok (...3900)
+stack CREATE_COMPLETE outputs: {
+ "GuardrailId": "5jxcp5ry6ts8",
+ "TableName": "aurasenior-household",
+ "EmailEventsTopicArn": "arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-email-events",
+ "SmsOriginationNumberArn": "arn:aws:sms-voice:us-east-1:REDACTED_ACCOUNT:phone-number/phone-fd2b084d8c6f4bcdaca0a47530864833",
+ "WhatsAppEventsTopicArn": "arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-whatsapp-events",
+ "SmsRcsEventsTopicArn": "arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-sms-rcs-events",
+ "AgentCoreMemoryId": "aurasenior_memory-MdGP4jD3vJ",
+ "GuardrailVersion": "1"
+}
+functions {
+ "aurasenior-inbound": {
+  "State": "Active",
+  "LastUpdateStatus": "Successful",
+  "Runtime": "python3.13",
+  "Architectures": [
+   "arm64"
+  ],
+  "Timeout": 120,
+  "MemorySize": 512,
+  "LastModified": "2026-10-12T11:06:34.902+0000",
+  "modes": {
+   "AURASENIOR_MODE_TRANSCRIBE": "aws",
+   "AURASENIOR_MODE_SCHEDULER": "aws",
+   "AURASENIOR_MODE_WHATSAPP": "sim",
+   "AURASENIOR_MODE_EMAIL": "aws",
+   "AURASENIOR_MODE_POLLY": "aws",
+   "AURASENIOR_MODE_SMS": "aws",
+   "AURASENIOR_MODE_CONVERSE": "aws",
+   "AURASENIOR_MODE_MEMORY": "aws",
+   "AURASENIOR_MODE_RCS": "sim"
+  }
+ },
+ "aurasenior-scheduled": {
+  "State": "Active",
+  "LastUpdateStatus": "Successful",
+  "Runtime": "python3.13",
+  "Architectures": [
+   "arm64"
+  ],
+  "Timeout": 120,
+  "MemorySize": 512,
+  "LastModified": "2026-10-12T11:06:34.931+0000",
+  "modes": {
+   "AURASENIOR_MODE_TRANSCRIBE": "aws",
+   "AURASENIOR_MODE_SCHEDULER": "aws",
+   "AURASENIOR_MODE_WHATSAPP": "sim",
+   "AURASENIOR_MODE_EMAIL": "aws",
+   "AURASENIOR_MODE_POLLY": "aws",
+   "AURASENIOR_MODE_SMS": "aws",
+   "AURASENIOR_MODE_CONVERSE": "aws",
+   "AURASENIOR_MODE_MEMORY": "aws",
+   "AURASENIOR_MODE_RCS": "sim"
+  }
+ }
+}
+log groups [
+ {
+  "name": "/aws/lambda/aurasenior-inbound",
+  "retention": 14,
+  "stored_bytes": 0
+ },
+ {
+  "name": "/aws/lambda/aurasenior-scheduled",
+  "retention": 14,
+  "stored_bytes": 0
+ }
+]
+metric filters (scheduled) [
+ [
+  "ErrorLogMetricFilterScheduled-UpdinkDaaQY1",
+  "{ $.level = \"ERROR\" }"
+ ]
+]
+budget {
+ "name": "aurasenior-monthly",
+ "limit": {
+  "Amount": "25.0",
+  "Unit": "USD"
+ },
+ "type": "COST",
+ "time_unit": "MONTHLY",
+ "notifications": [
+  {
+   "notification": {
+    "NotificationType": "ACTUAL",
+    "ComparisonOperator": "GREATER_THAN",
+    "Threshold": 80.0,
+    "NotificationState": "OK"
+   },
+   "subscribers": [
+    {
+     "SubscriptionType": "EMAIL",
+     "Address": "REDACTED_EMAIL"
+    }
+   ]
+  }
+ ]
+}
+alarm [
+ {
+  "name": "aurasenior-errors",
+  "state": "OK",
+  "actions": [
+   "arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-failed-events"
+  ]
+ }
+]
+schedules [
+ {
+  "name": "aurasenior-weekly-sample01",
+  "state": "ENABLED"
+ },
+ {
+  "name": "aurasenior-checkin-sample01",
+  "state": "ENABLED"
+ }
+]
+scheduled function invocations in the last 24h: 1
+   2026-10-12T11:27:51.545000+00:00 INIT_START Runtime Version: python:3.13.mainlinev2.v43	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:0aacb188d2c5b3aad9e30760eeca867126ff27643ac0b027e44a1f156beaf2d8
+   2026-10-12T11:27:52.385000+00:00 START RequestId: 06513960-ca88-4a96-bf92-d1af7b42460f Version: $LATEST
+   2026-10-12T11:27:52.386000+00:00 {"level": "ERROR", "msg": "selftest_error", "household_id": null, "correlation_id": null, "kind": "selftest_error"}
+   2026-10-12T11:27:52.388000+00:00 END RequestId: 06513960-ca88-4a96-bf92-d1af7b42460f
+   2026-10-12T11:27:52.388000+00:00 REPORT RequestId: 06513960-ca88-4a96-bf92-d1af7b42460f	Duration: 2.25 ms	Billed Duration: 839 ms	Memory Size: 512 MB	Max Memory Used: 77 MB	Init Duration: 836.62 ms
+===== end a18 2026-10-12T11:27:59+00:00

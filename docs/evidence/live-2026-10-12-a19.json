@@ -1,0 +1,54 @@
+{
+ "stage": "a19",
+ "t0": "2026-10-12T11:27:49+00:00",
+ "invoke": {
+  "fn": "aurasenior-scheduled",
+  "status": 202,
+  "function_error": null,
+  "seconds": 1.0,
+  "request_id": "06513960-ca88-4a96-bf92-d1af7b42460f"
+ },
+ "error_log_lines": [
+  "{\"level\": \"ERROR\", \"msg\": \"selftest_error\", \"household_id\": null, \"correlation_id\": null, \"kind\": \"selftest_error\"}"
+ ],
+ "alarm_states": [
+  [
+   "2026-10-12T11:28:05+00:00",
+   "ALARM",
+   "2026-10-12 16:58:02.062000+05:30",
+   "Threshold Crossed: 1 datapoint [1.0 (12/10/26 11:23:00)] was greater than the threshold (0.0)."
+  ],
+  [
+   "2026-10-12T11:34:02+00:00",
+   "OK",
+   "2026-10-12 17:04:02.053000+05:30",
+   "Threshold Crossed: 1 datapoint [0.0 (12/10/26 11:29:00)] was not greater than the threshold (0.0)."
+  ]
+ ],
+ "metric": [
+  {
+   "ts": [
+    "2026-10-12 16:57:00+05:30"
+   ],
+   "values": [
+    4.0
+   ]
+  }
+ ],
+ "history": [
+  {
+   "at": "2026-10-12 17:04:02.053000+05:30",
+   "summary": "Alarm updated from ALARM to OK"
+  },
+  {
+   "at": "2026-10-12 16:58:02.062000+05:30",
+   "summary": "Alarm updated from OK to ALARM"
+  }
+ ],
+ "actions": [
+  {
+   "at": "2026-10-12 16:58:02.113000+05:30",
+   "summary": "Successfully executed action arn:aws:sns:us-east-1:REDACTED_ACCOUNT:aurasenior-failed-events"
+  }
+ ]
+}
