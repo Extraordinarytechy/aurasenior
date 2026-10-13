@@ -192,6 +192,13 @@ class AgentRunner:
             return None
         voice = ctx.voice_reply
         asked = [(i, out) for name, i, out in done if name == "request_refill_approval" and out.get("asked")]
+        for _, out in asked:
+            # An earlier request already ordered or taken on by family: say where it stands, not "I have asked".
+            if out.get("approval_status") in ("ordered", "self"):
+                a = store.get_approval(hid, out.get("approval_id", ""))
+                line = refill.elder_line(hid, a, voice) if a else None
+                if line:
+                    return line
         if asked:
             labels = []
             for i, _ in asked:

@@ -179,6 +179,16 @@ def test_reply_blocked_after_a_refill_ask_tells_her_only_what_happened(sample):
     assert g["output_topics"] == ["Medication dose advice"] and g["reply"] == "refill_asked_elder"
 
 
+def test_reply_blocked_after_a_repeat_ask_for_an_ordered_refill_says_it_was_ordered(sample):
+    open_window(sample, "kamala")
+    _ordered_today(sample)
+    _scripted([tool_use("request_refill_approval", {"medicine_id": "bp", "ask_person_id": "rohan"}, "a"),
+               _blocked_with("output")])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev17", "text": "BP वाली गोली खत्म हो गई।"})
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "refill_ordered_elder" and reply["text"] == "Rohan ने आपकी BP tablets मँगवा दी है।"
+
+
 def test_reply_blocked_when_the_refill_card_did_not_go_out_claims_no_ask(sample):
     open_window(sample, "kamala")
     for ch in ("rcs", "sms", "email"):
