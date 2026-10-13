@@ -5,6 +5,7 @@ Everything here is idempotent and touches only resources whose names start with 
 from __future__ import annotations
 
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -110,6 +111,47 @@ def template_definitions() -> list[dict]:
             if t["buttons"]:
                 comps.append({"type": "BUTTONS", "buttons": [{"type": "QUICK_REPLY", "text": b} for b in t["buttons"]]})
             out.append({"name": base + row[0], "language": row[1], "category": "UTILITY", "components": comps})
+    return out
+
+
+TEMPLATE_NAME = re.compile(r"^[a-z0-9_]{1,512}$")
+VARIABLE = re.compile(r"\{\{(\d+)\}\}")
+
+
+def template_problems(defs: list[dict] | None = None) -> list[tuple[str, str, str]]:
+    """(level, template, problem) for Meta's documented template rules: name lowercase letters, digits and
+    underscores (max 512), body max 1024 characters, positional variables numbered from 1 in order, one example
+    value per variable, at most 10 buttons with labels of at most 25 characters. Placement of a variable at the
+    very start or end of the body, and a repeated variable, are reported as warnings: review commonly rejects them."""
+    out = []
+    for d in template_definitions() if defs is None else defs:
+        name = f"{d['name']} ({d['language']})"
+        if not TEMPLATE_NAME.match(d["name"]):
+            out.append(("error", name, "name must be lowercase letters, digits and underscores, max 512"))
+        body = next(c for c in d["components"] if c["type"] == "BODY")
+        text = body["text"]
+        if len(text) > 1024:
+            out.append(("error", name, f"body is {len(text)} characters, max 1024"))
+        nums = [int(n) for n in VARIABLE.findall(text)]
+        distinct = list(dict.fromkeys(nums))
+        if distinct != list(range(1, len(distinct) + 1)):
+            out.append(("error", name, f"variables {distinct} are not numbered 1..n in order"))
+        examples = (body.get("example") or {}).get("body_text") or [[]]
+        if nums and len(examples[0]) != len(distinct):
+            out.append(("error", name, f"{len(examples[0])} example values for {len(distinct)} variables"))
+        if any(not str(v).strip() for v in examples[0]):
+            out.append(("error", name, "an example value is empty"))
+        if len(nums) != len(distinct):
+            out.append(("warning", name, "a variable appears more than once"))
+        bare = text.strip().rstrip(".!?।:")
+        if VARIABLE.match(bare) or re.search(r"\{\{\d+\}\}$", bare):
+            out.append(("warning", name, "body starts or ends with a variable"))
+        buttons = [b for c in d["components"] if c["type"] == "BUTTONS" for b in c["buttons"]]
+        if len(buttons) > 10:
+            out.append(("error", name, f"{len(buttons)} buttons, max 10"))
+        for b in buttons:
+            if not 1 <= len(b["text"]) <= 25:
+                out.append(("error", name, f"button label {b['text']!r} must be 1 to 25 characters"))
     return out
 
 

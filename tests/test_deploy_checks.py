@@ -49,6 +49,29 @@ def test_every_body_variable_has_one_example_value():
         assert len(body["example"]["body_text"][0]) == n, d["name"]
 
 
+def test_whatsapp_templates_pass_the_documented_meta_rules():
+    errors = [p for p in deploy_checks.template_problems() if p[0] == "error"]
+    assert errors == []
+
+
+def test_template_rule_check_catches_each_rule():
+    good = {"name": "aurasenior_ok_en", "language": "en_US", "category": "UTILITY", "components": [
+        {"type": "BODY", "text": "Hello {{1}}, your {{2}} are ready.", "example": {"body_text": [["Asha", "tablets"]]}}]}
+    assert deploy_checks.template_problems([good]) == []
+    bad = [
+        {**good, "name": "AuraSenior-Bad"},
+        {**good, "components": [{"type": "BODY", "text": "x" * 1025}]},
+        {**good, "components": [{"type": "BODY", "text": "Hi {{2}} ok", "example": {"body_text": [["a"]]}}]},
+        {**good, "components": [{"type": "BODY", "text": "Hi {{1}} and {{2}} ok", "example": {"body_text": [["a"]]}}]},
+        {**good, "components": [good["components"][0],
+                                {"type": "BUTTONS", "buttons": [{"type": "QUICK_REPLY", "text": "x" * 26}]}]},
+    ]
+    assert [len([p for p in deploy_checks.template_problems([d]) if p[0] == "error"]) >= 1 for d in bad] == [True] * 5
+    edge = {**good, "components": [{"type": "BODY", "text": "{{1}}, update: {{2}}.",
+                                    "example": {"body_text": [["Mom", "fine"]]}}]}
+    assert [p[2] for p in deploy_checks.template_problems([edge])] == ["body starts or ends with a variable"]
+
+
 def test_action_list_includes_every_memory_handler_permission():
     data = json.loads(EVIDENCE.read_text(encoding="utf-8"))
     needed = set()
