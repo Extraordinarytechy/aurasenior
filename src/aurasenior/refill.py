@@ -12,12 +12,13 @@ RECENT_HOURS = 24
 
 
 def open_request(hid: str, medicine_id: str) -> Approval | None:
-    """A pending request, or one family approved or ordered in the last day (its order may still be on the way)."""
+    """A pending request, or one family approved, ordered or took on themselves in the last day (the order or
+    their own errand may still be on the way)."""
     since = clock.iso(clock.now() - timedelta(hours=RECENT_HOURS))
     for a in sorted(store.approvals(hid), key=lambda x: x.created_at, reverse=True):
         if a.medicine_id != medicine_id:
             continue
-        if a.status == "pending" or (a.status in ("approved", "ordered") and (a.handled_at or "") >= since):
+        if a.status == "pending" or (a.status in ("approved", "ordered", "self") and (a.handled_at or "") >= since):
             return a
     return None
 

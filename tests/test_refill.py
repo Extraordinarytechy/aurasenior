@@ -39,6 +39,16 @@ def test_request_after_a_recent_approval_returns_it(sample, approval):
     assert len(sim.read("rcs")) == sends and len(store.approvals(sample)) == 1
 
 
+def test_request_after_family_said_they_will_handle_it_sends_nothing(sample, approval, frozen):
+    refill.handle_action(sample, "rohan", "refill:self", approval, correlation_id="t1")
+    sends, expiries = len(sim.read("rcs")), len(schedules.client().names())
+    frozen.advance(3 * 60)
+    again = refill.request_refill_approval(sample, "bp", "rohan", correlation_id="ev2#1")
+    assert again["approval_id"] == approval and again["approval_status"] == "self" and again["asked"] is True
+    assert len(sim.read("rcs")) == sends and len(schedules.client().names()) == expiries
+    assert len(store.approvals(sample)) == 1
+
+
 def test_request_a_day_after_an_order_asks_again(sample, approval, frozen):
     refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1")
     frozen.advance(25 * 60)
