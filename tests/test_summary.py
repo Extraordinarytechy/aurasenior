@@ -23,14 +23,34 @@ def test_week_facts_from_fixed_items(sample):
     assert f.missed_checkins == 1 and f.mentions["pain"] == 2
     assert f.quotes == []
     data = summary.to_template_data(f, "Kamala")
-    assert data["brand"] and "sugar tablet: taken 6 days, not taken 1 day, no answer 0 days" in data["medicines"]
+    assert data["brand"] and ("sugar tablet: taken 6 days, not taken 1 day, no answer 0 days, "
+                              "nothing recorded 0 days") in data["medicines"]
 
 
-def test_week_with_nothing_logged_reads_as_no_answer(sample):
+def _checkin_msg(hid, local_day):
+    # 09:00 in Asia/Kolkata is 03:30Z on the same day.
+    store.put_msg(hid, f"wamid.ck{local_day}", channel="whatsapp", person_id="kamala",
+                  correlation_id=f"checkin#{local_day}#1", ref={"kind": "listen", "id": "checkin"})
+    store.update(store.hh(hid), f"MSG#wamid.ck{local_day}", at=f"{local_day}T03:30:00+00:00")
+
+
+def test_no_answer_counts_only_days_a_check_in_went_out(sample):
+    store.log_medicine(sample, "bp", "2026-10-18", taken=False, out_of_stock=True)
+    for d in ("2026-10-16", "2026-10-17", "2026-10-18"):
+        _checkin_msg(sample, d)
+    _checkin_msg(sample, "2026-10-01")  # before the week
+    data = summary.to_template_data(summary.build_week(sample, "2026-10-18"), "Kamala")
+    assert "BP tablets: taken 0 days, not taken 1 day, no answer 2 days, nothing recorded 4 days" in data["medicines"]
+    assert ("sugar tablet: taken 0 days, not taken 0 days, no answer 3 days, nothing recorded 4 days"
+            in data["medicines"])
+
+
+def test_week_with_no_check_ins_reads_as_nothing_recorded(sample):
     store.log_medicine(sample, "bp", "2026-10-18", taken=False, out_of_stock=True)
     data = summary.to_template_data(summary.build_week(sample, "2026-10-18"), "Kamala")
-    assert "BP tablets: taken 0 days, not taken 1 day, no answer 6 days" in data["medicines"]
-    assert "sugar tablet: taken 0 days, not taken 0 days, no answer 7 days" in data["medicines"]
+    assert "BP tablets: taken 0 days, not taken 1 day, no answer 0 days, nothing recorded 6 days" in data["medicines"]
+    assert ("sugar tablet: taken 0 days, not taken 0 days, no answer 0 days, nothing recorded 7 days"
+            in data["medicines"])
     assert "of 7 days" not in data["medicines"]
 
 
