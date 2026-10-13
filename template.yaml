@@ -321,7 +321,10 @@ Resources:
             - Effect: Allow
               Action: [social-messaging:SendWhatsAppMessage, social-messaging:PostWhatsAppMessageMedia,
                        social-messaging:GetWhatsAppMessageMedia]
-              Resource: !Sub arn:aws:social-messaging:${AWS::Region}:${AWS::AccountId}:phone-number-id/${WhatsAppPhoneNumberId}
+              # The ARN ends in the ID without its "phone-number-id-" prefix (pattern phone-number-id/[0-9a-zA-Z]+).
+              Resource: !Sub
+                - arn:aws:social-messaging:${AWS::Region}:${AWS::AccountId}:phone-number-id/${Suffix}
+                - Suffix: !Select [1, !Split ["phone-number-id-", !Join ["", [!Ref WhatsAppPhoneNumberId, "phone-number-id-"]]]]
             - !Ref AWS::NoValue
           - Effect: Allow
             Action: sms-voice:SendRcsMessage

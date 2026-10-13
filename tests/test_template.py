@@ -46,6 +46,17 @@ def _statements():
     return out
 
 
+def test_whatsapp_policy_uses_the_phone_number_arn_suffix():
+    # Phone number ID phone-number-id-0123... has the ARN .../phone-number-id/0123... (SDK pattern [0-9a-zA-Z]+).
+    s = next(x for x in _statements() if x.get("Action") and "social-messaging:SendWhatsAppMessage" in x["Action"])
+    template, values = s["Resource"]["Fn::Sub"]
+    assert template.endswith(":phone-number-id/${Suffix}")
+    index, (sep, joined) = values["Suffix"]["Fn::Select"][0], values["Suffix"]["Fn::Select"][1]["Fn::Split"]
+    for param in ("phone-number-id-0123abcd", ""):
+        parts = "".join(param if isinstance(x, dict) else x for x in joined["Fn::Join"][1]).split(sep)
+        assert parts[index] == ("0123abcd" if param else "")
+
+
 def test_iam_star_only_for_documented_actions():
     for s in _statements():
         res = s["Resource"] if isinstance(s["Resource"], list) else [s["Resource"]]
