@@ -84,5 +84,46 @@ def test_repeated_yes_from_an_opted_in_sender_is_acknowledged_without_a_turn(sam
     assert not any(t["step"] in ("converse", "tool") for t in store.traces(sample))
 
 
+def _checkin_sent(hid):
+    from aurasenior.handlers import scheduled
+
+    open_window(hid, "kamala")
+    scheduled.run_checkin(hid, {}, "2026-10-12", "checkin#t")
+
+
+def test_bare_yes_after_the_check_in_logs_the_morning_tablet(sample):
+    from aurasenior import aws
+    from aurasenior.handlers import inbound
+
+    _checkin_sent(sample)
+    aws.override("bedrock-runtime", NoModel())
+    inbound.handle_text(store.get_person(sample, "kamala"), "whatsapp", "हाँ", "ev#y1", voice=False)
+    log = store.get(store.hh(sample), "LOG#2026-10-12#bp")
+    assert log["taken"] is True and log["source_msg"] == "ev#y1#consent"
+    assert store.get(store.hh(sample), "LOG#2026-10-12#sugar") is None
+    assert sim.read("whatsapp")[-1]["phrase_key"] == "consent_ack"
+    assert [t["outcome"] for t in store.traces(sample) if t["step"] == "consent"][-1] == "checkin_yes"
+
+
+def test_bare_yes_after_the_tablet_was_logged_only_acknowledges(sample):
+    _checkin_sent(sample)
+    store.log_medicine(sample, "bp", "2026-10-12", taken=False, out_of_stock=True)
+    assert consent.handle(store.get_person(sample, "kamala"), "whatsapp", "हाँ", correlation_id="c10")
+    log = store.get(store.hh(sample), "LOG#2026-10-12#bp")
+    assert log["taken"] is False and log["out_of_stock"] is True
+
+
+def test_bare_yes_without_a_check_in_today_logs_nothing(sample):
+    open_window(sample, "kamala")
+    assert consent.handle(store.get_person(sample, "kamala"), "whatsapp", "हाँ", correlation_id="c11")
+    assert store.logs_between(sample, "2026-10-12", "2026-10-12") == []
+
+
+def test_family_yes_after_the_check_in_logs_nothing(sample):
+    _checkin_sent(sample)
+    assert consent.handle(store.get_person(sample, "rohan"), "rcs", "YES", correlation_id="c12")
+    assert store.logs_between(sample, "2026-10-12", "2026-10-12") == []
+
+
 def test_opted_in_text_is_not_consent(sample):
     assert not consent.handle(store.get_person(sample, "rohan"), "rcs", "How was Mom this week?", correlation_id="c8")

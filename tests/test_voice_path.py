@@ -60,6 +60,22 @@ def test_whole_transcript_stop_opts_out(bucket, sample):
     assert sim.read("whatsapp")[-1]["phrase_key"] == "stop_confirm"
 
 
+def test_spoken_bare_yes_after_the_check_in_logs_the_tablet_and_answers_by_voice(bucket, sample):
+    from aurasenior.handlers import scheduled
+
+    store.set_wa_inbound(sample, "kamala")
+    scheduled.run_checkin(sample, {}, "2026-10-12", "checkin#v")
+    inbound.handler(wa_audio(ELDER, "wamid.V8"))
+    job = transcribe.job_name(sample, "wamid.V8")
+    _put_transcript(bucket, job, text="हां।")
+    aws.override("bedrock-runtime", ScriptedConverse([]))
+    inbound.handler(transcribe_done("evb-8", job))
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "consent_ack" and reply["kind"] == "voice"
+    assert store.get(store.hh(sample), "LOG#2026-10-12#bp")["taken"] is True
+    assert not any(t["step"] == "converse" for t in store.traces(sample))
+
+
 def test_failed_job_sends_not_heard(bucket, sample, capsys):
     inbound.handler(wa_audio(ELDER, "wamid.V3"))
     job = transcribe.job_name(sample, "wamid.V3")

@@ -176,7 +176,7 @@ def _tap(person: Person, res, eid: str) -> None:
 
 
 def handle_text(person: Person, channel: str, text: str, eid: str, *, voice: bool, simulated: bool = False) -> None:
-    if consent.handle(person, channel, text, correlation_id=f"{eid}#consent", simulated=simulated):
+    if consent.handle(person, channel, text, correlation_id=f"{eid}#consent", simulated=simulated, voice=voice):
         return
     told = _fall_words(person, text, eid)
     if channel in ("sms", "rcs") and not person.is_elder:
@@ -236,7 +236,8 @@ def on_transcribe_event(event: dict) -> None:
         if not text:
             # Silence or noise: nothing to answer, and an empty turn would be rejected by memory.
             router.send(person, Content(phrase="not_heard", voice=True), correlation_id=f"{eid}#nh")
-        elif not consent.handle(person, "whatsapp", text, correlation_id=f"{eid}#consent", simulated=simulated):
+        elif not consent.handle(person, "whatsapp", text, correlation_id=f"{eid}#consent", simulated=simulated,
+                                voice=True):
             told = _fall_words(person, text, eid)
             if person.is_elder:
                 sig = signals.extract(data, _reply_delay(hid, pid, tjob["wamid"]))
