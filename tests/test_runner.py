@@ -270,6 +270,77 @@ def test_turn_with_only_the_reply_blocked_is_kept_with_what_she_heard(sample, mo
                                                                                        ("assistant", heard)}
 
 
+LIVE_CLAIM = ("माफ़ करें, आपकी BP वाली गोली खत्म हो गई है। मैं परिवार के लिए रिफ़िल की अनुमति माँग रही हूँ। "
+              "घुटने में दर्द होने पर मैं खेद महसूस कर रही हूँ।")
+
+
+def _ordered_today(hid):
+    from aurasenior.models import Approval
+
+    store.put_approval(Approval(hid, "a" * 12, "refill", "bp", "ordered", "rohan", clock.iso(),
+                                handled_at=clock.iso(), ordered_at=clock.iso()))
+
+
+def test_refill_claim_with_no_ask_this_turn_tells_her_the_order_instead(sample):
+    open_window(sample, "kamala")
+    _ordered_today(sample)
+    s = _scripted([tool_use("log_medicine", {"medicine_id": "bp", "taken": False, "out_of_stock": True}, "a"),
+                   end_turn(LIVE_CLAIM)])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev20", "text": "BP वाली गोली खत्म हो गई। घुटने में थोड़ा दर्द है।"})
+    result = s.calls[1]["messages"][-1]["content"][0]["toolResult"]["content"][0]["json"]
+    assert result["refill"]["approval_status"] == "ordered"
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "refill_ordered_elder" and reply["text"] == "Rohan ने आपकी BP tablets मँगवा दी है।"
+    assert "अनुमति" not in " ".join(t["text"] for t in store.last_turns(sample, "kamala", 10))
+    t = [x for x in store.traces(sample) if x["step"] == "reply"][-1]
+    assert t["outcome"] == "refill_claim_replaced" and t["phrase"] == "refill_ordered_elder"
+
+
+def test_refill_claim_after_only_a_log_says_noted(sample):
+    open_window(sample, "kamala")
+    _scripted([tool_use("log_medicine", {"medicine_id": "bp", "taken": False, "out_of_stock": True}, "a"),
+               end_turn(LIVE_CLAIM)])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev21", "text": "BP वाली गोली खत्म हो गई।", "voice": True})
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "noted_elder" and reply["kind"] == "voice"
+
+
+def test_refill_claim_with_no_tool_and_no_refill_says_nobody_was_asked(sample):
+    open_window(sample, "kamala")
+    _scripted([end_turn("मैंने रोहन से रिफ़िल मँगवाने को कह दिया है।")])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev22", "text": "नमस्ते"})
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "refill_none_elder"
+    assert reply["text"] == "मैंने अभी किसी से दवा मँगवाने के बारे में नहीं पूछा है।"
+
+
+def test_refill_reply_after_a_fresh_ask_that_went_out_is_kept(sample):
+    open_window(sample, "kamala")
+    text = "मैंने Rohan से आपकी BP tablets की रिफ़िल के बारे में पूछ लिया है। घुटने के दर्द के लिए मुझे खेद है।"
+    _scripted([tool_use("log_medicine", {"medicine_id": "bp", "taken": False, "out_of_stock": True}, "a"),
+               tool_use("request_refill_approval", {"medicine_id": "bp", "ask_person_id": "rohan"}, "b"),
+               end_turn(text)])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev23", "text": "BP वाली गोली खत्म हो गई।"})
+    assert sim.read("whatsapp")[-1]["text"] == text
+
+
+def test_family_reply_about_a_refill_is_not_rewritten(sample):
+    _scripted([end_turn("Mom's BP tablets were ordered today.")])
+    AgentRunner().run_turn(sample, "rohan", {"event_id": "ev24", "text": "Did the refill go through?"})
+    assert sim.read("rcs")[-1]["text"] == "Mom's BP tablets were ordered today."
+
+
+def test_reply_replaced_by_the_wording_rule_is_kept_as_the_replacement(sample, monkeypatch):
+    calls = _memory_calls(monkeypatch)
+    open_window(sample, "kamala")
+    _scripted([end_turn("मैं आपको डायबिटीज़ के बारे में जानकारी नहीं दे सकती।")])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev25", "text": "क्या मुझे डायबिटीज़ है?"})
+    heard = "मैं इसका जवाब नहीं दे सकती। कृपया अपने डॉक्टर से पूछिए।"
+    assert sim.read("whatsapp")[-1]["text"] == heard
+    assert calls == [("क्या मुझे डायबिटीज़ है?", heard)]
+    assert ("assistant", heard) in {(t["role"], t["text"]) for t in store.last_turns(sample, "kamala", 10)}
+
+
 def test_turn_with_blocked_input_is_not_kept(sample, monkeypatch):
     calls = _memory_calls(monkeypatch)
     open_window(sample, "kamala")

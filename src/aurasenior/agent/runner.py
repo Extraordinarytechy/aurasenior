@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from botocore.exceptions import ClientError
 
-from .. import aws, clock, config, log, phrases, router, store
+from .. import aws, clock, config, keywords, log, phrases, refill, router, store
 from ..channels.errors import error_message
 from ..memory import build_store
 from ..router import Content
@@ -126,10 +126,36 @@ class AgentRunner:
             store.trace(hid, "reply", person_id=speaker.person_id, outcome="skipped_already_messaged")
             reply = ""
         if reply:
-            router.send(speaker, Content(text=reply, voice=speaker.is_elder and ctx.voice_reply),
-                        correlation_id=f"{event['event_id']}#reply", inbound_text=text)
+            content = self._unbacked_refill(hid, speaker, ctx, done, reply) or Content(
+                text=reply, voice=speaker.is_elder and ctx.voice_reply)
+            r = router.send(speaker, content, correlation_id=f"{event['event_id']}#reply", inbound_text=text)
+            reply = _heard(hid, speaker, content, r)
         self._keep(hid, speaker, text, reply)
         return result
+
+    @staticmethod
+    def _unbacked_refill(hid: str, speaker, ctx, done: list[tuple[str, dict, dict]], reply: str) -> Content | None:
+        """An elder reply about a refill goes out only when this turn asked family and the card went out.
+        Otherwise she hears the fixed line for where the refill really stands, so she is never told of an ask
+        or an order that did not happen."""
+        if not speaker.is_elder or not keywords.mentions_refill(reply, speaker.language):
+            return None
+        if any(name == "request_refill_approval" and out.get("asked") and "note" not in out
+               for name, _, out in done):
+            return None
+        mids = [i["medicine_id"] for name, i, _ in done
+                if name in ("log_medicine", "request_refill_approval") and i.get("medicine_id")]
+        content = None
+        for mid in dict.fromkeys(mids or [m.medicine_id for m in store.medicines(hid)]):
+            a = refill.open_request(hid, mid)
+            content = refill.elder_line(hid, a, ctx.voice_reply) if a else None
+            if content:
+                break
+        if content is None:
+            logged = any(name == "log_medicine" for name, _, _ in done)
+            content = Content(phrase="noted_elder" if logged else "refill_none_elder", voice=ctx.voice_reply)
+        store.trace(hid, "reply", person_id=speaker.person_id, outcome="refill_claim_replaced", phrase=content.phrase)
+        return content
 
     @staticmethod
     def _keep(hid: str, speaker, text: str, reply: str) -> None:
@@ -216,6 +242,20 @@ class AgentRunner:
         phrase = "cost_cap" if family_ok else "not_heard"
         router.send(speaker, Content(phrase=phrase, vars={"family_name": names.get("family_name", "")}, voice=True),
                     correlation_id=f"{event['event_id']}#{phrase}", inbound_text=event.get("text"))
+
+
+def _heard(hid: str, speaker, content: Content, r) -> str:
+    """The text that actually went out, for turn history and memory: the wording-rule replacement when the guard
+    swapped the reply, and nothing when the send did not go out."""
+    if not r.went_out:
+        return ""
+    if r.replaced:
+        names = router.names_for(hid)
+        return phrases.render("guard_replacement", speaker.language, speaker.audience,
+                              family_name=names.get("family_name", ""), elder_name=names.get("elder_name", ""))
+    if content.phrase:
+        return phrases.render(content.phrase, speaker.language, speaker.audience, **content.vars)
+    return content.text or ""
 
 
 def guardrail_findings(resp: dict) -> dict | None:
