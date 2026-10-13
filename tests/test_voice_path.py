@@ -76,6 +76,18 @@ def test_spoken_bare_yes_after_the_check_in_logs_the_tablet_and_answers_by_voice
     assert not any(t["step"] == "converse" for t in store.traces(sample))
 
 
+def test_spoken_bare_yes_without_a_check_in_is_acknowledged_by_voice_only(bucket, sample):
+    inbound.handler(wa_audio(ELDER, "wamid.V9"))
+    job = transcribe.job_name(sample, "wamid.V9")
+    _put_transcript(bucket, job, text="हाँ")
+    aws.override("bedrock-runtime", ScriptedConverse([]))
+    inbound.handler(transcribe_done("evb-9", job))
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "consent_ack" and reply["kind"] == "voice" and reply["text"] == "ठीक है, धन्यवाद।"
+    assert not store.query_prefix(sample, "LOG#")
+    assert not any(t["step"] in ("converse", "tool") for t in store.traces(sample))
+
+
 def test_failed_job_sends_not_heard(bucket, sample, capsys):
     inbound.handler(wa_audio(ELDER, "wamid.V3"))
     job = transcribe.job_name(sample, "wamid.V3")

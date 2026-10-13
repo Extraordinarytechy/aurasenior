@@ -45,6 +45,16 @@ def test_repeated_out_of_stock_log_keeps_the_first_entry_and_the_order(sample):
     assert log["source_msg"] == "ev2" and store.get_medicine(sample, "bp").stock == "ordered"
 
 
+def test_changed_answer_the_same_day_is_written(sample):
+    ran_out = {"medicine_id": "bp", "taken": False, "out_of_stock": True}
+    tools.run(tools.ToolContext(sample, store.get_person(sample, "kamala"), "ev2"), "log_medicine", ran_out)
+    taken = {"medicine_id": "bp", "taken": True, "out_of_stock": False}
+    _, out = tools.run(tools.ToolContext(sample, store.get_person(sample, "kamala"), "ev3"), "log_medicine", taken)
+    assert out == {"status": "ok"}
+    log = store.get(store.hh(sample), "LOG#2026-10-12#bp")
+    assert log["taken"] is True and log["out_of_stock"] is False and log["source_msg"] == "ev3"
+
+
 def test_out_of_stock_log_reports_a_refill_already_ordered_today(sample):
     store.put_approval(Approval(sample, "a" * 12, "refill", "bp", "ordered", "rohan", clock.iso(),
                                 handled_at=clock.iso(), ordered_at=clock.iso()))

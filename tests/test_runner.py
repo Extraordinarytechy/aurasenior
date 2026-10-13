@@ -179,6 +179,21 @@ def test_reply_blocked_after_a_refill_ask_tells_her_only_what_happened(sample):
     assert g["output_topics"] == ["Medication dose advice"] and g["reply"] == "refill_asked_elder"
 
 
+def test_reply_blocked_after_a_repeat_ask_for_a_pending_card_that_went_out_says_asked(sample):
+    from aurasenior import refill
+
+    open_window(sample, "kamala")
+    first = refill.request_refill_approval(sample, "bp", "rohan", correlation_id="ev#first")
+    cards = len(sim.read("rcs"))
+    _scripted([tool_use("request_refill_approval", {"medicine_id": "bp", "ask_person_id": "rohan"}, "a"),
+               _blocked_with("output")])
+    AgentRunner().run_turn(sample, "kamala", {"event_id": "ev18", "text": "BP वाली गोली खत्म हो गई।"})
+    assert len(sim.read("rcs")) == cards and store.get_approval(sample, first["approval_id"]).status == "pending"
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "refill_asked_elder"
+    assert reply["text"] == "मैंने Rohan से आपकी BP tablets फिर से मँगवाने के बारे में पूछ लिया है।"
+
+
 def test_reply_blocked_after_a_repeat_ask_for_an_ordered_refill_says_it_was_ordered(sample):
     open_window(sample, "kamala")
     _ordered_today(sample)
