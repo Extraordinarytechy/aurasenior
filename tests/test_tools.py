@@ -1,8 +1,9 @@
 from pathlib import Path
 
-from aurasenior import channels, store
+from aurasenior import channels, clock, store
 from aurasenior.agent import tools
 from aurasenior.channels.base import SendResult
+from aurasenior.models import Approval
 
 SRC = Path(__file__).resolve().parent.parent / "src" / "aurasenior" / "agent" / "tools.py"
 
@@ -35,12 +36,26 @@ def test_log_medicine_and_get_household(sample):
 def test_repeated_out_of_stock_log_keeps_the_first_entry_and_the_order(sample):
     args = {"medicine_id": "bp", "taken": False, "out_of_stock": True}
     first = tools.run(tools.ToolContext(sample, store.get_person(sample, "kamala"), "ev2"), "log_medicine", args)
-    assert first == ("success", {"status": "ok"})
+    assert first == ("success", {"status": "ok", "refill": {"approval_status": "none"}})
     store.set_stock(sample, "bp", "ordered")
     again = tools.run(tools.ToolContext(sample, store.get_person(sample, "kamala"), "ev3"), "log_medicine", args)
-    assert again == ("success", {"status": "ok", "note": "already logged today"})
+    assert again == ("success", {"status": "ok", "note": "already logged today",
+                                 "refill": {"approval_status": "none"}})
     log = store.get(store.hh(sample), "LOG#2026-10-12#bp")
     assert log["source_msg"] == "ev2" and store.get_medicine(sample, "bp").stock == "ordered"
+
+
+def test_out_of_stock_log_reports_a_refill_already_ordered_today(sample):
+    store.put_approval(Approval(sample, "a" * 12, "refill", "bp", "ordered", "rohan", clock.iso(),
+                                handled_at=clock.iso(), ordered_at=clock.iso()))
+    ctx = tools.ToolContext(sample, store.get_person(sample, "kamala"), "ev4")
+    _, out = tools.run(ctx, "log_medicine", {"medicine_id": "bp", "taken": False, "out_of_stock": True})
+    assert out["refill"] == {"approval_status": "ordered", "ask_person_id": "rohan", "asked": True}
+    _, taken = tools.run(ctx, "log_medicine", {"medicine_id": "sugar", "taken": True, "out_of_stock": False})
+    assert "refill" not in taken
+    _, hh = tools.run(ctx, "get_household", {})
+    assert hh["refills"] == [{"medicine_id": "bp", "approval_status": "ordered", "ask_person_id": "rohan",
+                              "asked": True}]
 
 
 def test_retried_message_after_a_failed_send_is_not_reported_ok(sample, monkeypatch):

@@ -36,7 +36,8 @@ SPECS: list[dict] = [
      "inputSchema": _schema({}, [])},
     {"name": "get_week", "description": "Facts for the last 7 days: medicines taken, refills, escalations, mentions.",
      "inputSchema": _schema({}, [])},
-    {"name": "log_medicine", "description": "Record whether a medicine was taken today and whether it ran out.",
+    {"name": "log_medicine", "description": "Record whether a medicine was taken today and whether it ran out. "
+                                            "When it ran out, the result says whether a refill is already open.",
      "inputSchema": _schema({"medicine_id": {"type": "string"}, "taken": {"type": "boolean"},
                              "out_of_stock": {"type": "boolean"}}, ["medicine_id", "taken", "out_of_stock"])},
     {"name": "message_person", "description": "Send a message to a person in the household. The channel is chosen for you.",
@@ -95,6 +96,8 @@ def get_household(ctx: ToolContext, _args: dict) -> dict:
                        "time_of_day": m.time_of_day} for m in store.medicines(hid)],
         "today_log": [{"medicine_id": x["medicine_id"], "taken": x["taken"]} for x in store.logs_between(hid, today, today)],
         "open_approvals": [a.approval_id for a in store.approvals(hid) if a.status == "pending"],
+        "refills": [{"medicine_id": m.medicine_id, **s} for m in store.medicines(hid)
+                    if (s := refill.state(hid, m.medicine_id))["approval_status"] != "none"],
         "open_escalations": [{"escalation_id": e.escalation_id, "reason": e.reason}
                              for e in escalation.open_escalations(hid)],
         "escalation_order": h.escalation_order,
@@ -108,10 +111,14 @@ def get_week(ctx: ToolContext, _args: dict) -> dict:
 def log_medicine(ctx: ToolContext, args: dict) -> dict:
     if not store.get_medicine(ctx.household_id, args["medicine_id"]):
         return {"status": "error", "reason": "unknown medicine_id"}
+    out = {"status": "ok"}
     if not store.log_medicine(ctx.household_id, args["medicine_id"], ctx.local_date, taken=args["taken"],
                               out_of_stock=args["out_of_stock"], source_msg=ctx.event_id):
-        return {"status": "ok", "note": "already logged today"}
-    return {"status": "ok"}
+        out["note"] = "already logged today"
+    if args["out_of_stock"]:
+        # Whether a refill is already asked about or ordered, so the reply says that and not a new ask.
+        out["refill"] = refill.state(ctx.household_id, args["medicine_id"])
+    return out
 
 
 def message_person(ctx: ToolContext, args: dict) -> dict:

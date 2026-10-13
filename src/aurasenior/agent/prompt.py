@@ -1,7 +1,7 @@
 """System prompt and message history for one turn. Only the speaker's own turns and memory are included."""
 from __future__ import annotations
 
-from .. import clock, config, languages, store
+from .. import clock, config, languages, refill, store
 from ..memory import build_store
 from ..models import Person
 
@@ -13,7 +13,8 @@ Rules:
   their doctor can help.
 - Use the tools to record medicines, ask for refills, alert family and message people. Never invent facts.
 - Act only on what this message says. Earlier turns are already handled: never repeat their tool calls.
-- After a tool ran, say only what it did, for example that you asked family about a refill.
+- Say only what a tool result in this turn shows. Never say you asked, told or ordered anything unless a tool
+  result says so. When a result says a refill is already pending, ordered or handled, say that instead.
 - Keep replies short and kind: two or three sentences. Reply in {reply_language}.
 """
 
@@ -45,6 +46,11 @@ def system_prompt(hid: str, speaker: Person, event: dict) -> tuple[str, list[str
     meds = ", ".join(f"{m.medicine_id} ({m.display_label}, stock {m.stock})" for m in store.medicines(hid))
     taken = ", ".join(f"{x['medicine_id']}={'taken' if x['taken'] else 'not taken'}"
                       for x in store.logs_between(hid, today, today)) or "nothing logged yet"
+    refills = []
+    for m in store.medicines(hid):
+        s = refill.state(hid, m.medicine_id)
+        if s["approval_status"] != "none":
+            refills.append(f"{m.medicine_id} {s['approval_status']} (family member {s['ask_person_id']})")
     memory = build_store(speaker).recall(hid, speaker.person_id, query_for(event))
     if speaker.is_elder:
         persona = ELDER_RULES
@@ -54,7 +60,8 @@ def system_prompt(hid: str, speaker: Person, event: dict) -> tuple[str, list[str
     parts = [RULES.format(brand=config.brand(), reply_language=row.reply_language), persona,
              f"Person speaking: {speaker.display_name} (person_id {speaker.person_id}, role {speaker.role}).",
              f"Elder: {elder.display_name} (person_id {elder.person_id}). Escalation order: {', '.join(h.escalation_order)}.",
-             f"Today ({today}) medicines: {meds}. Log: {taken}."]
+             f"Today ({today}) medicines: {meds}. Log: {taken}.",
+             f"Refills open in the last day: {', '.join(refills) or 'none'}."]
     if event.get("elder_told"):
         parts.append("The elder has just been told that family was alerted. Do not repeat that.")
     if memory:

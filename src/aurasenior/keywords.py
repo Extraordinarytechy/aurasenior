@@ -55,6 +55,12 @@ def fall_or_help(text: str) -> bool:
     return False
 
 
+def mentions_refill(text: str, lang_key: str) -> bool:
+    """True when a reply talks about a refill or an order (prefix match on tokens)."""
+    words = _set("refill_words", lang_key)
+    return any(t.startswith(w) for t in tokens(text) for w in words)
+
+
 def mentions(text: str) -> dict[str, int]:
     toks = tokens(text)
     out = {}

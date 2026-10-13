@@ -53,6 +53,7 @@ not_heard = "I could not hear that, please send it again."
 guard_replacement = "I cannot answer that. Please ask your doctor."
 guardrail_blocked = "I cannot help with that. Please ask your doctor."
 refill_asked_elder = "I have asked {family_name} about a refill of your {display_label}."
+refill_none_elder = "I have not asked anyone about a refill yet."
 noted_elder = "I have noted that."
 
 [hi]
@@ -105,4 +106,5 @@ not_heard = "मुझे ठीक से सुनाई नहीं दि�
 guard_replacement = "मैं इसका जवाब नहीं दे सकती। कृपया अपने डॉक्टर से पूछिए।"
 guardrail_blocked = "मैं इसमें मदद नहीं कर सकती। कृपया अपने डॉक्टर से पूछिए।"
 refill_asked_elder = "मैंने {family_name} से आपकी {display_label} फिर से मँगवाने के बारे में पूछ लिया है।"
+refill_none_elder = "मैंने अभी किसी से दवा मँगवाने के बारे में नहीं पूछा है।"
 noted_elder = "मैंने यह लिख लिया है।"

@@ -22,6 +22,31 @@ def open_request(hid: str, medicine_id: str) -> Approval | None:
     return None
 
 
+def state(hid: str, medicine_id: str) -> dict:
+    """The refill of this medicine as tools report it, so the model never has to guess whether family was asked."""
+    a = open_request(hid, medicine_id)
+    if not a:
+        return {"approval_status": "none"}
+    return {"approval_status": a.status, "ask_person_id": a.ask_person_id,
+            "asked": a.status != "pending" or _card_went_out(hid, a.approval_id)}
+
+
+def elder_line(hid: str, a: Approval, voice: bool) -> Content | None:
+    """The fixed line that tells the elder where this refill really stands, or None when family was not asked."""
+    med = store.get_medicine(hid, a.medicine_id)
+    family = store.get_person(hid, a.ask_person_id)
+    if not med or not family:
+        return None
+    phrase = {"ordered": "refill_ordered_elder", "self": "refill_self_elder",
+              "approved": "refill_asked_elder"}.get(a.status)
+    if a.status == "pending" and _card_went_out(hid, a.approval_id):
+        phrase = "refill_asked_elder"
+    if not phrase:
+        return None
+    return Content(phrase=phrase, voice=voice,
+                   vars={"family_name": family.display_name, "display_label": med.display_label})
+
+
 def request_refill_approval(hid: str, medicine_id: str, ask_person_id: str, *, correlation_id: str) -> dict:
     med = store.get_medicine(hid, medicine_id)
     asked = store.get_person(hid, ask_person_id)

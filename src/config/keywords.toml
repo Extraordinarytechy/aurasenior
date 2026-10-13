@@ -13,6 +13,12 @@ en = ["start", "unstop"]
 hi = ["yes", "हाँ", "हां", "haan", "ha", "han", "जी हाँ", "ji haan"]
 en = ["yes", "y", "yes please", "ok yes"]
 
+# Words that make a reply to the elder talk about a refill (prefix match on tokens). Such a reply goes out only
+# when this turn asked family; otherwise she hears the fixed line for where the refill really stands.
+[refill_words]
+hi = ["रिफ़िल", "रिफिल", "मँगवा", "मंगवा", "ऑर्डर", "अनुमति", "mangwa"]
+en = ["refill", "reorder", "order", "pharmacy"]
+
 # Fall and help words, checked for every language. match: token, prefix or phrase.
 [[fall_help]]
 text = "help"

@@ -30,7 +30,20 @@ def test_rules_forbid_symptom_and_medicine_advice(sample):
     system, _ = prompt.system_prompt(sample, store.get_person(sample, "kamala"), {"text": "hi"})
     assert "never say how, when or whether to take a medicine" in system
     assert "only say you are sorry to hear it" in system
-    assert "say only what it did" in system
+    assert "Say only what a tool result in this turn shows" in system
+    assert "Never say you asked, told or ordered anything unless a tool" in system
+
+
+def test_prompt_names_refills_already_open(sample):
+    from aurasenior import clock
+    from aurasenior.models import Approval
+
+    kamala = store.get_person(sample, "kamala")
+    assert "Refills open in the last day: none." in prompt.system_prompt(sample, kamala, {"text": "hi"})[0]
+    store.put_approval(Approval(sample, "a" * 12, "refill", "bp", "ordered", "rohan", clock.iso(),
+                                handled_at=clock.iso()))
+    system, _ = prompt.system_prompt(sample, kamala, {"text": "hi"})
+    assert "Refills open in the last day: bp ordered (family member rohan)." in system
 
 
 def test_memory_block_present_for_elder(sample):
