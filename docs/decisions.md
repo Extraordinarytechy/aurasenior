@@ -803,3 +803,24 @@ call:
    `GenerateDataKeyWithoutPlaintext`, `ReEncryptTo`, `ReEncryptFrom`, which are unused because the memory sets no
    `EncryptionKeyArn`. No new grant is needed for the first deploy. Evidence
    `deploy-permissions-simulate-2026-10-11.json`.
+
+## D15. Channel go-live checks (2026-10-13)
+
+- WhatsApp policy resource: a phone number ID has the form `phone-number-id-<id>` but its ARN ends in
+  `phone-number-id/<id>` (pattern `phone-number-id/[0-9a-zA-Z]+`, no prefix). The function policy builds the ARN
+  from the ID without the prefix. https://docs.aws.amazon.com/social-messaging/latest/APIReference/API_WhatsAppPhoneNumberSummary.html
+- RCS origination: `SendRcsMessage` takes the RcsAgentId or the RcsAgent ARN as `OriginationIdentity`; the adapter
+  passes `RCS_AGENT_ID` as given. Requests built from every RCS message the product sends are checked against the
+  botocore 1.43.111 model, including length and pattern rules.
+  https://docs.aws.amazon.com/pinpoint/latest/apireference_smsvoicev2/API_SendRcsMessage.html
+- RCS test devices: an Indian number was refused by `CreateVerifiedDestinationNumber` with `COUNTRY_NOT_ENABLED`.
+  India is not one of the 22 supported RCS countries, so a test device must be a number from one of them.
+  https://docs.aws.amazon.com/sms-voice/latest/userguide/rcs-supported-countries.html,
+  https://docs.aws.amazon.com/sms-voice/latest/userguide/rcs-testing.html
+- WhatsApp templates: `deploy_checks.template_problems` checks Meta's documented rules (name of lowercase letters,
+  digits and underscores up to 512 characters, body up to 1024 characters, positional variables numbered from 1,
+  an example value for each variable, quick reply labels up to 25 characters, at most 10 buttons). A variable at
+  the start or end of the body and a repeated variable are reported as warnings, since template review commonly
+  rejects them. https://developers.facebook.com/docs/whatsapp/message-templates/guidelines/,
+  https://developers.facebook.com/docs/whatsapp/business-management-api/message-templates/utility-templates,
+  https://www.twilio.com/docs/whatsapp/tutorial/message-template-approvals-statuses
