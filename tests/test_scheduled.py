@@ -90,3 +90,38 @@ def test_checkin_skipped_without_whatsapp_consent(sample):
     assert sim.read("whatsapp") == []
     channels.reset()
     _ = SendResult
+
+
+def _skip_lines(capsys):
+    out = [json.loads(x) for x in capsys.readouterr().out.splitlines()]
+    return [o for o in out if o["msg"] == "scheduled check-in skipped"]
+
+
+@pytest.mark.parametrize("status,reason", [("opted_out", "opted_out"), ("pending", "no_consent")])
+def test_skipped_checkin_logs_one_info_line_and_a_trace(sample, capsys, status, reason):
+    store.set_consent(sample, "kamala", "whatsapp", status, "test")
+    capsys.readouterr()
+    scheduled.handler({"kind": "checkin", "household_id": sample})
+    lines = _skip_lines(capsys)
+    assert [(o["level"], o["kind"], o["reason"]) for o in lines] == [("INFO", "checkin", reason)]
+    elder = store.elder(sample)
+    raw = json.dumps(lines, ensure_ascii=False)
+    assert elder.display_name not in raw and elder.addresses["whatsapp"].lstrip("+") not in raw
+    t = [x for x in store.traces(sample) if x["step"] == "checkin"]
+    assert [(x["outcome"], x["reason"]) for x in t] == [(f"skipped_{reason}", reason)]
+    assert sim.read("whatsapp") == []
+    assert schedules.name_followup(sample, "2026-10-12") not in schedules.client().names()
+
+
+def test_followup_after_she_replied_is_skipped_with_a_reason(sample, capsys):
+    scheduled.handler({"kind": "checkin", "household_id": sample})
+    clock.advance(30)
+    store.set_wa_inbound(sample, "kamala")
+    clock.advance(60)
+    sent = len(sim.read("whatsapp"))
+    capsys.readouterr()
+    scheduled.handler({"kind": "followup", "household_id": sample, "local_date": "2026-10-12"})
+    assert len(sim.read("whatsapp")) == sent
+    assert [o["reason"] for o in _skip_lines(capsys)] == ["already_replied"]
+    assert [t["outcome"] for t in store.traces(sample) if t["step"] == "followup"] == ["skipped_already_replied"]
+    assert schedules.name_missed(sample, "2026-10-12") not in schedules.client().names()

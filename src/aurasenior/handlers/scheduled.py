@@ -1,6 +1,8 @@
 """aurasenior-scheduled: check-in chain, escalation rechecks, delivery checks, approval expiry, weekly summary."""
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo
+
 from .. import clock, dedupe, escalation, log, refill, router, schedules, store, summary
 from ..memory import agentcore, build_store
 from ..router import Content
@@ -45,13 +47,38 @@ def _morning_label(hid: str) -> str:
     return meds[0].display_label if meds else ""
 
 
+def _replied_since_checkin(hid: str, elder, local_date: str, tz: str) -> bool:
+    """True when the elder sent a WhatsApp message after today's check-in went out."""
+    if not elder.wa_last_inbound_at:
+        return False
+    last_in = clock.parse(elder.wa_last_inbound_at)
+    return any(m.get("person_id") == elder.person_id and (m.get("ref") or {}) == {"kind": "listen", "id": "checkin"}
+               and clock.parse(m["at"]).astimezone(ZoneInfo(tz)).strftime("%Y-%m-%d") == local_date
+               and clock.parse(m["at"]) < last_in
+               for m in store.query_prefix(hid, "MSG#"))
+
+
+def _skip_reason(hid: str, elder, local_date: str, tz: str, followup: bool) -> str | None:
+    status = elder.consent_status("whatsapp")
+    if status == "opted_out":
+        return "opted_out"
+    if status != "opted_in":
+        return "no_consent"
+    if followup and _replied_since_checkin(hid, elder, local_date, tz):
+        return "already_replied"
+    return None
+
+
 def run_checkin(hid: str, event: dict, local_date: str, eid: str, *, followup: bool = False) -> None:
     elder = store.elder(hid)
     h = store.get_household(hid)
-    if elder.consent_status("whatsapp") != "opted_in":
-        store.trace(hid, "followup" if followup else "checkin", outcome="skipped_no_consent")
-        return
     which = "followup" if followup else "checkin"
+    reason = _skip_reason(hid, elder, local_date, h.timezone, followup)
+    if reason:
+        # One line and one trace item, so logs and the trace view both show why nothing was sent.
+        log.get().info("scheduled check-in skipped", extra={"kind": which, "reason": reason})
+        store.trace(hid, which, outcome=f"skipped_{reason}", reason=reason)
+        return
     c = Content(phrase=f"{which}_voice", vars={"display_label": _morning_label(hid)}, voice=True,
                 wa_template=f"aurasenior_{which}", wa_params=[elder.display_name], ref={"kind": "listen", "id": which})
     r = router.send(elder, c, correlation_id=f"{eid}#1")
