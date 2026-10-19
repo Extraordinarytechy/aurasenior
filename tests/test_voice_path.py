@@ -71,7 +71,8 @@ def test_spoken_bare_yes_after_the_check_in_logs_the_tablet_and_answers_by_voice
     aws.override("bedrock-runtime", ScriptedConverse([]))
     inbound.handler(transcribe_done("evb-8", job))
     reply = sim.read("whatsapp")[-1]
-    assert reply["phrase_key"] == "consent_ack" and reply["kind"] == "voice"
+    assert reply["phrase_key"] == "checkin_yes_logged" and reply["kind"] == "voice"
+    assert store.get_medicine(sample, "bp").display_label in reply["text"]
     assert store.get(store.hh(sample), "LOG#2026-10-12#bp")["taken"] is True
     assert not any(t["step"] == "converse" for t in store.traces(sample))
 

@@ -101,8 +101,36 @@ def test_bare_yes_after_the_check_in_logs_the_morning_tablet(sample):
     log = store.get(store.hh(sample), "LOG#2026-10-12#bp")
     assert log["taken"] is True and log["source_msg"] == "ev#y1#consent"
     assert store.get(store.hh(sample), "LOG#2026-10-12#sugar") is None
-    assert sim.read("whatsapp")[-1]["phrase_key"] == "consent_ack"
+    reply = sim.read("whatsapp")[-1]
+    assert reply["phrase_key"] == "checkin_yes_logged" and reply["kind"] != "voice"
+    label = store.get_medicine(sample, "bp").display_label
+    assert reply["text"] == f"ठीक है, मैंने लिख लिया कि आपने {label} ले ली। अगर ऐसा नहीं है, तो बता दीजिए।"
     assert [t["outcome"] for t in store.traces(sample) if t["step"] == "consent"][-1] == "checkin_yes"
+
+
+def test_logged_yes_phrase_in_english_says_back_the_tablet():
+    from aurasenior import phrases
+
+    assert phrases.render("checkin_yes_logged", "en-US", "elder", display_label="BP tablets") == (
+        "Okay, I have noted that you took your BP tablets. If that is not right, just tell me.")
+
+
+def test_no_after_the_logged_yes_corrects_the_log_through_a_turn(sample):
+    from aurasenior import aws
+    from aurasenior.handlers import inbound
+    from aurasenior.sim.converse import ScriptedConverse, end_turn, tool_use
+
+    _checkin_sent(sample)
+    aws.override("bedrock-runtime", NoModel())
+    inbound.handle_text(store.get_person(sample, "kamala"), "whatsapp", "हाँ", "ev#y2", voice=False)
+    assert store.get(store.hh(sample), "LOG#2026-10-12#bp")["taken"] is True
+    aws.override("bedrock-runtime", ScriptedConverse([
+        tool_use("log_medicine", {"medicine_id": "bp", "taken": False, "out_of_stock": False}),
+        end_turn("ठीक है।")]))
+    inbound.handle_text(store.get_person(sample, "kamala"), "whatsapp", "नहीं, नहीं ली", "ev#n2", voice=False)
+    log = store.get(store.hh(sample), "LOG#2026-10-12#bp")
+    assert log["taken"] is False and log["source_msg"] != "ev#y2#consent"
+    assert any(t["step"] == "converse" for t in store.traces(sample))
 
 
 def test_bare_yes_after_the_tablet_was_logged_only_acknowledges(sample):
