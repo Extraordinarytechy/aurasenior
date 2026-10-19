@@ -23,19 +23,31 @@ def _ask(person: Person, channel: str, text: str | None, cid: str, rcs_verified:
                        correlation_id=cid, inbound_text=text, rcs_verified=rcs_verified, only_channel=channel)
 
 
+def _is_checkin(m: dict) -> bool:
+    """The check-in template or voice note (scheduled, or the voice note sent when she taps Listen)."""
+    return ((m.get("ref") or {}) == {"kind": "listen", "id": "checkin"}
+            or (m.get("content") or {}).get("phrase") == "checkin_voice")
+
+
 def _checkin_yes(person: Person, correlation_id: str) -> str | None:
-    """A bare yes after today's check-in went out ("have you taken your tablet?") and before that medicine was
-    logged: log it as taken and return its display label. The check-in asks about the first morning medicine only."""
+    """A bare yes right after today's check-in ("have you taken your tablet?") and before that medicine was
+    logged: log it as taken and return its display label. The check-in asks about the first morning medicine only.
+    The latest message sent to her must be the check-in itself: a yes to the follow-up ("are you okay?") or to
+    any later question is not a tablet answer."""
     hid = person.household_id
     tz = store.get_household(hid).timezone
     today = clock.local_date(tz)
     morning = [m for m in store.medicines(hid) if m.time_of_day == "morning"]
     if not morning or any(x["medicine_id"] == morning[0].medicine_id for x in store.logs_between(hid, today, today)):
         return None
-    asked = any(m.get("person_id") == person.person_id and (m.get("ref") or {}) == {"kind": "listen", "id": "checkin"}
-                and clock.parse(m["at"]).astimezone(ZoneInfo(tz)).strftime("%Y-%m-%d") == today
-                for m in store.query_prefix(hid, "MSG#"))
-    if not asked:
+    outs = [m for m in store.query_prefix(hid, "MSG#")
+            if m.get("person_id") == person.person_id and m.get("direction") == "out"]
+    if not outs:
+        return None
+    last_at = max(m["at"] for m in outs)
+    latest = [m for m in outs if m["at"] == last_at]  # same-second sends: all of them must be the check-in
+    if (clock.parse(last_at).astimezone(ZoneInfo(tz)).strftime("%Y-%m-%d") != today
+            or not all(_is_checkin(m) for m in latest)):
         return None
     store.log_medicine(hid, morning[0].medicine_id, today, taken=True, source_msg=correlation_id)
     store.trace(hid, "medicine", person_id=person.person_id, medicine_id=morning[0].medicine_id,

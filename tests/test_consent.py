@@ -133,6 +133,56 @@ def test_no_after_the_logged_yes_corrects_the_log_through_a_turn(sample):
     assert any(t["step"] == "converse" for t in store.traces(sample))
 
 
+def test_bare_yes_after_the_follow_up_is_not_a_tablet_answer(sample):
+    from aurasenior import aws, clock
+    from aurasenior.handlers import inbound, scheduled
+
+    _checkin_sent(sample)
+    clock.advance(90)
+    scheduled.run_checkin(sample, {}, "2026-10-12", "followup#t", followup=True)
+    assert sim.read("whatsapp")[-1]["phrase_key"] == "followup_voice"
+    clock.advance(2)
+    aws.override("bedrock-runtime", NoModel())
+    inbound.handle_text(store.get_person(sample, "kamala"), "whatsapp", "हाँ", "ev#y3", voice=False)
+    assert store.logs_between(sample, "2026-10-12", "2026-10-12") == []
+    assert sim.read("whatsapp")[-1]["phrase_key"] == "consent_ack"
+    assert [t["outcome"] for t in store.traces(sample) if t["step"] == "consent"][-1] == "already_opted_in"
+
+
+def test_bare_yes_after_a_model_reply_on_check_in_day_is_not_a_tablet_answer(sample):
+    from aurasenior import aws, clock
+    from aurasenior.handlers import inbound
+    from aurasenior.sim.converse import ScriptedConverse, end_turn
+
+    _checkin_sent(sample)
+    clock.advance(5)
+    aws.override("bedrock-runtime", ScriptedConverse([end_turn("क्या मैं रोहन को बता दूँ?")]))
+    inbound.handle_text(store.get_person(sample, "kamala"), "whatsapp", "आज धूप अच्छी है", "ev#m4", voice=False)
+    assert sim.read("whatsapp")[-1].get("phrase_key") != "checkin_voice"
+    clock.advance(2)
+    aws.override("bedrock-runtime", NoModel())
+    inbound.handle_text(store.get_person(sample, "kamala"), "whatsapp", "हाँ", "ev#y4", voice=False)
+    assert store.logs_between(sample, "2026-10-12", "2026-10-12") == []
+    assert sim.read("whatsapp")[-1]["phrase_key"] == "consent_ack"
+
+
+def test_bare_yes_after_the_listen_voice_note_logs_the_morning_tablet(sample):
+    from aurasenior import aws, clock
+    from aurasenior.handlers import inbound, scheduled
+
+    scheduled.run_checkin(sample, {}, "2026-10-12", "checkin#t")
+    assert sim.read("whatsapp")[-1]["kind"] == "template"
+    clock.advance(10)
+    open_window(sample, "kamala")
+    inbound._listen(store.get_person(sample, "kamala"), "listen:checkin", "ev#l5")
+    assert sim.read("whatsapp")[-1]["phrase_key"] == "checkin_voice"
+    clock.advance(1)
+    aws.override("bedrock-runtime", NoModel())
+    inbound.handle_text(store.get_person(sample, "kamala"), "whatsapp", "हाँ", "ev#y5", voice=False)
+    assert store.get(store.hh(sample), "LOG#2026-10-12#bp")["taken"] is True
+    assert sim.read("whatsapp")[-1]["phrase_key"] == "checkin_yes_logged"
+
+
 def test_bare_yes_after_the_tablet_was_logged_only_acknowledges(sample):
     _checkin_sent(sample)
     store.log_medicine(sample, "bp", "2026-10-12", taken=False, out_of_stock=True)
