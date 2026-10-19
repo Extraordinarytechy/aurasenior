@@ -456,12 +456,12 @@ reviewed by a Hindi speaker under A6, and is stored next to the English one):
 | Name | Body | Variables | Buttons (quick reply, payload) |
 | --- | --- | --- | --- |
 | `aurasenior_checkin_<lang>` | "Good morning {{1}}. {brand} here with your morning check-in. Tap Listen to hear it." | `{{1}}` elder `display_name` | "Listen" / "सुनें" (action `listen:checkin`) |
-| `aurasenior_followup_<lang>` | "{{1}}, {brand} again. Just checking you are okay this morning. Tap Listen." | `{{1}}` elder `display_name` | "Listen" / "सुनें" (action `listen:followup`) |
-| `aurasenior_refill_update_<lang>` | "{{1}}, your {{2}} have been ordered by {{3}}." | elder name, `display_label`, approver `display_name` | none |
+| `aurasenior_followup_<lang>` | "Hello {{1}}, {brand} again. Just checking you are okay this morning. Tap Listen." | `{{1}}` elder `display_name` | "Listen" / "सुनें" (action `listen:followup`) |
+| `aurasenior_refill_update_<lang>` | "Hello {{1}}, {{2}} has ordered your {{3}} from the pharmacy." | elder name, approver `display_name`, `display_label` | none |
 | `aurasenior_family_missed_<lang>` | "{brand}: no reply from {{1}} to this morning's check-in." | `relation_label` | "I'm on it" (action `esc:ack`), "Send number" (action `info:number`); `MSG#.ref` = `{kind: escalation, id: <eid>}` |
 | `aurasenior_family_refill_<lang>` | "{brand}: {{1}} said the {{2}} have run out. Order a refill from the usual pharmacy?" | `relation_label`, `display_label` | "Order refill" (`refill:approve`), "I'll handle it" (`refill:self`), "Call" (`refill:call`); labels are static, no variables |
-| `aurasenior_family_update_<lang>` | "{brand} update about {{1}}: {{2}}" | `relation_label`, one fixed phrase from `config/phrases.toml` (max 300 characters, passes the guard) | none |
-| `aurasenior_urgent_alert_<lang>` | "URGENT from {brand}: {{1}} said \"{{2}}\" and may need help. Please check on {{1}} now." | `relation_label`, quote up to 100 characters (or `quote_withheld`, section 8.3) | "I'm on it" (action `esc:ack`) |
+| `aurasenior_family_update_<lang>` | "{brand} update about {{1}}: {{2}} You can reply to this message." | `relation_label`, one fixed phrase from `config/phrases.toml` (max 300 characters, passes the guard) | none |
+| `aurasenior_urgent_alert_<lang>` | "URGENT from {brand}: {{1}} said \"{{2}}\" and may need help. Please check on them now." | `relation_label`, quote up to 100 characters (or `quote_withheld`, section 8.3) | "I'm on it" (action `esc:ack`) |
 
 Button labels are static text in the approved template (at most 25 characters, D5). Meta's button webhook gives
 the tapped label as `button.payload` and the template message ID as `context.id` (D5), so the per-send ID comes

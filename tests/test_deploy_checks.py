@@ -50,8 +50,16 @@ def test_every_body_variable_has_one_example_value():
 
 
 def test_whatsapp_templates_pass_the_documented_meta_rules():
-    errors = [p for p in deploy_checks.template_problems() if p[0] == "error"]
-    assert errors == []
+    # Warnings count too: Meta commonly rejects a variable at the start or end, or a repeated one.
+    assert deploy_checks.template_problems() == []
+
+
+def test_template_bodies_use_each_variable_once_and_in_order():
+    import re
+
+    for d in deploy_checks.template_definitions():
+        nums = re.findall(r"\{\{(\d+)\}\}", d["components"][0]["text"])
+        assert nums == [str(i) for i in range(1, len(nums) + 1)], d["name"]
 
 
 def test_template_rule_check_catches_each_rule():

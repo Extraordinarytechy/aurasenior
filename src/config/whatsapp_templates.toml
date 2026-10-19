@@ -13,22 +13,22 @@ buttons = ["सुनें"]
 example = ["Asha"]
 
 [aurasenior_followup.en]
-body = "{{1}}, {brand} again. Just checking you are okay this morning. Tap Listen."
+body = "Hello {{1}}, {brand} again. Just checking you are okay this morning. Tap Listen."
 buttons = ["Listen"]
 example = ["Asha"]
 [aurasenior_followup.hi]
-body = "{{1}}, फिर से {brand}। बस पूछ रही हूँ कि आप ठीक हैं। 'सुनें' दबाएँ।"
+body = "नमस्ते {{1}}, फिर से {brand}। बस पूछ रही हूँ कि आप ठीक हैं। 'सुनें' दबाएँ।"
 buttons = ["सुनें"]
 example = ["Asha"]
 
 [aurasenior_refill_update.en]
-body = "{{1}}, your {{2}} have been ordered by {{3}}."
+body = "Hello {{1}}, {{2}} has ordered your {{3}} from the pharmacy."
 buttons = []
-example = ["Asha", "BP tablets", "Ravi"]
+example = ["Asha", "Ravi", "BP tablets"]
 [aurasenior_refill_update.hi]
-body = "{{1}}, आपकी {{2}} {{3}} ने मँगवा दी है।"
+body = "नमस्ते {{1}}, {{2}} ने आपकी {{3}} दुकान से मँगवा दी है।"
 buttons = []
-example = ["Asha", "BP tablets", "Ravi"]
+example = ["Asha", "Ravi", "BP tablets"]
 
 [aurasenior_family_missed.en]
 body = "{brand}: no reply from {{1}} to this morning's check-in."
@@ -49,20 +49,20 @@ buttons = ["मँगवाएँ", "मैं खुद देख लूँ", "
 example = ["माँ", "BP tablets"]
 
 [aurasenior_family_update.en]
-body = "{brand} update about {{1}}: {{2}}"
+body = "{brand} update about {{1}}: {{2}} You can reply to this message."
 buttons = []
 example = ["Mom", "Mom has replied now."]
 [aurasenior_family_update.hi]
-body = "{{1}} के बारे में {brand} की जानकारी: {{2}}"
+body = "{brand} की जानकारी, {{1}} के बारे में: {{2}} आप इस संदेश का जवाब दे सकते हैं।"
 buttons = []
 example = ["माँ", "माँ ने अब जवाब दे दिया है।"]
 
 [aurasenior_urgent_alert.en]
-body = "URGENT from {brand}: {{1}} said \"{{2}}\" and may need help. Please check on {{1}} now."
+body = "URGENT from {brand}: {{1}} said \"{{2}}\" and may need help. Please check on them now."
 buttons = ["I'm on it"]
 example = ["Mom", "I slipped near the chair"]
 [aurasenior_urgent_alert.hi]
-body = "{brand} से ज़रूरी: {{1}} ने कहा \"{{2}}\" और मदद चाहिए हो सकती है। कृपया अभी {{1}} का हाल लें।"
+body = "{brand} से ज़रूरी: {{1}} ने कहा \"{{2}}\" और मदद चाहिए हो सकती है। कृपया अभी उनका हाल लें।"
 buttons = ["मेरे ज़िम्मे"]
 example = ["माँ", "मैं कुर्सी के पास फिसल गई"]
 

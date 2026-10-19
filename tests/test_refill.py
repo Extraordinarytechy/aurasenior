@@ -70,6 +70,9 @@ def test_order_confirmations_go_to_elder_and_family(sample, approval):
     refill.handle_action(sample, "rohan", "refill:approve", approval, correlation_id="t1")
     elder = [x for x in sim.read("whatsapp") if x["person_id"] == "kamala"][-1]
     assert elder["template"] == "aurasenior_refill_update_hi"
+    # Elder name, then who ordered, then the medicine, matching {{1}} {{2}} {{3}} in the template body.
+    approver = store.get_person(sample, "rohan").display_name
+    assert elder["template_params"][1:] == [approver, store.get_medicine(sample, "bp").display_label]
     assert "Order sent to City Pharmacy" in sim.read("rcs")[-1]["text"]
 
 

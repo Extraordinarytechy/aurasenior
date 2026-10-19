@@ -161,7 +161,7 @@ def send_pharmacy_order(hid: str, aid: str, *, correlation_id: str) -> str:
     router.send(elder, Content(phrase="refill_ordered_elder", voice=True,
                                vars={"family_name": approver.display_name, "display_label": med.display_label},
                                wa_template="aurasenior_refill_update",
-                               wa_params=[elder.display_name, med.display_label, approver.display_name]),
+                               wa_params=[elder.display_name, approver.display_name, med.display_label]),
                 correlation_id=f"{correlation_id}#elder")
     router.send(approver, Content(phrase="refill_ordered_family",
                                   vars={"pharmacy_name": pharmacy.display_name, "relation_label": approver.relation_label or "",
