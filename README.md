@@ -171,3 +171,7 @@ calls, messages and voice notes: the agent is capped at 150 model calls per hous
 at 30 per household per hour (urgent alerts are never capped). RCS test messages are charged at standard RCS rates.
 The stack includes a monthly budget of USD 25 that emails `AlertEmail` at 80% of actual spend. SES sandbox:
 verified recipients only, 200 messages a day.
+
+## License
+
+Released under the MIT License. See [LICENSE](LICENSE).
