@@ -31,7 +31,7 @@ class WhatsAppAws:
         return resp["mediaId"]
 
     def body(self, msg: OutboundMessage) -> dict:
-        to = msg.to.lstrip("+")
+        to = msg.to
         if msg.kind == "template":
             params = [{"type": "text", "text": p} for p in msg.template_params]
             lang = {"hi": "hi", "en": "en_US"}[msg.template.rsplit("_", 1)[1]]
@@ -45,7 +45,7 @@ class WhatsAppAws:
         try:
             if msg.kind == "voice":
                 media_id = self._post_media(polly.synthesize(msg.text, msg.language), msg.household_id)
-                body = {"messaging_product": "whatsapp", "to": msg.to.lstrip("+"), "type": "audio",
+                body = {"messaging_product": "whatsapp", "to": msg.to, "type": "audio",
                         "audio": {"id": media_id}}
             else:
                 body = self.body(msg)
@@ -57,11 +57,13 @@ class WhatsAppAws:
             return to_result(e)
 
     def fetch_media(self, media_id: str, household_id: str, msg_id: str) -> str:
-        key = f"in/{household_id}/{msg_id}.ogg"
+        # AWS End User Messaging Social treats destinationS3File.key as a prefix and appends "<mediaId>.<ext>",
+        # so the stored object is key + media_id + ".ogg". Point Transcribe at that real key, not the prefix.
+        key = f"in/{household_id}/{msg_id}"
         aws.client("socialmessaging").get_whatsapp_message_media(
             mediaId=media_id, originationPhoneNumberId=self.phone_number_id,
             destinationS3File={"bucketName": self.bucket, "key": key})
-        return key
+        return f"{key}{media_id}.ogg"
 
     def mark_read(self, msg_id: str) -> None:
         body = {"messaging_product": "whatsapp", "status": "read", "message_id": msg_id}

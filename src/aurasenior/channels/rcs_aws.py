@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from .. import aws
+from .. import aws, config
 from . import parse
 from .base import InboundMessage, OutboundMessage, SendResult, StatusEvent
 from .errors import to_result
@@ -35,7 +35,10 @@ class RcsAws:
                 rcs["Suggestions"] = [_reply(lbl, pb) for lbl, pb in msg.suggestions[:4]]
         req = {"DestinationPhoneNumber": msg.to, "OriginationIdentity": self.agent_id, "RcsMessageContent": rcs,
                "ConfigurationSetName": CONFIG_SET, "Context": {"correlation_id": msg.correlation_id[:100]}}
-        if msg.sms_fallback and self.sms_origin:
+        # The SMS fallback uses the simulator origination number, which only reaches simulator destinations. Attaching
+        # it for a real destination fails the whole send (INVALID_IDENTITY_FOR_DESTINATION_COUNTRY), so only add it
+        # when the destination is a simulator number.
+        if msg.sms_fallback and self.sms_origin and msg.to in config.simulator_destinations():
             req["FallbackConfiguration"] = {"Channel": "SMS", "MessageBody": msg.sms_fallback,
                                             "OriginationIdentity": self.sms_origin}
         return req

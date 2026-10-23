@@ -181,6 +181,10 @@ def handle_text(person: Person, channel: str, text: str, eid: str, *, voice: boo
     told = _fall_words(person, text, eid)
     if channel in ("sms", "rcs") and not person.is_elder:
         res = postback.digit(person, text)
+        if res is None:
+            # RCS suggestion taps deliver the PostbackData in the message body, not a separate field. Our postback
+            # strings are structured (action:target), so a real typed reply will not match parse_postback.
+            res = postback.parse_postback(text)
         if res is not None:
             _tap(person, res, eid)
             return

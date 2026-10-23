@@ -88,8 +88,24 @@ def sms_rcs_inbound(raw: dict) -> InboundMessage | None:
         return None
     body = raw.get("messageBody", "") or ""
     postback = raw.get("postbackData") or raw.get("PostbackData")
-    channel = "rcs" if raw.get("channel", "").lower() == "rcs" or postback else raw.get("channel", "sms").lower()
-    return InboundMessage(channel=channel if channel in ("sms", "rcs") else "sms", event_id=raw["inboundMessageId"],
+    # AWS End User Messaging delivers RCS suggestion taps and system events as a JSON object inside messageBody,
+    # not as separate fields. A tap looks like {"type":"SUGGESTION","text":"<label>","postbackData":"<data>"} and
+    # the structured PostbackData we set on the card comes back inside it. System events such as
+    # CONVERSATION_STARTED and IS_TYPING carry no user content, so they are dropped.
+    if not postback and body.startswith("{"):
+        payload = _loads(body)
+        if isinstance(payload, dict):
+            ptype = str(payload.get("type", "")).upper()
+            if payload.get("postbackData") or ptype == "SUGGESTION":
+                postback = payload.get("postbackData") or ""
+                body = ""
+            elif ptype:
+                return None
+    # RCS detection: AWS sets destinationNumber to the RCS agent id ("rcs-...") for RCS inbound, where SMS carries a
+    # phone number. Also honor an explicit channel field or a postback field if the payload includes one.
+    dest = raw.get("destinationNumber", "") or ""
+    is_rcs = raw.get("channel", "").lower() == "rcs" or bool(postback) or dest.startswith("rcs-")
+    return InboundMessage(channel="rcs" if is_rcs else "sms", event_id=raw["inboundMessageId"],
                           sender=e164(raw["originationNumber"]), text=body, kind="postback" if postback else "text",
                           postback=postback, keyword=raw.get("messageKeyword"),
                           simulated=bool(raw.get("simulated", False)), raw=raw)

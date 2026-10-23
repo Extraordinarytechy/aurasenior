@@ -1,2 +1,6 @@
+# The Lambda python3.13 runtime bundles a boto3/botocore that predates AWS End User Messaging's
+# SendRcsMessage API, so send_rcs_message is missing and every RCS send raises AttributeError.
+# Pin a current release (verified locally to expose pinpoint-sms-voice-v2.send_rcs_message) so SAM
+# packages it with the function and it overrides the runtime copy.
 boto3==1.43.111
 botocore==1.43.111

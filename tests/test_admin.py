@@ -17,7 +17,9 @@ def test_rcs_ask_refuses_unverified_and_second_ask(sample, monkeypatch):
     store.set_consent(sample, "rohan", "rcs", "pending", "test")
     c = boto3.client("pinpoint-sms-voice-v2", region_name="us-east-1")
     aws.override("pinpoint-sms-voice-v2", c)
-    params = {"DestinationPhoneNumbers": ["+12025550101"], "Filters": [{"Name": "rcs-agent-id", "Values": ["agent-1"]}]}
+    # DescribeVerifiedDestinationNumbers rejects DestinationPhoneNumbers and Filters together, so the command
+    # queries by number only (AWS: PARAMETERS_CANNOT_BE_USED_TOGETHER).
+    params = {"DestinationPhoneNumbers": ["+12025550101"]}
     ok = {"VerifiedDestinationNumbers": [{"VerifiedDestinationNumberArn": "arn:x", "VerifiedDestinationNumberId": "v1",
                                           "DestinationPhoneNumber": "+12025550101", "Status": "VERIFIED",
                                           "CreatedTimestamp": "2026-10-11T00:00:00Z"}]}

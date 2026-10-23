@@ -11,7 +11,7 @@ max_iterations = 6
 daily_converse_cap = 150
 
 [whatsapp]
-meta_api_version = "v25.0"
+meta_api_version = "v20.0"
 
 # "aws" uses the real service, "sim" the local simulator. AURASENIOR_MODE_<NAME> overrides a value.
 [channels]

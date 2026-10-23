@@ -38,13 +38,13 @@ def cmd_rcs_ask(hid: str, pid: str) -> int:
     p = store.get_person(hid, pid)
     if not p or not p.addresses.get("rcs"):
         return _fail("unknown person or no RCS number")
-    agent = os.environ.get("RCS_AGENT_ID", "")
+    # DescribeVerifiedDestinationNumbers rejects DestinationPhoneNumbers and Filters together; query by number only.
     resp = aws.client("pinpoint-sms-voice-v2").describe_verified_destination_numbers(
-        DestinationPhoneNumbers=[p.addresses["rcs"]], Filters=[{"Name": "rcs-agent-id", "Values": [agent]}])
+        DestinationPhoneNumbers=[p.addresses["rcs"]])
     verified = [v for v in resp.get("VerifiedDestinationNumbers", []) if v.get("Status") == "VERIFIED"]
     if not verified:
         return _fail("number is not a verified RCS test device for the agent")
-    r = consent._ask(p, "rcs", None, f"rcsask#{hid}#{pid}#{clock.local_date('UTC')}", rcs_verified=True)
+    r = consent._ask(p, "rcs", None, f"rcsask#{hid}#{pid}#{clock.iso()}", rcs_verified=True)
     if r.outcome != "sent":
         return _fail(f"not sent: {r.outcome} (the ask is allowed once per day)")
     print("opt-in ask sent")

@@ -1,0 +1,6 @@
+{
+  "originationNumber": "+14036181196",
+  "destinationNumber": "rcs-d2d5c9c54eab443fbc5d5659136d3085",
+  "messageBody": "{\"type\":\"SUGGESTION\",\"text\":\"Order refill\",\"postbackData\":\"refill:approve:c2563e6bdeec\"}",
+  "inboundMessageId": "688e55a9-3d26-4317-a78a-aa20cf52432c"
+}
