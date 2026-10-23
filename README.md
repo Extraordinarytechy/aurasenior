@@ -1,35 +1,101 @@
-# AuraSenior
+<p align="center">
+  <img src="site/brand/logo-224.png" alt="AuraSenior" width="112" height="112" />
+</p>
 
-A companion that lives inside WhatsApp for older people who send voice notes and will not install an app. It checks
-in each morning, understands voice replies in Hindi and English, and keeps family and care contacts informed on RCS,
-SMS and email. It only acts on someone's behalf (a refill order, an alert) after a person approves or the elder asks
-for help.
+<h1 align="center">AuraSenior</h1>
 
-Not a medical device. It never diagnoses, names an illness, changes doses or gives a health score. Voice "change
-from usual" signals only ever lead to a fixed "worth a call" suggestion to family.
+<p align="center">
+  <b>A voice-first companion that lives inside WhatsApp for older adults</b><br/>
+  It checks in every morning, understands voice replies in Hindi and English, and keeps family and care
+  contacts informed on RCS, SMS and email — built end to end on AWS Communication Developer Services.
+</p>
+
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2ea44f" />
+  <img alt="Python 3.13" src="https://img.shields.io/badge/python-3.13-3776ab" />
+  <img alt="AWS SAM" src="https://img.shields.io/badge/AWS-SAM%20·%20serverless-ff9900" />
+  <img alt="Model: Bedrock Nova 2 Lite" src="https://img.shields.io/badge/Bedrock-Nova%202%20Lite-232f3e" />
+  <img alt="Tests: 327 passing" src="https://img.shields.io/badge/tests-327%20passing-2ea44f" />
+</p>
+
+> It only acts on someone's behalf — a refill order, an alert — after a person approves or the elder asks for help.
+>
+> **Not a medical device.** It never diagnoses, names an illness, changes doses or gives a health score. A voice
+> "change from usual" signal only ever leads to a fixed "worth a call" suggestion to family.
 
 The product name is one config value: `[brand] name` in `src/config/app.toml`.
+
+## ✨ Highlights
+
+- 🎙️ **Voice-first** — older adults just send WhatsApp voice notes. No app, no typing, in their own language.
+- 🔀 **True omnichannel** — a conversation starts on WhatsApp 💬, completes an action on RCS 📲 (tap to approve a
+  refill), and lands as a weekly summary on email 📧.
+- 🛡️ **Safety by construction** — STOP, fall words, approval taps and the pharmacy order are deterministic code,
+  never the model. Every send crosses one guard: consent, the WhatsApp 24-hour window, a wording rule and a rate cap.
+- 🧠 **Remembers** — per-elder long-term memory on Amazon Bedrock AgentCore, with a DynamoDB fallback.
+- ☁️ **Serverless on AWS CDS** — events in through SNS/EventBridge, Lambda, Bedrock, Transcribe, Polly and SES.
+  No public HTTP endpoint.
 
 ## How it works
 
 ```mermaid
-flowchart LR
-  E["Elder<br/>WhatsApp voice notes"] <--> WA["AWS End User Messaging Social<br/>WhatsApp"]
-  F["Family in the US<br/>RCS, SMS fallback"] <--> RCS["AWS End User Messaging SMS<br/>RCS + SMS"]
-  SES["Amazon SES"] --> C["Doctor, pharmacy, family email"]
-  WA -- events --> T1["SNS"]
-  RCS -- events --> T2["SNS"]
-  SES -- events --> T3["SNS"]
-  T1 & T2 & T3 --> IN["Lambda aurasenior-inbound"]
-  IN --> TR["Amazon Transcribe"] -- job done --> EB["EventBridge"] --> IN
-  SCH["EventBridge Scheduler"] --> SC["Lambda aurasenior-scheduled"]
-  IN & SC --> DET["Deterministic paths<br/>STOP, fall words, taps, pharmacy order,<br/>check-in chain, weekly summary"]
-  IN & SC --> AG["Agent loop<br/>Bedrock Converse + tools"]
-  AG --> MEM["Memory<br/>AgentCore Memory, DynamoDB fallback"]
-  DET & AG --> G["Outbound guard<br/>consent, 24h window, wording, rate"] --> AD["Channel adapters<br/>AWS or local simulator"]
-  AD --> WA & RCS & SES
-  AD -- voice notes --> P["Amazon Polly"]
-  IN & SC --> DB[("DynamoDB aurasenior-household")]
+flowchart TB
+  subgraph PEOPLE["👪 People"]
+    E["👵 Elder<br/>🎙️ WhatsApp voice notes · Hindi / English"]
+    F["👨‍👩‍👧 Family and carers<br/>📲 RCS · 💬 SMS · 📧 email"]
+  end
+
+  subgraph CDS["☁️ AWS Communication Developer Services"]
+    WA["💬 End User Messaging Social<br/>WhatsApp"]
+    RCS["📲 End User Messaging SMS<br/>RCS + SMS fallback"]
+    SES["📧 Amazon SES"]
+  end
+
+  SNS["📨 SNS · EventBridge"]
+  TR["📝 Amazon Transcribe"]
+  SCH["⏰ EventBridge Scheduler"]
+
+  subgraph BRAIN["🧠 Agentic core · serverless"]
+    IN["⚡ Lambda · inbound"]
+    SC["⚡ Lambda · scheduled"]
+    DET["✅ Deterministic paths<br/>STOP · fall words · taps<br/>pharmacy order · check-in · summary"]
+    AG["🤖 Agent loop<br/>Bedrock Nova 2 Lite + tools"]
+    MEM["🧩 Memory<br/>AgentCore + DynamoDB"]
+    G["🛡️ Outbound guard<br/>consent · 24h window · wording · rate"]
+    POL["🔊 Amazon Polly<br/>neural voice"]
+  end
+
+  DB[("🗄️ DynamoDB")]
+
+  E <--> WA
+  F <--> RCS
+  SES --> F
+  WA --> SNS
+  RCS --> SNS
+  SES --> SNS
+  SNS --> IN
+  WA -->|voice note| TR --> IN
+  SCH --> SC
+  IN --> DET
+  IN --> AG
+  SC --> DET
+  SC --> AG
+  AG --> MEM
+  DET --> G
+  AG --> G
+  G --> WA
+  G --> RCS
+  G --> SES
+  G -->|spoken reply| POL --> WA
+  IN --> DB
+  SC --> DB
+
+  classDef aws fill:#ff9900,stroke:#8a5a00,color:#111;
+  classDef brain fill:#e8f0fe,stroke:#4285f4,color:#111;
+  classDef ppl fill:#e6f4ea,stroke:#34a853,color:#111;
+  class WA,RCS,SES aws
+  class IN,SC,DET,AG,MEM,G,POL brain
+  class E,F ppl
 ```
 
 - Every inbound event arrives through SNS or EventBridge. There is no public HTTP endpoint.
@@ -39,7 +105,7 @@ flowchart LR
   the pharmacy order, the check-in chain and the weekly summary are plain code.
 - Every send crosses one outbound guard: consent on that channel, the WhatsApp 24-hour window (templates outside
   it), a wording rule in Hindi and English, and an hourly cap for normal messages.
-- Each step is written to a trace that the local trace view prints, with simulated parts labelled.
+- Each step is written to a trace that the trace view prints, with any simulated parts clearly labelled.
 
 ## Repository layout
 
@@ -71,10 +137,42 @@ PYTHONPATH=src .venv/bin/python -m aurasenior.demo replay
 `demo replay` runs the sample household story fully offline: opt-in, the 9 AM check-in template and Listen tap, a
 Hindi and an English voice reply, the refill card and Order refill tap, the pharmacy email, the confirmation voice
 note, a missed check-in, a fall alert and acknowledgement, "How was Mom this week?", the Sunday summary and STOP.
-Channels, Transcribe and Scheduler are local simulators, DynamoDB and S3 are in-memory mocks, and the model is a
-scripted stand-in replaying recorded responses. The trace labels these `[SIMULATED]` and `[SCRIPTED MODEL]`.
-The channel simulators report each message as delivered right after the send. One case is scripted as not
-delivered: the son's RCS fall alert, so the delivery check sends the SMS fallback and he replies 4 by SMS.
+This offline harness swaps the channels, Transcribe and Scheduler for local simulators, DynamoDB and S3 for
+in-memory mocks, and the model for a scripted stand-in replaying recorded responses, so it needs no AWS account.
+The trace labels these `[SIMULATED]` and `[SCRIPTED MODEL]`. The channel simulators report each message as
+delivered right after the send. One case is scripted as not delivered: the son's RCS fall alert, so the delivery
+check sends the SMS fallback and he replies 4 by SMS.
+
+## ✅ What runs live on AWS
+
+Deployed to `us-east-1` (stack `aurasenior`), with redacted evidence under [`docs/evidence/`](docs/evidence):
+
+- **WhatsApp** — AWS End User Messaging Social. The elder sends a voice note; Amazon Transcribe turns it into text,
+  the agent answers, and a spoken reply from Amazon Polly (neural voice) is delivered back on WhatsApp. Verified
+  end to end with a live Hindi voice round-trip.
+- **RCS** — AWS End User Messaging SMS. A verified test device received the opt-in, the "Mom's BP tablets ran out"
+  refill card, and — after tapping **Order refill** — the order confirmation. The deployed Lambda sends with
+  `SendRcsMessage`. Testing agents deliver only to registered test devices in
+  [supported countries](https://docs.aws.amazon.com/sms-voice/latest/userguide/rcs-supported-countries.html); a
+  device in Canada was used, since India is not yet on that list.
+- **Email** — Amazon SES: the weekly family and doctor summary, and the pharmacy order email after an approval tap,
+  with SES delivery events back through SNS.
+- **Agent** — Amazon Nova 2 Lite through the Bedrock Converse API with tool use, including a Hindi turn that logged
+  a medicine and a health question answered with the fixed "please ask your doctor" line.
+- **Memory** — Amazon Bedrock AgentCore Memory: the elder's turns are written as memory events, and the live test
+  retrieved an extracted fact.
+- **Guardrail** — a Bedrock guardrail runs on every turn with its topics in detect-only mode and its findings in
+  the trace; the no-diagnosis and no-dose rule is enforced by the system prompt and the deterministic wording rule.
+- **Ops** — an ERROR log line raised the CloudWatch alarm and its email arrived; the public privacy and terms pages
+  serve from their own CloudFront stack.
+
+### Still to provision (external onboarding, not code)
+
+- **SMS** uses the AWS simulator origination number, which only reaches AWS's simulator destination numbers. A
+  production 10DLC or toll-free number is the one step left for real SMS — and for the RCS → SMS fallback to reach
+  real phones.
+- **Wider RCS delivery** needs the RCS agent launched with Google and the carriers; until then it delivers to
+  registered test devices only, which is exactly the model the hackathon expects for a demo.
 
 ## Deploy
 
@@ -84,13 +182,14 @@ Prerequisites: AWS SAM CLI, Python 3.13, an AWS account and region `us-east-1`.
 sam build
 sam deploy --stack-name aurasenior --region us-east-1 --tags project=aurasenior --resolve-s3 \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides AlertEmail=<you@example.com> SenderEmail=<sender@example.com>
+  --parameter-overrides AlertEmail=<you@example.com> SenderEmail=<sender@example.com> \
+    WhatsAppPhoneNumberId=<phone-number-id-...> RcsAgentId=<rcs-...>
 python scripts/seed_household.py households/<your-household>.toml
 python scripts/post_deploy.py --household households/<your-household>.toml
 ```
 
-With no `RcsAgentId` and no `WhatsAppPhoneNumberId`, RCS and WhatsApp stay on the simulator adapters. Email, the
-model, memory, Transcribe, Polly, Scheduler and the alarm run on AWS.
+Leave `RcsAgentId` and `WhatsAppPhoneNumberId` empty to keep RCS and WhatsApp on the local simulator adapters while
+you set up the channels; email, the model, memory, Transcribe, Polly, Scheduler and the alarm run on AWS either way.
 
 Steps that need a person:
 
@@ -131,37 +230,6 @@ served at the `SiteUrl` output.
 A household is one TOML file. `households/sample.toml` is an India-based elder with a son in the US;
 `households/sample-us.toml` is a US-only household that runs on the same code with no changes. Hindi and English
 are built and tested. A new language is one row in `[languages]` plus phrase rows and a test.
-
-## What is real and what is simulated today
-
-Real, on the deployed stack in `us-east-1` (redacted runs in `docs/evidence/live-2026-10-12-*`):
-
-- Email through Amazon SES: the weekly summary delivered to the family and doctor addresses, and the pharmacy
-  order email sent after an approval tap, with SES delivery events back through SNS.
-- Agent turns on Amazon Nova 2 Lite through the Bedrock Converse API with tool use, including a Hindi turn that
-  logged a medicine and a health question answered with the fixed "please ask your doctor" line.
-- Amazon Bedrock AgentCore Memory: the elder's turns are written as memory events. The live test round trip in
-  `tests/live/` also retrieved an extracted fact.
-- The Bedrock guardrail runs on every turn with its topics in detect-only mode, and its findings are kept in the
-  trace. The no-diagnosis and no-dose rule is enforced by the system prompt and by the outbound wording rule.
-- The error alarm: an ERROR log line raised the alarm and its email arrived.
-- The public pages stack (`site/template.yaml`).
-
-Still simulated, and why:
-
-- WhatsApp: the WhatsApp Business Account is not linked yet, so the elder's messages are injected as simulated
-  inbound events and her replies go to the simulator. The trace marks them `[SIMULATED]`.
-- RCS: the RCS testing agent is approved and active, but a testing agent only delivers to registered test devices.
-  The test number available, an Indian mobile, was refused as a test device with `COUNTRY_NOT_ENABLED`: India is
-  not one of the 22 countries in
-  [Supported countries for RCS](https://docs.aws.amazon.com/sms-voice/latest/userguide/rcs-supported-countries.html).
-  Until a test device in a supported country is verified, the son's RCS messages go to the simulator. The RCS
-  requests are checked against the SDK model in the tests.
-- SMS uses the AWS simulator origination number, which only reaches simulator destination numbers. The simulator
-  family record in the sample household is labelled simulated.
-- Transcribe and Polly run only on the WhatsApp voice path, so they wait for WhatsApp too.
-- The offline scenario (`demo replay`) uses a scripted model. `tests/live/` (run with `AURASENIOR_LIVE=1`) makes
-  a real Bedrock Converse tool-use call and a real AgentCore Memory round trip.
 
 ## Costs and limits
 
