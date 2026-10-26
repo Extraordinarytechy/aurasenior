@@ -44,8 +44,8 @@ def test_rcs_suggestion_tap_from_real_device():
     # Captured from a real RCS device (AWS End User Messaging): the suggestion tap arrives as kind=text with the
     # PostbackData nested in a JSON messageBody. The parser must surface it as a postback, not route it to the AI.
     m = parse.sms_rcs_inbound(_load("rcs_suggestion_tap.json"))
-    assert (m.channel, m.kind, m.postback) == ("rcs", "postback", "refill:approve:c2563e6bdeec")
-    assert m.sender == "+14036181196"
+    assert (m.channel, m.kind, m.postback) == ("rcs", "postback", "refill:approve:0123456789ab")
+    assert m.sender == "+12025550199"
 
 
 def test_rcs_conversation_started_event_dropped():

@@ -36,6 +36,25 @@ The product name is one config value: `[brand] name` in `src/config/app.toml`.
 - ☁️ **Serverless on AWS CDS** — events in through SNS/EventBridge, Lambda, Bedrock, Transcribe, Polly and SES.
   No public HTTP endpoint.
 
+## Try it (for judges — no AWS account needed)
+
+AuraSenior has no web front end — it lives in WhatsApp, RCS, SMS and email. The fastest way to see the whole
+workflow is the bundled offline scenario: it runs the full story (opt-in, morning check-in, a Hindi and an
+English voice reply, the refill card and tap, the pharmacy order, a missed check-in, a fall alert, the weekly
+summary and STOP) with the channels, Transcribe, Scheduler and the model stubbed locally and labelled
+`[SIMULATED]` — **no AWS account or credentials required**:
+
+```bash
+python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q                         # full suite, fully mocked (no AWS)
+PYTHONPATH=src .venv/bin/python -m aurasenior.demo replay
+```
+
+To exercise the **live deployed** agent, the channels are consent- and test-device gated (RCS testing agents
+deliver only to pre-registered devices, WhatsApp requires an opt-in), so access is granted on request: email
+<founder@fanzra.com> to be added as a WhatsApp opt-in or an RCS test device. The ~3-minute demo video shows the
+end-to-end flow on real devices, and **Deploy** below has full self-host steps.
+
 ## How it works
 
 ```mermaid
