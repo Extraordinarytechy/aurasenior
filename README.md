@@ -36,7 +36,7 @@ The product name is one config value: `[brand] name` in `src/config/app.toml`.
 - ☁️ **Serverless on AWS CDS** — events in through SNS/EventBridge, Lambda, Bedrock, Transcribe, Polly and SES.
   No public HTTP endpoint.
 
-## Try it (for judges — no AWS account needed)
+## Try it (no AWS account needed)
 
 AuraSenior has no web front end — it lives in WhatsApp, RCS, SMS and email. The fastest way to see the whole
 workflow is the bundled offline scenario: it runs the full story (opt-in, morning check-in, a Hindi and an
@@ -191,7 +191,7 @@ Deployed to `us-east-1` (stack `aurasenior`), with redacted evidence under [`doc
   production 10DLC or toll-free number is the one step left for real SMS — and for the RCS → SMS fallback to reach
   real phones.
 - **Wider RCS delivery** needs the RCS agent launched with Google and the carriers; until then it delivers to
-  registered test devices only, which is exactly the model the hackathon expects for a demo.
+  registered test devices only, which is the standard delivery model during RCS limited availability.
 
 ## Deploy
 
