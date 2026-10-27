@@ -47,11 +47,19 @@ PYTHONPATH=src .venv/bin/python -m aurasenior.demo replay
 This runs: opt-in, morning check-in, Hindi and English voice replies, refill approval card, pharmacy order, missed check-in alert, fall detection, weekly summary, and STOP — the full story in your terminal.
 
 ### Option 3: Request live access (WhatsApp/RCS testing)
-Live channels require consent and test device registration (WhatsApp Business API + RCS testing agent rules). Email **founder@fanzra.com** with:
-- Your WhatsApp number (for elder-side voice testing)
-- Your phone number (for RCS family-side card testing)
+Live channels require consent and test device registration (WhatsApp Business API + RCS testing agent rules). 
 
-We'll add you to the opt-in list and test device registry. Processing time: ~24 hours for WhatsApp approval, ~20 minutes for RCS test device verification.
+**For judges:** Email **founder@fanzra.com** with subject "AuraSenior Hackathon Judge Access" and include:
+- Your WhatsApp number (for elder-side voice testing)
+- Your RCS-enabled phone number (for family-side interactive card testing)
+- Your email address (for weekly summary and pharmacy order testing)
+
+We'll add you to the opt-in list and test device registry within 24 hours. Once approved, you'll receive:
+- WhatsApp opt-in confirmation message
+- RCS test device verification (via RBM Tester Management)
+- Sample household credentials for testing
+
+**Test contact:** For immediate questions, WhatsApp or email founder@fanzra.com
 
 **Evidence of live deployment:** See `docs/evidence/` for redacted AWS console screenshots, DynamoDB traces, and SES delivery confirmations showing the system running on `us-east-1`.
 

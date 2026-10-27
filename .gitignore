@@ -29,3 +29,17 @@ docs/review-*.md
 docs/review-*.json
 docs/verification.md
 docs/verification-*.md
+
+# Devpost working files (not for repo)
+*-cover.png
+*-architecture.png
+*-omnichannel.png
+*-safety.png
+*-tech-stack.png
+arch_*.jpg
+devpost-*.jpg
+devpost-images/
+DEVPOST_IMAGES_README.md
+EXTRACT_VIDEO_FRAMES.md
+scripts/generate_devpost_images.py
+scripts/make_cover_image.py
