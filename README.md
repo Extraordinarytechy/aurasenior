@@ -23,6 +23,40 @@
 > **Not a medical device.** It never diagnoses, names an illness, changes doses or gives a health score. A voice
 > "change from usual" signal only ever leads to a fixed "worth a call" suggestion to family.
 
+---
+
+## 🎯 FOR JUDGES: How to Test AuraSenior
+
+**AuraSenior has no web frontend** — it's a WhatsApp/RCS/SMS/email messaging system. You have three ways to evaluate it:
+
+### Option 1: Watch the 3-minute demo video (fastest)
+**Video:** [https://vimeo.com/1239435867](https://vimeo.com/1239435867)
+
+Shows the complete live flow: WhatsApp Hindi voice interaction, RCS interactive card with tap buttons, pharmacy order via SES, and safety features — all running on the deployed AWS stack.
+
+### Option 2: Run the offline demo scenario (5 minutes, no AWS account)
+See the entire workflow locally with channels and model stubbed (clearly labeled `[SIMULATED]`):
+
+```bash
+git clone https://github.com/Extraordinarytechy/aurasenior.git
+cd aurasenior
+python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+PYTHONPATH=src .venv/bin/python -m aurasenior.demo replay
+```
+
+This runs: opt-in, morning check-in, Hindi and English voice replies, refill approval card, pharmacy order, missed check-in alert, fall detection, weekly summary, and STOP — the full story in your terminal.
+
+### Option 3: Request live access (WhatsApp/RCS testing)
+Live channels require consent and test device registration (WhatsApp Business API + RCS testing agent rules). Email **founder@fanzra.com** with:
+- Your WhatsApp number (for elder-side voice testing)
+- Your phone number (for RCS family-side card testing)
+
+We'll add you to the opt-in list and test device registry. Processing time: ~24 hours for WhatsApp approval, ~20 minutes for RCS test device verification.
+
+**Evidence of live deployment:** See `docs/evidence/` for redacted AWS console screenshots, DynamoDB traces, and SES delivery confirmations showing the system running on `us-east-1`.
+
+---
+
 The product name is one config value: `[brand] name` in `src/config/app.toml`.
 
 ## ✨ Highlights
